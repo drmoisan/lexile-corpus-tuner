@@ -113,7 +113,9 @@ def _ensure_tensorflow() -> Any:
     if load_model is not None:
         return load_model
     try:  # pragma: no cover - import guard
-        from tensorflow.keras.models import load_model as keras_load_model  # type: ignore
+        from tensorflow.keras.models import (
+            load_model as keras_load_model,  # type: ignore
+        )
     except Exception as exc:  # pragma: no cover - import guard
         raise ImportError(
             "TensorFlow/Keras is required for LexileDeterminationV2Estimator. "

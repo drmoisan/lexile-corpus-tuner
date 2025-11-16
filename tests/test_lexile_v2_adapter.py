@@ -27,9 +27,9 @@ def test_predict_scalar_with_stubbed_artifacts(monkeypatch):
         adapter,
         "joblib",
         types.SimpleNamespace(
-            load=lambda path: DummyVectorizer()
-            if "vectorizer" in path
-            else DummyLabelEncoder()
+            load=lambda path: (
+                DummyVectorizer() if "vectorizer" in path else DummyLabelEncoder()
+            )
         ),
     )
 
@@ -49,9 +49,7 @@ def test_predict_scalar_with_index_mapping(monkeypatch):
     monkeypatch.setattr(
         adapter,
         "joblib",
-        types.SimpleNamespace(
-            load=lambda path: DummyVectorizer()
-        ),
+        types.SimpleNamespace(load=lambda path: DummyVectorizer()),
     )
 
     estimator = adapter.LexileDeterminationV2Estimator(
