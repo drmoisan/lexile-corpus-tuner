@@ -1,0 +1,25 @@
+# Example configuration for lexile_corpus_tuner
+window_size: 400
+stride: 200
+max_window_lexile: 450
+target_avg_lexile: 350
+avg_tolerance: 15
+max_passes: 2
+smoothing_kernel_size: 3
+estimator_name: dummy
+rewrite_enabled: false
+rewrite_model: null
+lexile_v2_model_path: null
+lexile_v2_vectorizer_path: null
+lexile_v2_label_encoder_path: null
+lexile_v2_band_to_midpoint: {}
+
+# Example configuration for using the lexile_v2 estimator (uncomment + edit)
+# estimator_name: lexile_v2
+# lexile_v2_model_path: /absolute/path/to/model.h5
+# lexile_v2_vectorizer_path: /absolute/path/to/vectorizer.pkl
+# lexile_v2_label_encoder_path: /absolute/path/to/label_encoder.pkl
+# lexile_v2_band_to_midpoint:
+#   "300-399": 350
+#   "400-499": 450
+#   "500-599": 550
