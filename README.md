@@ -13,11 +13,9 @@ Lexile Corpus Tuner is a reference implementation of a Lexile-inspired analysis 
 ## Installation
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e .
-# Install TensorFlow adapter extras if you plan to use the lexile_v2 estimator
-# pip install -e .[lexile-v2]
+poetry install --with dev
+# Include TensorFlow adapter extras if you plan to use the lexile_v2 estimator
+# poetry install --with dev --extras "lexile-v2"
 ```
 
 Formatting uses `black` + `isort`; run `black .` and `isort .` before committing if desired.
@@ -26,13 +24,13 @@ Formatting uses `black` + `isort`; run `black .` and `isort .` before committing
 
 ```bash
 # Analyze a folder of .txt files
-lexile-tuner analyze --input-path examples/example_corpus --config examples/example_config.yaml
+poetry run lexile-tuner analyze --input-path examples/example_corpus --config examples/example_config.yaml
 
 # Rewrite difficult passages and write tuned files to a new directory
-lexile-tuner rewrite --input-path examples/example_corpus --output-path tuned --config examples/example_config.yaml
+poetry run lexile-tuner rewrite --input-path examples/example_corpus --output-path tuned --config examples/example_config.yaml
 
 # Print the default configuration
-lexile-tuner print-config
+poetry run lexile-tuner print-config
 ```
 
 ## Architecture
@@ -53,7 +51,7 @@ Custom estimators can be plugged in via `lexile_corpus_tuner.estimators.create_e
 
 ## Using the `lexile_v2` estimator
 
-To run the TensorFlow-based estimator you need artifacts exported from the upstream `lexile-determination-v2` training project. Install the extra dependencies via `pip install -e .[lexile-v2]`, set `estimator_name: lexile_v2`, and supply the artifact paths in your config. Optional CLI overrides are available: `--estimator-name lexile_v2 --lexile-v2-model-path /path/model.h5 --lexile-v2-vectorizer-path ...`.
+To run the TensorFlow-based estimator you need artifacts exported from the upstream `lexile-determination-v2` training project. Install the extra dependencies by including the Poetry extra (`poetry install --with dev --extras "lexile-v2"`), set `estimator_name: lexile_v2`, and supply the artifact paths in your config. Optional CLI overrides are available: `--estimator-name lexile_v2 --lexile-v2-model-path /path/model.h5 --lexile-v2-vectorizer-path ...`.
 
 When enabling the estimator, set the following additional fields (paths should point to your trained artifacts):
 
@@ -74,7 +72,7 @@ lexile_v2_band_to_midpoint:
 ## Testing
 
 ```bash
-pytest
+poetry run pytest
 ```
 
 The provided test suite covers tokenization, windowing, estimators, scoring + constraint logic, and pipeline orchestration.
