@@ -72,7 +72,19 @@ lexile_v2_band_to_midpoint:
 ## Testing
 
 ```bash
+# Run all tests
 poetry run pytest
+
+# Or use pytest directly if installed in your environment
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage
+pytest --cov=lexile_corpus_tuner
 ```
+
+**Note:** Use `pytest` or `python -m pytest`, **not** `python -m test`. The latter runs Python's internal standard library test suite (480+ tests), which is unrelated to this project.
 
 The provided test suite covers tokenization, windowing, estimators, scoring + constraint logic, and pipeline orchestration.
