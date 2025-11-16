@@ -9,6 +9,7 @@ runner = CliRunner()
 
 
 def test_cli_analyze_outputs_summary():
+    """CLI analyze command returns JSON summary listing documents."""
     result = runner.invoke(
         app, ["analyze", "--input-path", "examples/example_corpus"]
     )
@@ -19,6 +20,7 @@ def test_cli_analyze_outputs_summary():
 
 
 def test_cli_rewrite_writes_files(tmp_path: Path):
+    """rewrite command emits tuned text and summary files in the output dir."""
     output_dir = tmp_path / "tuned"
     result = runner.invoke(
         app,
@@ -40,6 +42,7 @@ def test_cli_rewrite_writes_files(tmp_path: Path):
 
 
 def test_cli_print_config():
+    """print-config command dumps the current configuration values."""
     result = runner.invoke(app, ["print-config"])
     assert result.exit_code == 0
     assert "window_size" in result.stdout

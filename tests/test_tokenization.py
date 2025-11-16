@@ -2,6 +2,7 @@ from lexile_corpus_tuner.tokenization import tokenize_words
 
 
 def test_tokenize_words_returns_offsets():
+    """Tokenization exposes token text and precise character offsets."""
     text = "Hello, world! It's sunny today."
     tokens = tokenize_words(text)
 

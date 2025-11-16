@@ -21,6 +21,7 @@ class SimpleRewriter(Rewriter):
 
 
 def test_process_document_without_rewrite():
+    """Pipeline leaves document unchanged when rewriting is disabled."""
     doc = Document(doc_id="doc", text="Short friendly sentences keep things easy.")
     config = LexileTunerConfig(
         window_size=50,
@@ -39,6 +40,7 @@ def test_process_document_without_rewrite():
 
 
 def test_process_document_with_simple_rewrite():
+    """Simple rewriter reduces lexile violations by replacing terms."""
     doc = Document(
         doc_id="doc",
         text="This is a complex sentence that should become simpler after rewriting.",

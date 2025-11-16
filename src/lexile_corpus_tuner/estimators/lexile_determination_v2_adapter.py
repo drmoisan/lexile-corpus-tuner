@@ -1,21 +1,14 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import numpy as np
 
 from .base import LexileEstimator
 
-try:  # pragma: no cover - import guard
-    from tensorflow.keras.models import load_model  # type: ignore
-except Exception:  # pragma: no cover - import guard
-    load_model = None  # type: ignore
-
-try:  # pragma: no cover - import guard
-    import joblib  # type: ignore
-except Exception:  # pragma: no cover - import guard
-    joblib = None  # type: ignore
+load_model: Any | None = None
+joblib: Any | None = None
 
 
 class LexileDeterminationV2Estimator(LexileEstimator):
@@ -38,11 +31,8 @@ class LexileDeterminationV2Estimator(LexileEstimator):
         label_encoder_path: Optional[str] = None,
         band_to_midpoint: Optional[Mapping[str, float]] = None,
     ) -> None:
-        if load_model is None or joblib is None:
-            raise ImportError(
-                "TensorFlow/Keras and joblib are required for LexileDeterminationV2Estimator. "
-                "Install the 'lexile-v2' extra via `pip install .[lexile-v2]`."
-            )
+        tf_load_model = _ensure_tensorflow()
+        joblib_module = _ensure_joblib()
 
         if not model_path or not vectorizer_path:
             raise ValueError(
@@ -50,10 +40,10 @@ class LexileDeterminationV2Estimator(LexileEstimator):
             )
 
         # TODO: Ensure the load call matches how lexile-determination-v2 persists its model.
-        self.model = load_model(model_path)
-        self.vectorizer = joblib.load(vectorizer_path)
+        self.model = tf_load_model(model_path)
+        self.vectorizer = joblib_module.load(vectorizer_path)
         self.label_encoder = (
-            joblib.load(label_encoder_path) if label_encoder_path else None
+            joblib_module.load(label_encoder_path) if label_encoder_path else None
         )
         self._band_to_midpoint: Dict[str, float] = dict(band_to_midpoint or {})
         # TODO: Populate default mapping when lexile-determination-v2 exposes class indices.
@@ -116,3 +106,33 @@ class LexileDeterminationV2Estimator(LexileEstimator):
             return float(numeric_match.group(1))
 
         raise ValueError(f"Cannot parse Lexile label {label!r}")
+
+
+def _ensure_tensorflow() -> Any:
+    global load_model
+    if load_model is not None:
+        return load_model
+    try:  # pragma: no cover - import guard
+        from tensorflow.keras.models import load_model as keras_load_model  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise ImportError(
+            "TensorFlow/Keras is required for LexileDeterminationV2Estimator. "
+            "Install the 'lexile-v2' extra via `pip install .[lexile-v2]`."
+        ) from exc
+    load_model = keras_load_model
+    return load_model
+
+
+def _ensure_joblib() -> Any:
+    global joblib
+    if joblib is not None:
+        return joblib
+    try:  # pragma: no cover - import guard
+        import joblib as joblib_module  # type: ignore
+    except Exception as exc:  # pragma: no cover - import guard
+        raise ImportError(
+            "joblib is required for LexileDeterminationV2Estimator. "
+            "Install the 'lexile-v2' extra via `pip install .[lexile-v2]`."
+        ) from exc
+    joblib = joblib_module
+    return joblib

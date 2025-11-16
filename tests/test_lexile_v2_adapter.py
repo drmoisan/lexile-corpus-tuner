@@ -21,6 +21,7 @@ class DummyLabelEncoder:
 
 
 def test_predict_scalar_with_stubbed_artifacts(monkeypatch):
+    """Stubbed model artifacts yield the expected midpoint lexile score."""
     monkeypatch.setattr(adapter, "load_model", lambda path: DummyModel())
     monkeypatch.setattr(
         adapter,
@@ -43,6 +44,7 @@ def test_predict_scalar_with_stubbed_artifacts(monkeypatch):
 
 
 def test_predict_scalar_with_index_mapping(monkeypatch):
+    """Estimator falls back to index-to-band mapping when labels missing."""
     monkeypatch.setattr(adapter, "load_model", lambda path: DummyModel())
     monkeypatch.setattr(
         adapter,
