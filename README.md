@@ -26,7 +26,7 @@ Formatting uses `black` + `isort`; run `black .` and `isort .` before committing
 ## Usage
 
 ```bash
-# Analyze a folder of .txt files
+# Analyze a folder of .txt or .epub files
 poetry run lexile-tuner analyze --input-path examples/example_corpus --config examples/example_config.yaml
 
 # Rewrite difficult passages and write tuned files to a new directory
@@ -34,6 +34,9 @@ poetry run lexile-tuner rewrite --input-path examples/example_corpus --output-pa
 
 # Print the default configuration
 poetry run lexile-tuner print-config
+
+# Analyze a single EPUB source
+poetry run lexile-tuner analyze --input-path examples/example_corpus/pg2701-images-3.epub
 ```
 
 ## Architecture
@@ -70,7 +73,7 @@ lexile_v2_band_to_midpoint:
 
 ## Examples
 
-`examples/example_corpus/chapter1.txt` contains a short excerpt that you can analyze immediately. Run the CLI commands shown above after installing the project in editable mode.
+`examples/example_corpus/chapter1.txt` contains a short excerpt that you can analyze immediately. `examples/example_corpus/pg2701-images-3.epub` is a full Project Gutenberg title that exercises the EPUB ingestion path (rewritten output is emitted as `.txt`). Run the CLI commands shown above after installing the project in editable mode.
 
 ## Rewriting with OpenAI
 
