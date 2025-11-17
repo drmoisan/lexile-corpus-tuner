@@ -15,9 +15,9 @@ def write_minimal_epub(
   </rootfiles>
 </container>
 """
-    manifest_items = []
-    spine_items = []
-    chapter_files = []
+    manifest_items: list[str] = []
+    spine_items: list[str] = []
+    chapter_files: list[tuple[str, str]] = []
     for idx, chapter in enumerate(chapters, start=1):
         href = f"chapter{idx}.xhtml"
         manifest_items.append(

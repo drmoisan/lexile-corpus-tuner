@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from lexile_corpus_tuner.cli import app
@@ -54,7 +55,9 @@ def test_cli_print_config():
     assert "window_size" in result.stdout
 
 
-def test_cli_rewrite_with_openai_options(monkeypatch, tmp_path: Path):
+def test_cli_rewrite_with_openai_options(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
     """rewrite command wires OpenAI settings into the rewriter when enabled."""
     corpus_dir = _create_sample_corpus(tmp_path)
     output_dir = tmp_path / "rewritten"
@@ -65,21 +68,23 @@ def test_cli_rewrite_with_openai_options(monkeypatch, tmp_path: Path):
     calls: dict[str, Any] = {}
 
     class DummyClient:
-        def __init__(self, settings, api_key) -> None:
+        def __init__(self, settings: Any, api_key: str) -> None:
             calls["settings"] = settings
             calls["api_key"] = api_key
 
-        def rewrite(self, *, system_prompt, user_prompt, metadata):
+        def rewrite(
+            self, *, system_prompt: str, user_prompt: str, metadata: Any
+        ) -> str:
             calls.setdefault("prompts", []).append(
                 {"system": system_prompt, "user": user_prompt, "metadata": metadata}
             )
             return user_prompt
 
     class DummyRewriter:
-        def __init__(self, client, **_ignored) -> None:
+        def __init__(self, client: DummyClient, **_ignored: Any) -> None:
             self._client = client
 
-        def rewrite(self, request):
+        def rewrite(self, request: Any) -> str:
             return request.text.replace("storm", "rain")
 
     monkeypatch.setattr("lexile_corpus_tuner.cli.OpenAIRewriteClient", DummyClient)
