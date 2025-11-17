@@ -625,4 +625,22 @@ lexile-tuner = "lexile_corpus_tuner.cli:main"
 * Running `pytest` at the repo root should pass with only the dummy estimator and no external APIs.
 * Running `lexile-tuner analyze --input-path examples/example_corpus` should work immediately after `pip install -e .`.
 
+---
+
+## 17. Secret Handling
+
+* Never commit API keys or other credentials to the repository.
+* Store the OpenAI API key in LastPass (secure note preferred) under a predictable item name such as **Lexile OpenAI Key** and log in with `lpass login` before running the CLI.
+* Use `scripts/load-openai-key.ps1` to populate `OPENAI_API_KEY` on demand:
+
+  ```powershell
+  pwsh ./scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+  ```
+
+  * `-UsePasswordField` tells the helper to pull from the password slot if you don't use a note.
+  * `-EnvVar "OPENAI_API_KEY"` can override the target variable (useful for Azure or multiple tenants).
+  * `-PrintOnly` outputs the secret without exporting it (handy for CI systems that source the script).
+* Document any additional secrets in README/ops docs and rely on env vars (`*_api_key_env` fields in configs) so tracked YAML never contains secrets.
+* For CI, store the key in the platform's native secret manager (e.g., GitHub Actions Secrets) and inject the env var before invoking the CLI; do not script LastPass logins inside CI.
+
 
