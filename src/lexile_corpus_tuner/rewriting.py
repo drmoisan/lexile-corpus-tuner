@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from .llm.openai_client import OpenAIRewriteClient, RewriteMetadata
 from .models import ConstraintViolation
@@ -43,6 +43,11 @@ USER_PROMPT_TEMPLATE = (
 )
 
 
+def _default_metadata() -> dict[str, Any]:
+    """Provide a typed default metadata mapping for rewrite requests."""
+    return {}
+
+
 @dataclass(slots=True)
 class RewriteRequest:
     """Unit of text that must be rewritten."""
@@ -52,7 +57,7 @@ class RewriteRequest:
     text: str
     target_lexile: float
     violation: ConstraintViolation | None = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=_default_metadata)
 
 
 class Rewriter(ABC):
@@ -97,7 +102,7 @@ class OpenAIRewriter(Rewriter):
 
     def rewrite(self, request: RewriteRequest) -> str:
         violation = request.violation
-        metadata = request.metadata or {}
+        metadata: dict[str, Any] = request.metadata or {}
         paragraphs = [
             paragraph.strip()
             for paragraph in request.text.strip().split("\n\n")

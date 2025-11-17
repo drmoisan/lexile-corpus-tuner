@@ -25,6 +25,7 @@ pytest = ">=7.0"
 pytest-cov = ">=7.0"
 black = ">=23.0"
 isort = ">=5.0"
+pyright = "^1.1.407"
 
 [tool.poetry.extras]
 lexile-v2 = ["tensorflow", "joblib"]

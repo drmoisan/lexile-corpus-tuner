@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import replace as dc_replace
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, TypedDict
 
 import typer
 import yaml
@@ -250,7 +250,7 @@ def rewrite(
         dest.write_text(final_doc.text, encoding="utf-8")
 
     # Build a per-document before/after summary for downstream inspection.
-    summary_items = []
+    summary_items: List[RewriteSummaryEntry] = []
     for doc_id in sorted(final_results.keys()):
         baseline_entry = baseline_results.get(doc_id)
         final_entry = final_results.get(doc_id)
@@ -376,6 +376,33 @@ def _build_rewriter(config: LexileTunerConfig) -> Rewriter:
 SUPPORTED_INPUT_EXTENSIONS = {".txt", ".epub"}
 
 
+class ViolationPayload(TypedDict):
+    window_id: int
+    lexile: float
+    reason: str
+    start_token_idx: int
+    end_token_idx: int
+
+
+class StatsPayload(TypedDict):
+    avg_lexile: float
+    max_lexile: float
+    violations: List[ViolationPayload]
+
+
+class DocumentSummary(TypedDict):
+    doc_id: str
+    avg_lexile: float
+    max_lexile: float
+    violations: List[ViolationPayload]
+
+
+class RewriteSummaryEntry(TypedDict):
+    doc_id: str
+    baseline: StatsPayload
+    final: StatsPayload
+
+
 def _load_documents(input_path: Path) -> Tuple[List[Document], Dict[str, Path]]:
     """Expand the input path into documents plus a doc_id -> original path mapping."""
     if input_path.is_file():
@@ -424,9 +451,9 @@ def _relative_output_path(doc_id: str) -> Path:
 
 def _build_summary(
     results: Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]],
-) -> List[dict]:
+) -> List[DocumentSummary]:
     """Create a JSON-serializable summary for each processed document."""
-    summary: List[dict] = []
+    summary: List[DocumentSummary] = []
     for doc_id, (_, stats, violations) in sorted(results.items()):
         summary.append(
             {
@@ -441,7 +468,7 @@ def _build_summary(
 
 def _stats_dict(
     stats: DocumentLexileStats, violations: List[ConstraintViolation]
-) -> dict:
+) -> StatsPayload:
     """Convert lexile stats + violations into a standard dictionary shape."""
     return {
         "avg_lexile": stats.avg_lexile,
@@ -450,7 +477,7 @@ def _stats_dict(
     }
 
 
-def _violation_dict(violation: ConstraintViolation) -> dict:
+def _violation_dict(violation: ConstraintViolation) -> ViolationPayload:
     """Serialize a ConstraintViolation so it can be emitted in JSON."""
     return {
         "window_id": violation.window_id,
