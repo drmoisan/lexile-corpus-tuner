@@ -1,24 +1,33 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
+from pytest import MonkeyPatch
 
 from lexile_corpus_tuner.config import OpenAISettings
 from lexile_corpus_tuner.llm import openai_client as oa_client
 from lexile_corpus_tuner.rewriting import OpenAIRewriter, RewriteRequest
 
 
-def test_openai_rewriter_builds_prompts():
+def test_openai_rewriter_builds_prompts() -> None:
     """OpenAIRewriter injects metadata into prompts passed to the client."""
     captured: dict[str, str] = {}
 
     class DummyClient:
-        def rewrite(self, *, system_prompt: str, user_prompt: str, metadata):
+        def rewrite(
+            self,
+            *,
+            system_prompt: str,
+            user_prompt: str,
+            metadata: oa_client.RewriteMetadata,
+        ) -> str:
             captured["system"] = system_prompt
             captured["user"] = user_prompt
             captured["doc_id"] = metadata.doc_id
             return "Simpler output"
 
-    rewriter = OpenAIRewriter(DummyClient())
+    rewriter = OpenAIRewriter(cast(oa_client.OpenAIRewriteClient, DummyClient()))
     request = RewriteRequest(
         doc_id="demo-doc",
         window_id=7,
@@ -36,7 +45,7 @@ def test_openai_rewriter_builds_prompts():
     assert "You rewrite English passages" in captured["system"]
 
 
-def test_openai_rewrite_client_requires_api_key(monkeypatch):
+def test_openai_rewrite_client_requires_api_key(monkeypatch: MonkeyPatch) -> None:
     """Client constructor validates that an API key is provided."""
     monkeypatch.setattr(oa_client, "OpenAI", object())
     settings = OpenAISettings(enabled=True)
@@ -44,7 +53,9 @@ def test_openai_rewrite_client_requires_api_key(monkeypatch):
         oa_client.OpenAIRewriteClient(settings, api_key="")
 
 
-def test_openai_rewrite_client_retries_then_succeeds(monkeypatch):
+def test_openai_rewrite_client_retries_then_succeeds(
+    monkeypatch: MonkeyPatch,
+) -> None:
     """Client retries failed requests and returns the first successful output."""
     attempts = {"count": 0}
 
@@ -61,7 +72,7 @@ def test_openai_rewrite_client_retries_then_succeeds(monkeypatch):
             self.output = [DummyOutput(text)]
 
     class DummyResponses:
-        def create(self, **_: object):
+        def create(self, **_: object) -> DummyResponse:
             attempts["count"] += 1
             if attempts["count"] == 1:
                 raise RuntimeError("transient error")
