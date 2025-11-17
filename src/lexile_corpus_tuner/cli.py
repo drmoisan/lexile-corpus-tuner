@@ -90,7 +90,9 @@ def analyze(
     ),
 ) -> None:
     """Analyze the input corpus and emit a JSON summary."""
+    # Load the configuration from disk (or defaults) so we have a baseline to mutate.
     cfg = load_config(config)
+    # Bring any estimator-specific CLI overrides into the config object.
     _apply_estimator_overrides(
         cfg,
         estimator_name,
@@ -114,12 +116,17 @@ def analyze(
         openai_request_timeout,
         openai_parallel_requests,
     )
+    # The analyze sub-command intentionally disables rewriting and only reports stats.
     cfg.rewrite_enabled = False
+    # Convert the provided input path into Document objects for downstream processing.
     documents, _ = _load_documents(input_path)
+    # Instantiate the estimator referenced by the (possibly overridden) config.
     estimator = build_estimator_from_config(cfg)
+    # Run the pipeline with a NoOp rewriter so lexile stats reflect the original text.
     summary = _build_summary(
         process_corpus(documents, cfg, estimator, NoOpRewriter()),
     )
+    # Emit the summary JSON so it can be piped to other tooling or saved by the caller.
     typer.echo(json.dumps({"documents": summary}, indent=2))
 
 
@@ -194,6 +201,7 @@ def rewrite(
     ),
 ) -> None:
     """Rewrite violating windows and save tuned documents + summary."""
+    # Load and then mutate configuration values in-memory to reflect CLI overrides.
     cfg = load_config(config)
     _apply_estimator_overrides(
         cfg,
@@ -218,29 +226,36 @@ def rewrite(
         openai_request_timeout,
         openai_parallel_requests,
     )
+    # Materialize the full set of input documents before running baseline/tuned passes.
     documents, _ = _load_documents(input_path)
+    # Instantiate the requested estimator once so both passes share identical scoring.
     estimator = build_estimator_from_config(cfg)
 
+    # Capture baseline (non-rewritten) lexile stats for comparison.
     baseline_cfg = dc_replace(cfg, rewrite_enabled=False)
     baseline_results = process_corpus(
         documents, baseline_cfg, estimator, NoOpRewriter()
     )
 
+    # Create the rewriting pipeline and run the tuned pass.
     rewrite_cfg = dc_replace(cfg, rewrite_enabled=True)
     rewriter = _build_rewriter(rewrite_cfg)
     final_results = process_corpus(documents, rewrite_cfg, estimator, rewriter)
 
+    # Persist each rewritten document under the requested output directory.
     output_path.mkdir(parents=True, exist_ok=True)
     for doc_id, (final_doc, _, _) in final_results.items():
         dest = output_path / _relative_output_path(doc_id)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(final_doc.text, encoding="utf-8")
 
+    # Build a per-document before/after summary for downstream inspection.
     summary_items = []
     for doc_id in sorted(final_results.keys()):
         baseline_entry = baseline_results.get(doc_id)
         final_entry = final_results.get(doc_id)
         if baseline_entry is None or final_entry is None:
+            # If either pass is missing, skip the entry rather than emitting partial data.
             continue
         summary_items.append(
             {
@@ -251,9 +266,11 @@ def rewrite(
         )
 
     summary_path = output_path / "summary.json"
+    # Write the summary in JSON so the CLI output mirrors the analyze command.
     summary_path.write_text(
         json.dumps({"documents": summary_items}, indent=2), encoding="utf-8"
     )
+    # Inform the user where both the documents and the summary were persisted.
     typer.echo(f"Wrote tuned documents to {output_path} and summary to {summary_path}")
 
 
@@ -268,6 +285,10 @@ def main() -> None:
     app()
 
 
+if __name__ == "__main__":
+    main()
+
+
 def _apply_estimator_overrides(
     config: LexileTunerConfig,
     estimator_name: str | None,
@@ -275,9 +296,11 @@ def _apply_estimator_overrides(
     vectorizer_path: Path | None,
     label_encoder_path: Path | None,
 ) -> None:
+    """Apply CLI overrides to estimator-related config fields when provided."""
     if estimator_name:
         config.estimator_name = estimator_name
     if model_path:
+        # Config stores string paths so cast Path objects accordingly.
         config.lexile_v2_model_path = str(model_path)
     if vectorizer_path:
         config.lexile_v2_vectorizer_path = str(vectorizer_path)
@@ -301,10 +324,12 @@ def _apply_rewriter_overrides(
     openai_request_timeout: float | None,
     openai_parallel_requests: int | None,
 ) -> None:
+    """Override rewriting + OpenAI settings from CLI flags."""
     if rewrite_enabled is not None:
         config.rewrite_enabled = rewrite_enabled
     if rewrite_model is not None:
         config.rewrite_model = rewrite_model
+    # Settings nested under config.openai require copying into that structure.
     settings = config.openai
     if openai_enabled is not None:
         settings.enabled = openai_enabled
@@ -331,9 +356,12 @@ def _apply_rewriter_overrides(
 
 
 def _build_rewriter(config: LexileTunerConfig) -> Rewriter:
+    """Instantiate the configured rewriter implementation for the current run."""
     if not config.rewrite_enabled:
+        # Fast-path when rewriting is disabled entirely.
         return NoOpRewriter()
     if config.openai.enabled:
+        # Spin up the OpenAI-backed client when LLM rewriting is explicitly enabled.
         api_key = _resolve_openai_api_key(config.openai)
         client = OpenAIRewriteClient(config.openai, api_key=api_key)
         return OpenAIRewriter(client)
@@ -344,14 +372,18 @@ def _build_rewriter(config: LexileTunerConfig) -> Rewriter:
     return NoOpRewriter()
 
 
+# File types the CLI knows how to expand into Document instances.
 SUPPORTED_INPUT_EXTENSIONS = {".txt", ".epub"}
 
 
 def _load_documents(input_path: Path) -> Tuple[List[Document], Dict[str, Path]]:
+    """Expand the input path into documents plus a doc_id -> original path mapping."""
     if input_path.is_file():
+        # Single-file input: just wrap it in a Document and shortcut the mapping.
         doc = _document_from_file(input_path, input_path.name)
         return [doc], {doc.doc_id: input_path}
 
+    # Directory input: gather all supported files so we rewrite subtrees deterministically.
     files = sorted(
         p
         for p in input_path.rglob("*")
@@ -361,17 +393,21 @@ def _load_documents(input_path: Path) -> Tuple[List[Document], Dict[str, Path]]:
     mapping: Dict[str, Path] = {}
     for file in files:
         relative_id = str(file.relative_to(input_path))
+        # Use relative paths as doc IDs so regenerated output mirrors the input tree.
         documents.append(_document_from_file(file, relative_id))
         mapping[relative_id] = file
     return documents, mapping
 
 
 def _document_from_file(path: Path, doc_id: str) -> Document:
+    """Read a supported file from disk and wrap it in a Document."""
     suffix = path.suffix.lower()
     try:
         if suffix == ".epub":
+            # EPUB ingestion uses a custom parser to pull concatenated text.
             text = extract_text_from_epub(path)
         else:
+            # Plain-text inputs can be read directly.
             text = path.read_text(encoding="utf-8")
     except EPUBParseError as exc:
         raise typer.BadParameter(str(exc)) from exc
@@ -379,6 +415,7 @@ def _document_from_file(path: Path, doc_id: str) -> Document:
 
 
 def _relative_output_path(doc_id: str) -> Path:
+    """Translate the doc_id to an output relative path (normalize epub -> txt)."""
     target = Path(doc_id)
     if target.suffix.lower() == ".epub":
         return target.with_suffix(".txt")
@@ -388,6 +425,7 @@ def _relative_output_path(doc_id: str) -> Path:
 def _build_summary(
     results: Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]],
 ) -> List[dict]:
+    """Create a JSON-serializable summary for each processed document."""
     summary: List[dict] = []
     for doc_id, (_, stats, violations) in sorted(results.items()):
         summary.append(
@@ -404,6 +442,7 @@ def _build_summary(
 def _stats_dict(
     stats: DocumentLexileStats, violations: List[ConstraintViolation]
 ) -> dict:
+    """Convert lexile stats + violations into a standard dictionary shape."""
     return {
         "avg_lexile": stats.avg_lexile,
         "max_lexile": stats.max_lexile,
@@ -412,6 +451,7 @@ def _stats_dict(
 
 
 def _violation_dict(violation: ConstraintViolation) -> dict:
+    """Serialize a ConstraintViolation so it can be emitted in JSON."""
     return {
         "window_id": violation.window_id,
         "lexile": violation.lexile,
@@ -422,9 +462,11 @@ def _violation_dict(violation: ConstraintViolation) -> dict:
 
 
 def _resolve_openai_api_key(settings: OpenAISettings) -> str:
+    """Resolve the API key from explicit config or the configured environment variable."""
     if settings.api_key:
         return settings.api_key
     env_name = settings.api_key_env or "OPENAI_API_KEY"
+    # Fall back to reading the key at runtime so secrets need not live in config files.
     if env_name and env_name in os.environ:
         return os.environ[env_name]
     raise RuntimeError(

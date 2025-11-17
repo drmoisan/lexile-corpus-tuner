@@ -91,6 +91,46 @@ Set an API key in your environment (never commit keys to the repo):
 export OPENAI_API_KEY="sk-..."
 ```
 
+### Loading `OPENAI_API_KEY` from LastPass
+
+If you manage secrets in LastPass, keep using environment variables while letting LastPass supply the value at runtime:
+
+1. Store the key as a secure note or password entry named **Lexile OpenAI Key** (or pick any name).
+2. Install the [LastPass CLI](https://support.lastpass.com/help/install-lastpass-cli-lp040011) and run `lpass login you@example.com` once per machine/session.
+3. Load the key into your shell when you need to run the rewriter:
+
+```powershell
+pwsh ./scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+# Optional flags:
+#   -UsePasswordField  # use the stored password instead of the note body
+#   -EnvVar "OPENAI_API_KEY"  # change the destination env var
+```
+
+The script simply runs `lpass show` and assigns the secret to `OPENAI_API_KEY` for the current session, so no secrets touch tracked files or shell history. Add the command to your PowerShell profile if you want it available automatically.
+
+#### Windows setup via WSL
+
+LastPass no longer ships a native Windows CLI build. If you are on Windows, the easiest way to keep using the script above is to run the official Linux CLI through WSL and expose it to PowerShell:
+
+1. Install WSL with an Ubuntu distro if you haven’t already (`wsl --install -d Ubuntu`) and run the initial setup.
+2. Update the package index and install the CLI inside WSL:
+   ```powershell
+   wsl -e sudo apt-get update
+   wsl -e sudo apt-get install lastpass-cli
+   wsl -e bash -lc "mkdir -p ~/.config/lpass"
+   ```
+3. Log into LastPass from WSL once per Windows session so the CLI can read your vault: `wsl -e lpass login you@example.com`.
+4. Create a small Windows wrapper so PowerShell can invoke the WSL binary (this lives anywhere on disk; `%USERPROFILE%\bin` keeps things tidy):
+   ```powershell
+   $wrapperDir = "$env:USERPROFILE\bin"
+   if (-not (Test-Path $wrapperDir)) { New-Item -ItemType Directory -Path $wrapperDir | Out-Null }
+   "@echo off`nwsl.exe lpass %*" | Set-Content "$wrapperDir\lpass.cmd" -Encoding ASCII
+   ```
+5. Add `$wrapperDir` to your **user** `PATH` (System Properties → Environment Variables → Path → New → paste the folder path) and open a new PowerShell window. `Get-Command lpass` should now resolve to the wrapper and `lpass --version` should print the WSL version.
+6. Use the repo helper script normally. It reads secure notes by default; pass `-UsePasswordField` if your entry stores the key in the password field instead.
+
+If `lpass` reports “Session token missing or expired,” just re-run `wsl -e lpass login ...` before calling `load-openai-key.ps1`.
+
 Update your configuration to enable rewriting via the Responses API:
 
 ```yaml
