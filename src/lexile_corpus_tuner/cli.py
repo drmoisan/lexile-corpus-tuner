@@ -10,6 +10,7 @@ import typer
 import yaml
 
 from .config import LexileTunerConfig, OpenAISettings, load_config
+from .epub import EPUBParseError, extract_text_from_epub
 from .estimators import build_estimator_from_config
 from .llm import OpenAIRewriteClient
 from .models import ConstraintViolation, Document, DocumentLexileStats
@@ -231,7 +232,7 @@ def rewrite(
 
     output_path.mkdir(parents=True, exist_ok=True)
     for doc_id, (final_doc, _, _) in final_results.items():
-        dest = output_path / doc_id
+        dest = output_path / _relative_output_path(doc_id)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(final_doc.text, encoding="utf-8")
 
@@ -343,21 +344,45 @@ def _build_rewriter(config: LexileTunerConfig) -> Rewriter:
     return NoOpRewriter()
 
 
+SUPPORTED_INPUT_EXTENSIONS = {".txt", ".epub"}
+
+
 def _load_documents(input_path: Path) -> Tuple[List[Document], Dict[str, Path]]:
     if input_path.is_file():
-        text = input_path.read_text(encoding="utf-8")
-        doc = Document(doc_id=input_path.name, text=text)
+        doc = _document_from_file(input_path, input_path.name)
         return [doc], {doc.doc_id: input_path}
 
-    files = sorted(p for p in input_path.rglob("*.txt") if p.is_file())
+    files = sorted(
+        p
+        for p in input_path.rglob("*")
+        if p.is_file() and p.suffix.lower() in SUPPORTED_INPUT_EXTENSIONS
+    )
     documents: List[Document] = []
     mapping: Dict[str, Path] = {}
     for file in files:
         relative_id = str(file.relative_to(input_path))
-        text = file.read_text(encoding="utf-8")
-        documents.append(Document(doc_id=relative_id, text=text))
+        documents.append(_document_from_file(file, relative_id))
         mapping[relative_id] = file
     return documents, mapping
+
+
+def _document_from_file(path: Path, doc_id: str) -> Document:
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".epub":
+            text = extract_text_from_epub(path)
+        else:
+            text = path.read_text(encoding="utf-8")
+    except EPUBParseError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    return Document(doc_id=doc_id, text=text)
+
+
+def _relative_output_path(doc_id: str) -> Path:
+    target = Path(doc_id)
+    if target.suffix.lower() == ".epub":
+        return target.with_suffix(".txt")
+    return target
 
 
 def _build_summary(
