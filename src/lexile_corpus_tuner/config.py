@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Any, Dict, Mapping, MutableMapping
+from typing import Any, Mapping, MutableMapping, cast
 
 import yaml
 
@@ -24,6 +24,11 @@ class OpenAISettings:
     parallel_requests: int = 1
 
 
+def _default_band_midpoints() -> dict[str, float]:
+    """Return an empty mapping specialized for band midpoint overrides."""
+    return {}
+
+
 @dataclass(slots=True)
 class LexileTunerConfig:
     """Configuration options for the corpus tuner pipeline."""
@@ -41,7 +46,9 @@ class LexileTunerConfig:
     lexile_v2_model_path: str | None = None
     lexile_v2_vectorizer_path: str | None = None
     lexile_v2_label_encoder_path: str | None = None
-    lexile_v2_band_to_midpoint: Dict[str, float] = field(default_factory=dict)
+    lexile_v2_band_to_midpoint: dict[str, float] = field(
+        default_factory=_default_band_midpoints
+    )
     openai: OpenAISettings = field(default_factory=OpenAISettings)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,7 +64,8 @@ def _build_kwargs(data: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(openai_value, OpenAISettings):
             kwargs["openai"] = openai_value
         elif isinstance(openai_value, Mapping):
-            kwargs["openai"] = _build_openai_settings(openai_value)
+            openai_mapping = cast(Mapping[str, Any], openai_value)
+            kwargs["openai"] = _build_openai_settings(openai_mapping)
     return kwargs
 
 
@@ -77,10 +85,22 @@ def config_from_dict(data: Mapping[str, Any] | None) -> LexileTunerConfig:
 def config_from_yaml(path: str | Path) -> LexileTunerConfig:
     """Load configuration from a YAML file."""
     contents = Path(path).read_text(encoding="utf-8")
-    parsed = yaml.safe_load(contents) or {}
-    if not isinstance(parsed, MutableMapping):
+    parsed: Any = yaml.safe_load(contents)
+    if parsed is None:
+        mapping: Mapping[str, Any] = {}
+    elif isinstance(parsed, MutableMapping):
+        typed_parsed = cast(MutableMapping[Any, Any], parsed)
+        mapping_dict: dict[str, Any] = {}
+        for key_obj, value in typed_parsed.items():
+            if not isinstance(key_obj, str):
+                raise ValueError("Configuration keys must be strings.")
+            key: str = key_obj
+            value_any: Any = value
+            mapping_dict[key] = value_any
+        mapping = mapping_dict
+    else:
         raise ValueError("Configuration YAML must define a mapping.")
-    return config_from_dict(parsed)
+    return config_from_dict(mapping)
 
 
 def load_config(path: str | Path | None = None) -> LexileTunerConfig:

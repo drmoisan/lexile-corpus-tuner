@@ -1,0 +1,13 @@
+{
+  "include": ["src", "tests"],
+  "exclude": [
+    ".venv",
+    "dist",
+    "build",
+    "artifacts"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": false
+}

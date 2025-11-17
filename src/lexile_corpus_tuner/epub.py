@@ -4,7 +4,6 @@ import xml.etree.ElementTree as ET
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import List
 
 
 class EPUBParseError(RuntimeError):
@@ -22,7 +21,7 @@ def extract_text_from_epub(epub_path: Path) -> str:
             spine_paths = _spine_items(zf, opf_path)
             if not spine_paths:
                 spine_paths = _fallback_text_items(zf)
-            texts: List[str] = []
+            texts: list[str] = []
             for rel_path in spine_paths:
                 try:
                     raw_html = zf.read(rel_path).decode("utf-8", errors="ignore")
@@ -54,7 +53,7 @@ def _locate_opf(zf: zipfile.ZipFile) -> str:
     return opf_path
 
 
-def _spine_items(zf: zipfile.ZipFile, opf_path: str) -> List[str]:
+def _spine_items(zf: zipfile.ZipFile, opf_path: str) -> list[str]:
     try:
         opf_xml = zf.read(opf_path)
     except KeyError:
@@ -73,7 +72,7 @@ def _spine_items(zf: zipfile.ZipFile, opf_path: str) -> List[str]:
             if item_id and href:
                 manifest[item_id] = {"href": href, "media_type": media_type}
 
-    spine_paths: List[str] = []
+    spine_paths: list[str] = []
     spine_el = root.find(".//{*}spine")
     if spine_el is not None:
         for itemref in spine_el.findall("{*}itemref"):
@@ -92,7 +91,7 @@ def _spine_items(zf: zipfile.ZipFile, opf_path: str) -> List[str]:
     return spine_paths
 
 
-def _fallback_text_items(zf: zipfile.ZipFile) -> List[str]:
+def _fallback_text_items(zf: zipfile.ZipFile) -> list[str]:
     text_suffixes = {".xhtml", ".html", ".htm", ".txt"}
     return [
         name
@@ -135,18 +134,18 @@ class _HTMLTextExtractor(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__()
-        self._chunks: List[str] = []
+        self._chunks: list[str] = []
         self._last_was_newline = False
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "br":
             self._append_newline()
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in self.BLOCK_TAGS:
             self._append_newline()
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         text = data.strip()
         if text:
             if self._chunks and not self._chunks[-1].endswith((" ", "\n")):
@@ -154,7 +153,7 @@ class _HTMLTextExtractor(HTMLParser):
             self._chunks.append(text)
             self._last_was_newline = False
 
-    def _append_newline(self):
+    def _append_newline(self) -> None:
         if not self._chunks or self._last_was_newline:
             return
         self._chunks.append("\n")

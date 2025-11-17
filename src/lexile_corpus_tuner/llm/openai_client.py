@@ -1,20 +1,18 @@
 from __future__ import annotations
 
+import importlib
 import logging
 import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable, Iterator, cast
 
 from ..config import OpenAISettings
 
-try:  # pragma: no cover - optional dependency
-    from openai import OpenAI
-except Exception:  # pragma: no cover - handled at runtime
-    OpenAI = None  # type: ignore[assignment]
-
 logger = logging.getLogger(__name__)
+
+OpenAI: Callable[..., Any] | None = None
 
 
 @dataclass(slots=True)
@@ -35,13 +33,10 @@ class OpenAIRewriteClient:
     def __init__(self, settings: OpenAISettings, api_key: str) -> None:
         if not api_key:
             raise ValueError("OpenAI API key is required when rewriting is enabled.")
-        if OpenAI is None:
-            raise RuntimeError(
-                "openai package is not installed. Install extras via 'pip install .[llm-openai]'."
-            )
         self._settings = settings
         self._api_key = api_key
-        self._client: OpenAI | None = None
+        self._client_factory: Callable[..., Any] = _load_openai_factory()
+        self._client: Any | None = None
         self._semaphore: threading.BoundedSemaphore | None = None
         if settings.parallel_requests > 0:
             self._semaphore = threading.BoundedSemaphore(settings.parallel_requests)
@@ -66,7 +61,7 @@ class OpenAIRewriteClient:
             try:
                 with self._acquire_slot():
                     client = self._ensure_client()
-                    response = client.responses.create(
+                    response: Any = client.responses.create(
                         model=self._settings.model,
                         input=[
                             {"role": "system", "content": system_prompt},
@@ -100,9 +95,9 @@ class OpenAIRewriteClient:
                 time.sleep(min(2 ** (attempt - 1), 5))
         raise RuntimeError("OpenAI rewrite failed after retries.") from last_error
 
-    def _ensure_client(self) -> OpenAI:
+    def _ensure_client(self) -> Any:
         if self._client is None:
-            self._client = OpenAI(
+            self._client = self._client_factory(
                 api_key=self._api_key,
                 base_url=self._settings.base_url,
                 organization=self._settings.organization,
@@ -110,7 +105,7 @@ class OpenAIRewriteClient:
         return self._client
 
     @contextmanager
-    def _acquire_slot(self):
+    def _acquire_slot(self) -> Iterator[None]:
         if self._semaphore is None:
             yield
             return
@@ -138,9 +133,33 @@ class OpenAIRewriteClient:
     @staticmethod
     def _materialize_item(item: Any) -> dict[str, Any]:
         if isinstance(item, dict):
-            return item
+            return cast(dict[str, Any], item)
         if hasattr(item, "model_dump"):
-            return item.model_dump()
+            dumpable: Any = item
+            raw_dump: dict[str, Any] = dumpable.model_dump()
+            return raw_dump
         if hasattr(item, "__dict__"):
-            return dict(item.__dict__)
+            dumpable: Any = item
+            raw_dict: dict[str, Any] = dict(dumpable.__dict__)
+            return raw_dict
         raise RuntimeError("Unexpected OpenAI response format.")
+
+
+def _load_openai_factory() -> Callable[..., Any]:
+    """Dynamically import the OpenAI client factory to avoid hard dependency at import."""
+    global OpenAI
+    if OpenAI is not None:
+        return OpenAI
+    try:  # pragma: no cover - import guard
+        module = importlib.import_module("openai")
+    except Exception as exc:  # pragma: no cover - handled at runtime
+        raise RuntimeError(
+            "openai package is not installed. Install extras via 'pip install .[llm-openai]'."
+        ) from exc
+    openai_cls = getattr(module, "OpenAI", None)
+    if openai_cls is None:  # pragma: no cover - defensive
+        raise RuntimeError(
+            "openai.OpenAI client class is unavailable in this environment."
+        )
+    OpenAI = cast(Callable[..., Any], openai_cls)
+    return OpenAI
