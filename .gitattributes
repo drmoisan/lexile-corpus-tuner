@@ -1,0 +1,4 @@
+
+# Ensure bundled scripts retain LF endings
+tools/cloc text eol=lf
+scripts/run-cloc.sh text eol=lf

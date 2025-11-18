@@ -2,6 +2,7 @@ from lexile_corpus_tuner.estimators.dummy_estimator import DummyLexileEstimator
 
 
 def test_dummy_estimator_tracks_complexity():
+    """Dummy estimator assigns higher scores to more complex text."""
     estimator = DummyLexileEstimator()
     simple = "Short words. Easy text."
     complex_text = (
