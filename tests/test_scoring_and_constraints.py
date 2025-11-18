@@ -26,6 +26,7 @@ def _make_windows() -> list[Window]:
 
 
 def test_scoring_and_stats_pipeline():
+    """Scoring pipeline smooths scores and computes aggregate stats."""
     windows = _make_windows()
     estimator = ConstantEstimator(300)
     scored = score_windows(windows, estimator)
@@ -47,6 +48,7 @@ def test_scoring_and_stats_pipeline():
 
 
 def test_find_violations_detects_window_and_avg():
+    """Violation finder flags both window and average lexile breaches."""
     windows = _make_windows()
     window_scores = [
         WindowScore(window=windows[0], lexile=250),

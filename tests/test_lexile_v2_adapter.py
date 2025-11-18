@@ -1,35 +1,50 @@
 import types
+from typing import Any
 
 import numpy as np
+import pytest
 
 import lexile_corpus_tuner.estimators.lexile_determination_v2_adapter as adapter
 
 
 class DummyModel:
-    def predict(self, X, verbose: int = 0):
+    def predict(self, X: Any, verbose: int = 0) -> np.ndarray:
         return np.array([[0.1, 0.8, 0.1]])
 
 
 class DummyVectorizer:
-    def transform(self, texts):
+    def transform(self, texts: Any) -> np.ndarray:
         return np.array([[1.0, 2.0, 3.0]])
 
 
 class DummyLabelEncoder:
-    def inverse_transform(self, indices):
+    def inverse_transform(self, indices: Any) -> np.ndarray:
         return np.array(["900-999"])
 
 
-def test_predict_scalar_with_stubbed_artifacts(monkeypatch):
-    monkeypatch.setattr(adapter, "load_model", lambda path: DummyModel())
+def _stub_model_loader(_path: str) -> DummyModel:
+    return DummyModel()
+
+
+def _stub_joblib_load(path: str) -> DummyVectorizer | DummyLabelEncoder:
+    if "vectorizer" in path:
+        return DummyVectorizer()
+    return DummyLabelEncoder()
+
+
+def _stub_vectorizer_loader(_path: str) -> DummyVectorizer:
+    return DummyVectorizer()
+
+
+def test_predict_scalar_with_stubbed_artifacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stubbed model artifacts yield the expected midpoint lexile score."""
+    monkeypatch.setattr(adapter, "load_model", _stub_model_loader)
     monkeypatch.setattr(
         adapter,
         "joblib",
-        types.SimpleNamespace(
-            load=lambda path: DummyVectorizer()
-            if "vectorizer" in path
-            else DummyLabelEncoder()
-        ),
+        types.SimpleNamespace(load=_stub_joblib_load),
     )
 
     estimator = adapter.LexileDeterminationV2Estimator(
@@ -42,14 +57,15 @@ def test_predict_scalar_with_stubbed_artifacts(monkeypatch):
     assert abs(score - 949.5) < 1e-6
 
 
-def test_predict_scalar_with_index_mapping(monkeypatch):
-    monkeypatch.setattr(adapter, "load_model", lambda path: DummyModel())
+def test_predict_scalar_with_index_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Estimator falls back to index-to-band mapping when labels missing."""
+    monkeypatch.setattr(adapter, "load_model", _stub_model_loader)
     monkeypatch.setattr(
         adapter,
         "joblib",
-        types.SimpleNamespace(
-            load=lambda path: DummyVectorizer()
-        ),
+        types.SimpleNamespace(load=_stub_vectorizer_loader),
     )
 
     estimator = adapter.LexileDeterminationV2Estimator(

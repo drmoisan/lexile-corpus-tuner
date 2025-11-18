@@ -37,6 +37,7 @@ def build_estimator_from_config(config: "LexileTunerConfig") -> LexileEstimator:
             model_path=config.lexile_v2_model_path or "",
             vectorizer_path=config.lexile_v2_vectorizer_path or "",
             label_encoder_path=config.lexile_v2_label_encoder_path,
+            stopwords_path=config.lexile_v2_stopwords_path,
             band_to_midpoint=config.lexile_v2_band_to_midpoint,
         )
     return create_estimator(config.estimator_name)

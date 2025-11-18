@@ -15,6 +15,7 @@ def main() -> None:
         lexile_v2_model_path="/absolute/path/to/model.h5",
         lexile_v2_vectorizer_path="/absolute/path/to/vectorizer.pkl",
         lexile_v2_label_encoder_path="/absolute/path/to/label_encoder.pkl",
+        lexile_v2_stopwords_path="/absolute/path/to/stopwords.pickle",
         lexile_v2_band_to_midpoint={
             "300-399": 350.0,
             "700-799": 750.0,

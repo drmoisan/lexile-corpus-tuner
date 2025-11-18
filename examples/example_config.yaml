@@ -6,13 +6,26 @@ target_avg_lexile: 350
 avg_tolerance: 15
 max_passes: 2
 smoothing_kernel_size: 3
-estimator_name: dummy
+estimator_name: lexile_v2
 rewrite_enabled: false
 rewrite_model: null
-lexile_v2_model_path: null
-lexile_v2_vectorizer_path: null
-lexile_v2_label_encoder_path: null
+lexile_v2_model_path: examples/lexile_v2_artifacts/model.h5
+lexile_v2_vectorizer_path: examples/lexile_v2_artifacts/tokenizer.pickle
+lexile_v2_label_encoder_path: examples/lexile_v2_artifacts/labels.pickle
+lexile_v2_stopwords_path: examples/lexile_v2_artifacts/stopwords.pickle
 lexile_v2_band_to_midpoint: {}
+openai:
+  enabled: false
+  model: gpt-4.1-mini
+  api_key: null
+  api_key_env: OPENAI_API_KEY
+  base_url: null
+  organization: null
+  temperature: 0.3
+  max_output_tokens: 400
+  top_p: 0.95
+  request_timeout: 60.0
+  parallel_requests: 1
 
 # Example configuration for using the lexile_v2 estimator (uncomment + edit)
 # estimator_name: lexile_v2
@@ -23,3 +36,12 @@ lexile_v2_band_to_midpoint: {}
 #   "300-399": 350
 #   "400-499": 450
 #   "500-599": 550
+
+# Example block for enabling OpenAI rewriting
+# rewrite_enabled: true
+# rewrite_model: gpt-4.1-mini
+# openai:
+#   enabled: true
+#   api_key_env: OPENAI_API_KEY
+#   temperature: 0.35
+#   max_output_tokens: 450

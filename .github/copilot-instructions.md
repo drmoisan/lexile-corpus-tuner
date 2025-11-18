@@ -378,38 +378,36 @@ def create_estimator(name: str, **kwargs) -> LexileEstimator:
 
 11.2 **Interfaces**
 
-* `class Rewriter(ABC)`:
+* Define `@dataclass RewriteRequest` with:
 
-  * `rewrite(text: str, target_lexile: float) -> str`
+  * `doc_id`, `window_id`, `text`, `target_lexile`.
+  * Optional `violation: ConstraintViolation | None`.
+  * Optional metadata dict for constraint thresholds.
 
-* `class NoOpRewriter(Rewriter)`:
+* `class Rewriter(ABC)` must expose `rewrite(request: RewriteRequest) -> str`.
+* `class NoOpRewriter(Rewriter)` returns `request.text`.
+* `class CallableRewriter(Rewriter)` adapts arbitrary functions for testing.
+* `class OpenAIRewriter(Rewriter)` composes the prompt templates with an injected `OpenAIRewriteClient`.
 
-  * Returns the input text unchanged.
-  * Useful when `rewrite_enabled = False`.
+11.3 **Prompt Template & Guardrails**
 
-* `class LLMRewriter(Rewriter)` (stub):
+* Split the prompt into:
 
-  * Designed to call an external LLM (e.g., OpenAI API) but **must not** hardcode keys.
-  * Constructor parameters:
+  * `SYSTEM_PROMPT` – instructions, tone, Lexile target, formatting rules (plain text only, keep facts, maintain paragraph count, ±10 % tokens, age-appropriate).
+  * `USER_PROMPT_TEMPLATE` – includes doc/window ids, source Lexile, reason, constraint thresholds, and the span text.
 
-    * `model_name: str`
-    * `api_client: Any` (or simple function-based injection, e.g. `Callable[[str, float], str]`).
-  * `rewrite(text: str, target_lexile: float) -> str`:
+* Pass metadata (max window Lexile, avg tolerance) so the LLM understands the constraint.
+* Explicitly ask for:
 
-    * Builds a prompt with:
+  * No Markdown, quotes, or additional commentary.
+  * Preservation of factual information and names.
+  * Roughly same length and paragraph boundaries.
 
-      * Instructions to aim for Lexile ~ `target_lexile`.
-      * Constraints: keep factual content, preserve names, maintain age-appropriate tone for ~10-year-old.
-    * Calls out to the provided client and returns the response.
+11.4 **Secrets & API Keys**
 
-11.3 **Prompt Template (in comments/docstring)**
-
-* Include an example prompt template, e.g.:
-
-> You are simplifying text for a 10-year-old reader with Lexile ≈ 350.
-> Rewrite the following passage so that vocabulary and sentence structure are simpler, but keep all factual information and character names the same.
-> Do not shorten the passage significantly; keep the same approximate length.
-> Text: """{text}"""
+* Never commit API keys, tokens, or `.env` files.
+* Read API keys from config (`openai.api_key`) or environment variables (`openai.api_key_env`) only.
+* Codex must surface configuration knobs (CLI + YAML) so users provide credentials securely.
 
 ---
 
@@ -448,7 +446,8 @@ Behavior:
       * Sort the hard violations by severity (highest Lexile first).
       * Take the worst violation.
       * Extract the window span text (helper function).
-      * Call `rewriter.rewrite(span_text, config.target_avg_lexile)`.
+      * Build a `RewriteRequest` with doc/window metadata, target Lexile, the violation, and constraint context.
+      * Call `rewriter.rewrite(rewrite_request)` to obtain replacement text.
       * Replace the span in `current_doc` with rewritten text.
       * Loop again (re-tokenizing, re-windowing, re-scoring).
 3. If max passes reached:
@@ -493,6 +492,7 @@ def process_corpus(
 
      * `--input-path` (file or directory).
      * `--config` (YAML file, optional).
+     * Optional overrides: `--rewrite-enabled/--no-rewrite-enabled`, `--rewrite-model`, and all `--openai-*` flags (even though `analyze` still forces rewriting off for summaries).
    * Behavior:
 
      * Load text documents.
@@ -511,10 +511,11 @@ def process_corpus(
      * `--input-path`
      * `--output-path` (directory to write tuned documents).
      * `--config`
+     * Optional overrides: `--rewrite-enabled/--no-rewrite-enabled`, `--rewrite-model`, `--openai-model`, `--openai-api-key`, `--openai-api-key-env`, `--openai-base-url`, `--openai-organization`, `--openai-temperature`, `--openai-max-output-tokens`, `--openai-top-p`, `--openai-request-timeout`, `--openai-parallel-requests`.
    * Behavior:
 
      * Load documents.
-     * Create `Rewriter` based on config (`LLMRewriter` or `NoOpRewriter`).
+     * Create `Rewriter` based on config (`OpenAIRewriter` when enabled, otherwise `NoOpRewriter`).
      * Run `process_corpus`.
      * Save final rewritten documents to `output-path` (same filenames).
      * Save a summary JSON file with Lexile stats pre/post, and violation logs.
@@ -561,7 +562,10 @@ lexile-tuner = "lexile_corpus_tuner.cli:main"
 * `test_pipeline.py`:
 
   * Use `DummyLexileEstimator` and `NoOpRewriter` on a tiny document to ensure the pipeline runs end-to-end without rewriting.
-  * Add a test where `DummyLexileEstimator` is monkey-patched to return high Lexile so that violations are detected.
+  * Add a test where a fake rewriter is injected to ensure violating windows are rewritten when enabled.
+* `test_openai_rewriter.py`:
+
+  * Mock the OpenAI client to assert prompt construction, retry handling, and missing-key errors without real API calls.
 
 14.2 **Integration Test (optional)**
 
@@ -620,5 +624,23 @@ lexile-tuner = "lexile_corpus_tuner.cli:main"
 * Every module should be importable on its own without external configuration.
 * Running `pytest` at the repo root should pass with only the dummy estimator and no external APIs.
 * Running `lexile-tuner analyze --input-path examples/example_corpus` should work immediately after `pip install -e .`.
+
+---
+
+## 17. Secret Handling
+
+* Never commit API keys or other credentials to the repository.
+* Store the OpenAI API key in LastPass (secure note preferred) under a predictable item name such as **Lexile OpenAI Key** and log in with `lpass login` before running the CLI.
+* Use `scripts/load-openai-key.ps1` to populate `OPENAI_API_KEY` on demand:
+
+  ```powershell
+  pwsh ./scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+  ```
+
+  * `-UsePasswordField` tells the helper to pull from the password slot if you don't use a note.
+  * `-EnvVar "OPENAI_API_KEY"` can override the target variable (useful for Azure or multiple tenants).
+  * `-PrintOnly` outputs the secret without exporting it (handy for CI systems that source the script).
+* Document any additional secrets in README/ops docs and rely on env vars (`*_api_key_env` fields in configs) so tracked YAML never contains secrets.
+* For CI, store the key in the platform's native secret manager (e.g., GitHub Actions Secrets) and inject the env var before invoking the CLI; do not script LastPass logins inside CI.
 
 
