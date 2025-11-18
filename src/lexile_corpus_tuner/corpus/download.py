@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Iterator
 
@@ -11,6 +13,7 @@ RAW_ROOT = Path("data/corpus/raw")
 GUTENBERG_DIR = RAW_ROOT / "gutenberg"
 SIMPLE_WIKI_DIR = RAW_ROOT / "simple_wiki"
 GUTENBERG_IDS_FILE = Path("data/meta/gutenberg_ids.txt")
+OER_MANIFEST = Path("data/meta/oer_sources.json")
 DEFAULT_SIMPLE_WIKI_URL = (
     "https://dumps.wikimedia.org/simplewiki/latest/"
     "simplewiki-latest-pages-articles.xml.bz2"
@@ -24,6 +27,8 @@ def ensure_dirs() -> None:
     """Ensure expected raw corpus directories exist."""
     GUTENBERG_DIR.mkdir(parents=True, exist_ok=True)
     SIMPLE_WIKI_DIR.mkdir(parents=True, exist_ok=True)
+    (RAW_ROOT / "openstax").mkdir(parents=True, exist_ok=True)
+    (RAW_ROOT / "ck12").mkdir(parents=True, exist_ok=True)
 
 
 def download_gutenberg_subset(limit: int | None = None) -> None:
@@ -74,6 +79,52 @@ def download_simple_wiki_dump(dump_url: str | None = None) -> Path:
     return dest
 
 
+def download_oer_sources() -> None:
+    """Download OpenStax / CK-12 excerpts defined in the manifest."""
+    ensure_dirs()
+    if not OER_MANIFEST.exists():
+        LOGGER.info(
+            "OER manifest missing at %s; skipping OpenStax/CK-12 downloads.",
+            OER_MANIFEST,
+        )
+        return
+
+    try:
+        manifest = json.loads(OER_MANIFEST.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        LOGGER.error("Failed to parse %s: %s", OER_MANIFEST, exc)
+        return
+
+    sources = manifest.get("sources", [])
+    if not sources:
+        LOGGER.info("No sources listed in %s; nothing to download.", OER_MANIFEST)
+        return
+
+    for entry in sources:
+        url = entry.get("url")
+        source_id = (entry.get("source_id") or "oer").lower()
+        item_id = entry.get("id") or source_id
+        if not url:
+            LOGGER.warning("Skipping %s: missing URL in manifest.", item_id)
+            continue
+        filename = entry.get("filename") or f"{item_id}.txt"
+        dest_dir = RAW_ROOT / source_id
+        dest = dest_dir / filename
+        if dest.exists():
+            LOGGER.info("Skipping %s (already downloaded).", dest)
+            continue
+        LOGGER.info("Downloading %s from %s", item_id, url)
+        try:
+            if url.startswith("file://"):
+                _copy_local_file(Path(url[7:]), dest)
+            elif url.startswith("/"):
+                _copy_local_file(Path(url), dest)
+            else:
+                _download_file(url, dest)
+        except (requests.RequestException, OSError) as exc:
+            LOGGER.error("Failed to download %s: %s", url, exc)
+
+
 def _iter_gutenberg_ids(limit: int | None) -> Iterator[int]:
     if not GUTENBERG_IDS_FILE.exists():
         return
@@ -121,3 +172,10 @@ def _download_file(url: str, dest: Path, chunk_size: int = 1 << 14) -> None:
                 if chunk:
                     handle.write(chunk)
         tmp_path.replace(dest)
+
+
+def _copy_local_file(src: Path, dest: Path) -> None:
+    if not src.exists():
+        raise FileNotFoundError(f"Source file not found: {src}")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dest)

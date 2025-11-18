@@ -22,6 +22,7 @@ def corpus_download(gutenberg_limit: int | None) -> None:
     download.ensure_dirs()
     download.download_gutenberg_subset(limit=gutenberg_limit)
     download.download_simple_wiki_dump()
+    download.download_oer_sources()
 
 
 @corpus_group.command("normalize")

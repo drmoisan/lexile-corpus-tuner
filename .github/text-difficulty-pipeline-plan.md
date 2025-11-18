@@ -121,6 +121,16 @@ Constraints:
   * Use the helper script `scripts/extract_simple_wiki_dump.py` to turn the XML dump into
     JSONL articles under `data/corpus/raw/simple_wiki/` so the normalizer can ingest them.
 
+* **OpenStax + CK-12 OER conversions**:
+
+  * Convert open-licensed textbooks (OpenStax, CK-12) into plain-text excerpts.
+  * List each excerpt in `data/meta/oer_sources.json` with `id`, `source_id` (e.g.,
+    `openstax`, `ck12`), and a direct URL (or file path) pointing to the `.txt` export.
+  * The corpus download command will fetch every entry from this manifest into
+    `data/corpus/raw/<source_id>/`.
+  * Keep these sources weighted higher in `corpus_sources.json` to counterbalance
+    classic prose.
+
 * **Gutenberg ID bootstrapping**:
 
   * Run `python scripts/build_gutenberg_id_list.py` to generate
@@ -244,6 +254,51 @@ Requirements:
 * Filter to namespace 0 (main articles) and skip redirects.
 * Keep the script idempotent (overwrites output) and log counts.
 
+### 3.3 OpenStax / CK-12 manifest download
+
+Add a helper that reads `data/meta/oer_sources.json` and pulls every listed plain-text
+excerpt into `data/corpus/raw/<source_id>/`:
+
+```python
+OER_MANIFEST = Path("data/meta/oer_sources.json")
+
+def download_oer_sources() -> None:
+    """Fetch OER sources defined in the manifest."""
+    ...
+```
+
+Manifest structure:
+
+```json
+{
+  "sources": [
+    {
+      "id": "openstax_physics_ch01",
+      "source_id": "openstax",
+      "url": "https://example.com/openstax_physics_ch01.txt",
+      "filename": "physics_ch01.txt",
+      "notes": "Plain-text export of OpenStax Physics Chapter 1"
+    },
+    {
+      "id": "ck12_earth_science_ch05",
+      "source_id": "ck12",
+      "url": "https://example.com/ck12_earth_science_ch05.txt"
+    }
+  ]
+}
+```
+
+See `examples/meta/oer_sources.example.json` for a starter template you can copy into
+`data/meta/oer_sources.json`.
+
+Implementation requirements:
+
+* Download each entry exactly once (skip existing files, log successes).
+* Allow local `file://` or relative paths (treat them as already-downloaded and copy
+  into the raw directory).
+* Gracefully skip the manifest if it doesn’t exist so users can onboard sources
+  incrementally.
+
 ---
 
 ## IV. Normalization & Tokenization
@@ -347,14 +402,15 @@ Implementation outline:
 2. Implement helper(s):
 
    ```python
-   def iter_raw_texts() -> Iterator[tuple[str, str, str]]:
-       """
-       Yields (source_id, text_id, raw_text).
+def iter_raw_texts() -> Iterator[tuple[str, str, str]]:
+    """
+    Yields (source_id, text_id, raw_text).
 
-       - Scan RAW_ROOT/'gutenberg' for *.txt -> ('gutenberg_child' or 'gutenberg_other', 'gutenberg-<id>', text)
-       - Scan RAW_ROOT/'simple_wiki' for extracted articles -> ('simple_wiki', 'simple_wiki-<id>', text)
-       """
-       ...
+    - Scan RAW_ROOT/'gutenberg' for *.txt -> ('gutenberg_child' or 'gutenberg_other', 'gutenberg-<id>', text)
+    - Scan RAW_ROOT/'simple_wiki' for extracted articles -> ('simple_wiki', 'simple_wiki-<id>', text)
+    - Scan RAW_ROOT/'openstax' and RAW_ROOT/'ck12' for '*.txt' files -> ('openstax', 'openstax-<id>', text)
+    """
+    ...
    ```
 
 3. For each `(source_id, text_id, raw_text)`:
@@ -1465,18 +1521,20 @@ After fitting:
 ### 17.1 Build or update corpus
 
 ```bash
-# 1) Download sources
+# 1) (Optional) Update data/meta/oer_sources.json with OpenStax / CK-12 excerpts
+
+# 2) Download sources
 lexile-corpus-tuner corpus download --gutenberg-limit 200   # example limit
 
-# 2) (Optional) Convert Simple Wiki dump into JSONL articles
+# 3) (Optional) Convert Simple Wiki dump into JSONL articles
 python scripts/extract_simple_wiki_dump.py \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 
-# 3) Normalize and shard
+# 4) Normalize and shard
 lexile-corpus-tuner corpus normalize --shard-size-tokens 100000
 
-# 4) Compute frequency table
+# 5) Compute frequency table
 lexile-corpus-tuner corpus frequencies
 ```
 
