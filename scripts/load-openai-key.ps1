@@ -28,6 +28,10 @@ param(
     [switch]$PrintOnly
 )
 
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    $PSStyle.OutputRendering = 'PlainText'
+}
+
 function Write-ErrorAndExit {
     param([string]$Message)
     Write-Error $Message
