@@ -15,6 +15,7 @@ SHARDS_ROOT = NORMALIZED_ROOT / "shards"
 SUMMARY_PATH = NORMALIZED_ROOT / "normalized_summary.json"
 
 LOGGER = logging.getLogger(__name__)
+OER_SOURCE_DIRS = ("openstax", "ck12")
 
 
 @dataclass(slots=True)
@@ -83,6 +84,7 @@ def iter_raw_texts() -> Iterator[Tuple[str, str, str]]:
     """Yield (source_id, text_id, raw_text) tuples for every available source."""
     yield from _iter_gutenberg_texts()
     yield from _iter_simple_wiki_texts()
+    yield from _iter_oer_texts()
 
 
 def _iter_gutenberg_texts() -> Iterator[Tuple[str, str, str]]:
@@ -111,6 +113,25 @@ def _iter_simple_wiki_texts() -> Iterator[Tuple[str, str, str]]:
             continue
         text_id = f"simple_wiki-{path.stem}"
         yield "simple_wiki", text_id, text
+
+    for path in sorted(base_dir.rglob("*.jsonl")):
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for idx, line in enumerate(handle):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    text = record.get("text") or record.get("content")
+                    if not text:
+                        continue
+                    text_id = record.get("id") or f"{path.stem}-{idx}"
+                    yield "simple_wiki", f"simple_wiki-{text_id}", str(text)
+        except OSError:
+            continue
 
     for path in sorted(base_dir.rglob("*.jsonl")):
         try:
@@ -172,3 +193,35 @@ def _write_summary(shards: list[NormalizedShardMeta]) -> None:
     }
     SUMMARY_PATH.parent.mkdir(parents=True, exist_ok=True)
     SUMMARY_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+
+def _iter_oer_texts() -> Iterator[Tuple[str, str, str]]:
+    for source in OER_SOURCE_DIRS:
+        base_dir = RAW_ROOT / source
+        if not base_dir.exists():
+            continue
+        for path in sorted(base_dir.rglob("*.txt")):
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            text_id = f"{source}-{path.stem}"
+            yield source, text_id, text
+        for path in sorted(base_dir.rglob("*.jsonl")):
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    for idx, line in enumerate(handle):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            record = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        text = record.get("text") or record.get("content")
+                        if not text:
+                            continue
+                        text_id = record.get("id") or f"{path.stem}-{idx}"
+                        yield source, f"{source}-{text_id}", str(text)
+            except OSError:
+                continue

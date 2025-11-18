@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "id": "openstax_physics_ch01",
+      "source_id": "openstax",
+      "url": "https://example.org/openstax_physics_ch01.txt",
+      "filename": "physics_ch01.txt",
+      "notes": "Plain-text export of an OpenStax Physics chapter."
+    },
+    {
+      "id": "ck12_earth_science_ch05",
+      "source_id": "ck12",
+      "url": "https://example.org/ck12_earth_science_ch05.txt",
+      "notes": "CK-12 Earth Science excerpt; defaults to ck12_earth_science_ch05.txt."
+    }
+  ],
+  "notes": "Replace URLs above with your own OER plain-text exports before running the corpus downloader."
+}
