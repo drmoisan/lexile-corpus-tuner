@@ -52,3 +52,9 @@ htmlcov/
 Thumbs.db
 # Script artifacts
 artifacts/
+
+# Generated data artifacts
+data/corpus/
+data/freq/
+data/calibration/
+data/model/
