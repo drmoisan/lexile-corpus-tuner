@@ -2,7 +2,7 @@ from lexile_corpus_tuner.config import LexileTunerConfig
 from lexile_corpus_tuner.estimators.base import LexileEstimator
 from lexile_corpus_tuner.models import Document
 from lexile_corpus_tuner.pipeline import process_document
-from lexile_corpus_tuner.rewriting import NoOpRewriter, Rewriter
+from lexile_corpus_tuner.rewriting import NoOpRewriter, Rewriter, RewriteRequest
 
 
 class ThresholdEstimator(LexileEstimator):
@@ -16,11 +16,18 @@ class ThresholdEstimator(LexileEstimator):
 
 
 class SimpleRewriter(Rewriter):
-    def rewrite(self, text: str, target_lexile: float) -> str:  # pragma: no cover - trivial
-        return text.replace("complex", "simple")
+    def __init__(self) -> None:
+        self.requests: list[RewriteRequest] = []
+
+    def rewrite(
+        self, request: RewriteRequest
+    ) -> str:  # pragma: no cover - simple logic
+        self.requests.append(request)
+        return request.text.replace("complex", "simple")
 
 
 def test_process_document_without_rewrite():
+    """Pipeline leaves document unchanged when rewriting is disabled."""
     doc = Document(doc_id="doc", text="Short friendly sentences keep things easy.")
     config = LexileTunerConfig(
         window_size=50,
@@ -31,7 +38,9 @@ def test_process_document_without_rewrite():
         avg_tolerance=100,
     )
     estimator = ThresholdEstimator(trigger="impossible")
-    final_doc, stats, violations = process_document(doc, config, estimator, NoOpRewriter())
+    final_doc, stats, violations = process_document(
+        doc, config, estimator, NoOpRewriter()
+    )
 
     assert final_doc.text == doc.text
     assert stats.max_lexile == stats.avg_lexile == 300
@@ -39,6 +48,7 @@ def test_process_document_without_rewrite():
 
 
 def test_process_document_with_simple_rewrite():
+    """Simple rewriter reduces lexile violations by replacing terms."""
     doc = Document(
         doc_id="doc",
         text="This is a complex sentence that should become simpler after rewriting.",
@@ -53,8 +63,11 @@ def test_process_document_with_simple_rewrite():
         avg_tolerance=200,
     )
     estimator = ThresholdEstimator(trigger="complex", high=600, low=300)
-    final_doc, stats, violations = process_document(doc, config, estimator, SimpleRewriter())
+    rewriter = SimpleRewriter()
+    final_doc, stats, violations = process_document(doc, config, estimator, rewriter)
 
     assert "complex" not in final_doc.text
     assert stats.max_lexile <= config.max_window_lexile
     assert not any(v.window_id >= 0 for v in violations)
+    assert rewriter.requests, "rewriter should be invoked at least once"
+    assert rewriter.requests[0].doc_id == doc.doc_id

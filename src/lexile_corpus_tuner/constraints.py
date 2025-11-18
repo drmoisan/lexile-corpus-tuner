@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from typing import List
-
 from .config import LexileTunerConfig
-from .models import ConstraintViolation, DocumentLexileStats, WindowScore
+from .models import ConstraintViolation, DocumentLexileStats
 
 
 def find_violations(
     doc_stats: DocumentLexileStats, config: LexileTunerConfig
-) -> List[ConstraintViolation]:
+) -> list[ConstraintViolation]:
     """Identify window and document-level Lexile violations."""
-    violations: List[ConstraintViolation] = []
+    violations: list[ConstraintViolation] = []
 
     for score in doc_stats.window_scores:
         if score.lexile > config.max_window_lexile:
@@ -45,6 +43,6 @@ def find_violations(
     return violations
 
 
-def has_hard_window_violations(violations: List[ConstraintViolation]) -> bool:
+def has_hard_window_violations(violations: list[ConstraintViolation]) -> bool:
     """Return True if any violation references a specific window."""
     return any(v.window_id >= 0 for v in violations)

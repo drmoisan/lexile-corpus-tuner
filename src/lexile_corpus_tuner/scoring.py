@@ -7,7 +7,9 @@ from .estimators import LexileEstimator
 from .models import DocumentLexileStats, Window, WindowScore
 
 
-def score_windows(windows: List[Window], estimator: LexileEstimator) -> List[WindowScore]:
+def score_windows(
+    windows: List[Window], estimator: LexileEstimator
+) -> List[WindowScore]:
     """Score each window using the provided estimator."""
     scores: List[WindowScore] = []
     for window in windows:
@@ -16,7 +18,9 @@ def score_windows(windows: List[Window], estimator: LexileEstimator) -> List[Win
     return scores
 
 
-def smooth_window_lexiles(window_scores: List[WindowScore], kernel_size: int) -> List[float]:
+def smooth_window_lexiles(
+    window_scores: List[WindowScore], kernel_size: int
+) -> List[float]:
     """
     Apply a moving average smoothing across window Lexile values.
     kernel_size <= 1 simply returns the raw lexiles.
@@ -38,7 +42,9 @@ def smooth_window_lexiles(window_scores: List[WindowScore], kernel_size: int) ->
     return smoothed
 
 
-def compute_document_stats(all_window_scores: List[WindowScore]) -> List[DocumentLexileStats]:
+def compute_document_stats(
+    all_window_scores: List[WindowScore],
+) -> List[DocumentLexileStats]:
     """Group window scores by document and compute aggregate Lexile statistics."""
     grouped: Dict[str, List[WindowScore]] = defaultdict(list)
     for score in all_window_scores:

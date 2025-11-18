@@ -4,6 +4,7 @@ from lexile_corpus_tuner.windowing import create_windows
 
 
 def test_create_windows_overlaps_correctly():
+    """Window creation honors window size and stride overlap semantics."""
     doc = Document(doc_id="test", text="one two three four five six")
     tokens = tokenize_words(doc.text)
     windows = create_windows(doc, tokens, window_size=4, stride=2)
