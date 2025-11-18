@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import Dict, List, Tuple, TypedDict
-import shutil
-import subprocess
 
+import click
 import typer
 import yaml
 
+from .analyzer.cli import analyze_group as analyzer_pipeline_group
+from .calibration.cli import calibration_group
 from .config import LexileTunerConfig, OpenAISettings, load_config
+from .corpus.cli import corpus_group
 from .epub import EPUBParseError, extract_text_from_epub
 from .estimators import build_estimator_from_config
 from .llm import OpenAIRewriteClient
@@ -545,6 +549,16 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
         return None
     os.environ[env_name] = secret
     return secret
+
+
+@click.group(name="text-difficulty")
+def text_difficulty_cli() -> None:
+    """Lexile-faithful text difficulty pipeline CLI."""
+
+
+text_difficulty_cli.add_command(corpus_group)
+text_difficulty_cli.add_command(analyzer_pipeline_group)
+text_difficulty_cli.add_command(calibration_group)
 
 
 if __name__ == "__main__":

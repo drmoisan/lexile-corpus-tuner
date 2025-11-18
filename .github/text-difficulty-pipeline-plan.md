@@ -118,6 +118,14 @@ Constraints:
 * **Simple English Wikipedia**:
 
   * Entire Simple English Wikipedia dump; edited informational text with simplified vocab.
+  * Use the helper script `scripts/extract_simple_wiki_dump.py` to turn the XML dump into
+    JSONL articles under `data/corpus/raw/simple_wiki/` so the normalizer can ingest them.
+
+* **Gutenberg ID bootstrapping**:
+
+  * Run `python scripts/build_gutenberg_id_list.py` to generate
+    `data/meta/gutenberg_ids.txt` (strictly English by default). This keeps the downloader
+    reproducible and lets you curate/limit the catalog.
 
 **Tier B – General edited English (to fill out tails)**
 
@@ -154,6 +162,10 @@ Create:
 File: `data/meta/corpus_sources.json`.
 
 Codex SHOULD keep this machine-readable; you can add more sources as needed.
+
+**Weighting note:** The `weight` field is honored downstream when computing word
+frequencies. Use it to intentionally downweight sources with archaic language (e.g.,
+classic Gutenberg fiction) and boost contemporary informational texts.
 
 ---
 
@@ -214,6 +226,23 @@ Implementation details:
 * Use HTTP download via `requests` or `urllib` (Codex to implement).
 * Use idempotent behavior: if target file exists, skip download.
 * Log meaningful progress steps.
+
+### 3.2 Simple Wiki extraction helper
+
+After downloading the XML dump, run a helper script that converts it into JSONL articles:
+
+```bash
+python scripts/extract_simple_wiki_dump.py \
+  --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
+  --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
+```
+
+Requirements:
+
+* Stream the dump with `bz2` + `xml.etree.ElementTree.iterparse`.
+* Emit one JSON object per article containing `{"id": ..., "title": ..., "text": ...}`.
+* Filter to namespace 0 (main articles) and skip redirects.
+* Keep the script idempotent (overwrites output) and log counts.
 
 ---
 
@@ -1439,10 +1468,15 @@ After fitting:
 # 1) Download sources
 lexile-corpus-tuner corpus download --gutenberg-limit 200   # example limit
 
-# 2) Normalize and shard
+# 2) (Optional) Convert Simple Wiki dump into JSONL articles
+python scripts/extract_simple_wiki_dump.py \
+  --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
+  --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
+
+# 3) Normalize and shard
 lexile-corpus-tuner corpus normalize --shard-size-tokens 100000
 
-# 3) Compute frequency table
+# 4) Compute frequency table
 lexile-corpus-tuner corpus frequencies
 ```
 

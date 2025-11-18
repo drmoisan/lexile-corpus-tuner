@@ -7,8 +7,8 @@ from typing import Any, Callable, Mapping, cast
 import numpy as np
 
 from .base import LexileEstimator
+from .lexile_v2_preprocessing import load_stopwords as load_lexile_stopwords
 from .lexile_v2_preprocessing import (
-    load_stopwords as load_lexile_stopwords,
     vectorize_with_lexile_pipeline,
 )
 
