@@ -14,7 +14,7 @@ from .models import (
     Window,
     WindowScore,
 )
-from .rewriting import Rewriter
+from .rewriting import Rewriter, RewriteRequest
 from .scoring import compute_document_stats, score_windows, smooth_window_lexiles
 from .tokenization import tokenize_words
 from .windowing import create_windows
@@ -36,9 +36,7 @@ def process_document(
 
     for _ in range(passes):
         tokens = tokenize_words(current_doc.text)
-        windows = create_windows(
-            current_doc, tokens, config.window_size, config.stride
-        )
+        windows = create_windows(current_doc, tokens, config.window_size, config.stride)
         window_scores = score_windows(windows, estimator)
         if config.smoothing_kernel_size > 1:
             smoothed = smooth_window_lexiles(
@@ -64,7 +62,19 @@ def process_document(
         if target_window is None:
             break
         span_text = get_window_span_text(current_doc, target_window, tokens)
-        rewritten = rewriter.rewrite(span_text, config.target_avg_lexile)
+        rewrite_request = RewriteRequest(
+            doc_id=current_doc.doc_id,
+            window_id=target_window.window_id,
+            text=span_text,
+            target_lexile=config.target_avg_lexile,
+            violation=worst_violation,
+            metadata={
+                "max_window_lexile": config.max_window_lexile,
+                "target_avg_lexile": config.target_avg_lexile,
+                "avg_tolerance": config.avg_tolerance,
+            },
+        )
+        rewritten = rewriter.rewrite(rewrite_request)
         current_doc = replace(
             current_doc,
             text=replace_window_span(current_doc, target_window, tokens, rewritten),
@@ -80,9 +90,9 @@ def process_corpus(
     rewriter: Rewriter,
 ) -> Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]]:
     """Process all documents and return the per-document outputs."""
-    results: Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]] = (
-        {}
-    )
+    results: Dict[
+        str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]
+    ] = {}
     for document in documents:
         results[document.doc_id] = process_document(
             document, config, estimator, rewriter
