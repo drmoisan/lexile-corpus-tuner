@@ -63,13 +63,22 @@ When enabling the estimator, set the following additional fields (paths should p
 
 ```yaml
 estimator_name: lexile_v2
-lexile_v2_model_path: /abs/path/to/model.h5
-lexile_v2_vectorizer_path: /abs/path/to/vectorizer.pkl
-lexile_v2_label_encoder_path: /abs/path/to/labels.pkl
+lexile_v2_model_path: examples/lexile_v2_artifacts/model.h5
+lexile_v2_vectorizer_path: examples/lexile_v2_artifacts/tokenizer.pickle
+lexile_v2_label_encoder_path: examples/lexile_v2_artifacts/labels.pickle
+lexile_v2_stopwords_path: examples/lexile_v2_artifacts/stopwords.pickle
 lexile_v2_band_to_midpoint:
   200-299: 250
   300-399: 350
 ```
+
+The repository bundles pre-trained artifacts from [Elizabeth Fawcett's lexile-determination-v2 project](https://github.com/eannefawcett/lexile-determination-v2) under `examples/lexile_v2_artifacts/`. They remain licensed under MIT per the upstream project (see `examples/lexile_v2_artifacts/LICENSE` for full text). Please credit the original author if you redistribute or build on these files.
+
+> **NLTK resources:** The preprocessing pipeline relies on NLTK's tokenizers and lemmatizer. After installing the `lexile-v2` extra, download the required corpora once per machine:
+>
+> ```bash
+> poetry run python -m nltk.downloader punkt punkt_tab wordnet averaged_perceptron_tagger omw-1.4
+> ```
 
 ## Examples
 

@@ -7,6 +7,10 @@ from typing import Any, Callable, Mapping, cast
 import numpy as np
 
 from .base import LexileEstimator
+from .lexile_v2_preprocessing import (
+    load_stopwords as load_lexile_stopwords,
+    vectorize_with_lexile_pipeline,
+)
 
 load_model: Any | None = None
 joblib: Any | None = None
@@ -30,6 +34,7 @@ class LexileDeterminationV2Estimator(LexileEstimator):
         model_path: str,
         vectorizer_path: str,
         label_encoder_path: str | None = None,
+        stopwords_path: str | None = None,
         band_to_midpoint: Mapping[str, float] | None = None,
     ) -> None:
         tf_load_model = _ensure_tensorflow()
@@ -43,8 +48,24 @@ class LexileDeterminationV2Estimator(LexileEstimator):
         # TODO: Ensure the load call matches how lexile-determination-v2 persists its model.
         self.model = tf_load_model(model_path)
         self.vectorizer = joblib_module.load(vectorizer_path)
-        self.label_encoder = (
+        label_payload = (
             joblib_module.load(label_encoder_path) if label_encoder_path else None
+        )
+        self._label_mapping: list[str] | None = None
+        if label_payload is not None and hasattr(label_payload, "inverse_transform"):
+            self.label_encoder = label_payload
+        elif label_payload is not None:
+            self.label_encoder = None
+            self._label_mapping = [str(value) for value in list(label_payload)]
+        else:
+            self.label_encoder = None
+        self._stopwords = (
+            load_lexile_stopwords(stopwords_path)
+            if stopwords_path is not None
+            else None
+        )
+        self._use_lexile_pipeline = bool(
+            self._stopwords and hasattr(self.vectorizer, "texts_to_matrix")
         )
         self._band_to_midpoint: dict[str, float] = dict(band_to_midpoint or {})
         # TODO: Populate default mapping when lexile-determination-v2 exposes class indices.
@@ -57,8 +78,7 @@ class LexileDeterminationV2Estimator(LexileEstimator):
         2. Running the classifier.
         3. Mapping the predicted class label to a scalar.
         """
-        vector = self.vectorizer.transform([text])
-        model_input = vector.toarray() if hasattr(vector, "toarray") else vector
+        model_input = self._preprocess_text(text)
         probabilities = self.model.predict(model_input, verbose=0)
 
         probs = probabilities[0] if probabilities.ndim > 1 else probabilities
@@ -74,6 +94,8 @@ class LexileDeterminationV2Estimator(LexileEstimator):
         if self.label_encoder is not None:
             decoded = self.label_encoder.inverse_transform([idx])
             return str(decoded[0])
+        if self._label_mapping is not None and 0 <= idx < len(self._label_mapping):
+            return self._label_mapping[idx]
 
         if idx in self._index_to_band:
             return self._index_to_band[idx]
@@ -82,6 +104,18 @@ class LexileDeterminationV2Estimator(LexileEstimator):
             "No label encoder provided and _index_to_band is empty. "
             "Provide a label encoder artifact or hard-code index mappings."
         )
+
+    def _preprocess_text(self, text: str) -> Any:
+        if self._use_lexile_pipeline:
+            matrix = vectorize_with_lexile_pipeline(
+                text, self.vectorizer, self._stopwords or []
+            )
+            array = np.asarray(matrix)
+            if array.ndim == 2:
+                array = np.expand_dims(array, axis=1)
+            return array
+        vector = self.vectorizer.transform([text])
+        return vector.toarray() if hasattr(vector, "toarray") else vector
 
     def _label_to_numeric_lexile(self, label: str) -> float:
         """

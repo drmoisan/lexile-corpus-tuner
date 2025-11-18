@@ -46,6 +46,7 @@ class LexileTunerConfig:
     lexile_v2_model_path: str | None = None
     lexile_v2_vectorizer_path: str | None = None
     lexile_v2_label_encoder_path: str | None = None
+    lexile_v2_stopwords_path: str | None = None
     lexile_v2_band_to_midpoint: dict[str, float] = field(
         default_factory=_default_band_midpoints
     )
