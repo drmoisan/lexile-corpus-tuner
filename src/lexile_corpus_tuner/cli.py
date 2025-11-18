@@ -5,6 +5,8 @@ import os
 from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import Dict, List, Tuple, TypedDict
+import shutil
+import subprocess
 
 import typer
 import yaml
@@ -40,6 +42,9 @@ def analyze(
     ),
     lexile_v2_label_encoder_path: Path | None = typer.Option(
         None, help="Path to lexile-determination-v2 label encoder."
+    ),
+    lexile_v2_stopwords_path: Path | None = typer.Option(
+        None, help="Path to lexile-determination-v2 stopwords list."
     ),
     rewrite_enabled: bool | None = typer.Option(
         None,
@@ -99,6 +104,7 @@ def analyze(
         lexile_v2_model_path,
         lexile_v2_vectorizer_path,
         lexile_v2_label_encoder_path,
+        lexile_v2_stopwords_path,
     )
     _apply_rewriter_overrides(
         cfg,
@@ -151,6 +157,9 @@ def rewrite(
     ),
     lexile_v2_label_encoder_path: Path | None = typer.Option(
         None, help="Path to lexile-determination-v2 label encoder."
+    ),
+    lexile_v2_stopwords_path: Path | None = typer.Option(
+        None, help="Path to lexile-determination-v2 stopwords list."
     ),
     rewrite_enabled: bool | None = typer.Option(
         None,
@@ -209,6 +218,7 @@ def rewrite(
         lexile_v2_model_path,
         lexile_v2_vectorizer_path,
         lexile_v2_label_encoder_path,
+        lexile_v2_stopwords_path,
     )
     _apply_rewriter_overrides(
         cfg,
@@ -285,16 +295,13 @@ def main() -> None:
     app()
 
 
-if __name__ == "__main__":
-    main()
-
-
 def _apply_estimator_overrides(
     config: LexileTunerConfig,
     estimator_name: str | None,
     model_path: Path | None,
     vectorizer_path: Path | None,
     label_encoder_path: Path | None,
+    stopwords_path: Path | None,
 ) -> None:
     """Apply CLI overrides to estimator-related config fields when provided."""
     if estimator_name:
@@ -306,6 +313,8 @@ def _apply_estimator_overrides(
         config.lexile_v2_vectorizer_path = str(vectorizer_path)
     if label_encoder_path:
         config.lexile_v2_label_encoder_path = str(label_encoder_path)
+    if stopwords_path:
+        config.lexile_v2_stopwords_path = str(stopwords_path)
 
 
 def _apply_rewriter_overrides(
@@ -496,6 +505,47 @@ def _resolve_openai_api_key(settings: OpenAISettings) -> str:
     # Fall back to reading the key at runtime so secrets need not live in config files.
     if env_name and env_name in os.environ:
         return os.environ[env_name]
+    if env_name:
+        script_key = _load_openai_key_from_script(env_name)
+        if script_key:
+            return script_key
     raise RuntimeError(
         "OpenAI API key not provided. Use --openai-api-key or set the configured environment variable."
     )
+
+
+def _load_openai_key_from_script(env_name: str) -> str | None:
+    """Attempt to invoke the local LastPass helper script to populate the API key on demand."""
+    script_path = (
+        Path(__file__).resolve().parents[2] / "scripts" / "load-openai-key.ps1"
+    )
+    if not script_path.exists():
+        return None
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if not shell:
+        return None
+    item_name = os.environ.get("OPENAI_KEY_ITEM", "Lexile OpenAI Key")
+    cmd = [
+        shell,
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_path),
+        "-ItemName",
+        item_name,
+        "-PrintOnly",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    secret = result.stdout.strip()
+    if not secret:
+        return None
+    os.environ[env_name] = secret
+    return secret
+
+
+if __name__ == "__main__":
+    main()

@@ -6,12 +6,13 @@ target_avg_lexile: 350
 avg_tolerance: 15
 max_passes: 2
 smoothing_kernel_size: 3
-estimator_name: dummy
+estimator_name: lexile_v2
 rewrite_enabled: false
 rewrite_model: null
-lexile_v2_model_path: null
-lexile_v2_vectorizer_path: null
-lexile_v2_label_encoder_path: null
+lexile_v2_model_path: examples/lexile_v2_artifacts/model.h5
+lexile_v2_vectorizer_path: examples/lexile_v2_artifacts/tokenizer.pickle
+lexile_v2_label_encoder_path: examples/lexile_v2_artifacts/labels.pickle
+lexile_v2_stopwords_path: examples/lexile_v2_artifacts/stopwords.pickle
 lexile_v2_band_to_midpoint: {}
 openai:
   enabled: false
