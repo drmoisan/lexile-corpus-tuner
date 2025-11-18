@@ -5,6 +5,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    $PSStyle.OutputRendering = 'PlainText'
+}
+
 # Force UTF-8 encoding
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     chcp 65001 > $null

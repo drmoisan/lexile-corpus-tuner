@@ -189,3 +189,23 @@ pytest --cov=lexile_corpus_tuner
 **Note:** Use `pytest` or `python -m pytest`, **not** `python -m test`. The latter runs Python's internal standard library test suite (480+ tests), which is unrelated to this project.
 
 The provided test suite covers tokenization, windowing, estimators, scoring + constraint logic, and pipeline orchestration.
+
+## Code statistics
+
+`cloc` is available as a dev dependency. Run it via Poetry with Git-aware filtering so files ignored by `.gitignore` are excluded automatically:
+
+```powershell
+pwsh ./scripts/run-cloc.ps1
+```
+
+```bash
+./scripts/run-cloc.sh
+```
+
+or directly:
+
+```bash
+./scripts/run-cloc.sh   # or use the PowerShell variant
+```
+
+The repository vendors the official [`cloc` 2.00](https://github.com/AlDanial/cloc) binaries (GPL-licensed) under `tools/`. The helper scripts route to those binaries/executables automatically, so no additional installation is required.

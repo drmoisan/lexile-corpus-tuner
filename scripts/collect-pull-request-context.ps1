@@ -21,6 +21,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    $PSStyle.OutputRendering = 'PlainText'
+}
+
 function Invoke-Git {
     param(
         [Parameter(Mandatory=$true)][string[]]$Args,
