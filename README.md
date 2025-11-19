@@ -7,6 +7,8 @@ Lexile Corpus Tuner now ships two complementary toolsets:
 
 Both layers share the same normalization/tokenization utilities so lexicon frequencies and analyzer features stay aligned.
 
+For a detailed, step-by-step build specification, see [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md).
+
 ---
 ## Features
 
@@ -20,7 +22,7 @@ Both layers share the same normalization/tokenization utilities so lexicon frequ
 - Analyzer/calibration stack: sentence segmentation, Lexile-style slice builder, MSL/MLF feature computation, regression inference, special-case adjustments, and calibration CLIs (`fetch-texts`, `build-dataset`, `fit`).
 
 ### In Process
-- Promoting the `.github/text-difficulty-pipeline-plan.md` content into first-class docs/README sections.
+- Promoting the `docs/text-difficulty-pipeline.md` content into first-class docs/README sections.
 - Adding more modern CC-BY/CC0 sources (NOAA/NASA/CDC/etc.) via manifest downloads.
 - Richer calibration diagnostics (per-band MAE/RMSE, residual plots, reporting).
 - Example calibration catalogs + staging instructions.
