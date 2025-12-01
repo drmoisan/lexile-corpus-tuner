@@ -1,0 +1,167 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Load OpenAI Key",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/load-openai-key.ps1",
+                "-ItemName",
+                "Lexile OpenAI Key"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run cloc (PowerShell)",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/run-cloc.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run cloc (Bash)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/scripts/run-cloc.sh"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Black: format",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "black", "."],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Ruff: lint",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "ruff", "check"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Ruff: fix",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "ruff", "check", "--fix"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Pyright: type-check",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "pyright"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Pytest: run tests",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "pytest"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Pytest: run tests with coverage",
+            "type": "shell",
+            "command": "poetry",
+            "args": ["run", "pytest", "--cov=src/lexile_corpus_tuner", "--cov-report=term-missing"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Run All Checks",
+            "dependsOn": [
+                "Black: format",
+                "Ruff: lint",
+                "Pyright: type-check",
+                "Pytest: run tests"
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Fix All",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/fix-all.ps1"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        }
+    ]
+}
