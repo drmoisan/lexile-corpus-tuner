@@ -1,5 +1,15 @@
 # Lexile-Faithful Text Difficulty Pipeline
 
+## Implementation Status
+✅ **All modules and CLI commands specified in this document have been implemented.**
+
+- **Corpus Layer**: ✅ Implemented (Download, Normalize, Frequencies)
+- **Analyzer Layer**: ✅ Implemented (Slices, Features, Adjustments)
+- **Calibration Layer**: ✅ Implemented (Fetch Texts, Build Dataset, Fit Model)
+- **CLI**: ✅ Implemented (`text-difficulty-pipeline` with `corpus`, `analyze`, `calibration` subcommands)
+
+---
+
 This document specifies a **Lexile-faithful text difficulty pipeline** for your `lexile-corpus-tuner` project, aligned as closely as practical with the MetaMetrics / Lexile approach, and integrated with a regression calibration layer that uses **official Lexile measures for known texts** as ground truth (rather than `lexile-determination-v2`).
 
 It is designed so Codex (or any codegen agent) can implement it module-by-module.
@@ -21,7 +31,7 @@ High-level layers:
 
 ---
 
-## I. Objectives and Overview
+## ✅ I. Objectives and Overview
 
 ### 1.1 What we are replicating from the Lexile framework
 
@@ -70,7 +80,7 @@ We mirror this with three layers:
 
 ---
 
-## II. Corpus Builder (Proxy MetaMetrics Corpus)
+## ✅ II. Corpus Builder (Proxy MetaMetrics Corpus)
 
 The goal is not an exact replica of the MetaMetrics corpus but a **large, reasonably school-like English corpus** that supports stable word frequency estimation.
 
@@ -179,7 +189,7 @@ classic Gutenberg fiction) and boost contemporary informational texts.
 
 ---
 
-## III. Corpus Download Module
+## ✅ III. Corpus Download Module
 
 Create:
 
@@ -301,7 +311,7 @@ Implementation requirements:
 
 ---
 
-## IV. Normalization & Tokenization
+## ✅ IV. Normalization & Tokenization
 
 ### 4.1 Shared text utilities
 
@@ -357,7 +367,7 @@ This is critical to keep MLF consistent.
 
 ---
 
-## V. Normalization & Sharding (Corpus)
+## ✅ V. Normalization & Sharding (Corpus)
 
 ### 5.1 Normalized shards
 
@@ -463,7 +473,7 @@ def iter_raw_texts() -> Iterator[tuple[str, str, str]]:
 
 ---
 
-## VI. Frequency Computation (Corpus)
+## ✅ VI. Frequency Computation (Corpus)
 
 ### 6.1 Frequencies module
 
@@ -538,7 +548,7 @@ Implementation details:
 
 ---
 
-## VII. Frequency Loader (Analyzer-side)
+## ✅ VII. Frequency Loader (Analyzer-side)
 
 Create:
 
@@ -582,7 +592,7 @@ You can extend this later with caching or more sophisticated data structures.
 
 ---
 
-## VIII. Lexile-Style Analyzer
+## ✅ VIII. Lexile-Style Analyzer
 
 Create:
 
@@ -817,7 +827,7 @@ def compute_document_features(slices: list[Slice]) -> DocumentFeatures:
 
 ---
 
-## IX. Special-Case Adjustments
+## ✅ IX. Special-Case Adjustments
 
 Create:
 
@@ -853,7 +863,7 @@ For now, pass flags via CLI options (`--picture-book`, `--emergent-nonfiction`) 
 
 ---
 
-## X. Regression Calibration Against Official Lexile Measures
+## ✅ X. Regression Calibration Against Official Lexile Measures
 
 The analyzer yields **DocumentFeatures** (MSL, MLF, etc.). To convert these into a Lexile-like number, we fit a regression model using **official Lexile measures from known texts** as targets, *not* `lexile-determination-v2`.
 
@@ -1103,7 +1113,7 @@ def make_regression_features(doc: DocumentFeatures) -> dict[str, float]:
 The calibration dataset builder should call this function so **train and inference share the exact same feature definition**.
 
 
-## XI. Regression Training Pipeline
+## ✅ XI. Regression Training Pipeline
 
 ### 11.1 Base model choice
 
@@ -1199,7 +1209,7 @@ You can add K-fold CV later to refine `alpha` and `l1_ratio`.
 
 ---
 
-## XII. Model Storage & Runtime Inference
+## ✅ XII. Model Storage & Runtime Inference
 
 ### 12.1 JSON model spec and model_store
 
@@ -1312,7 +1322,7 @@ At runtime, your pipeline will:
 
 ---
 
-## XIII. Calibration CLI
+## ✅ XIII. Calibration CLI
 
 Create `calibration/cli.py`:
 
@@ -1368,7 +1378,7 @@ main.add_command(calibration_group)
 
 ---
 
-## XIV. Analyzer CLI
+## ✅ XIV. Analyzer CLI
 
 In `analyzer/cli.py`:
 
@@ -1445,7 +1455,7 @@ def analyze_text(input_file: str, json_output: str | None, picture_book: bool, e
 
 ---
 
-## XV. Corpus CLI
+## ✅ XV. Corpus CLI
 
 In `corpus/cli.py`:
 
@@ -1481,7 +1491,7 @@ def corpus_frequencies() -> None:
 
 ---
 
-## XVI. Guardrails & Diagnostics
+## ✅ XVI. Guardrails & Diagnostics
 
 ### 16.1 Data quality for calibration
 
@@ -1516,7 +1526,7 @@ After fitting:
 
 ---
 
-## XVII. End-to-End Workflows
+## ✅ XVII. End-to-End Workflows
 
 ### 17.1 Build or update corpus
 
