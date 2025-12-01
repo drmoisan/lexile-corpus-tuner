@@ -4,9 +4,12 @@ import argparse
 import bz2
 import json
 import sys
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # noqa: S314
 from pathlib import Path
-from typing import IO, Iterator
+from typing import IO, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 NAMESPACE = "{http://www.mediawiki.org/xml/export-0.10/}"
 
@@ -18,7 +21,7 @@ def open_dump(path: Path) -> IO[bytes]:
 
 
 def iter_articles(stream: IO[bytes]) -> Iterator[dict[str, str | int]]:
-    context = ET.iterparse(stream, events=("end",))
+    context = ET.iterparse(stream, events=("end",))  # noqa: S314
     for _, elem in context:
         if elem.tag != f"{NAMESPACE}page":
             continue

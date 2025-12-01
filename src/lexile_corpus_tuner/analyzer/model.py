@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ..calibration.featureset import make_regression_features
-from ..calibration.model_store import load_model_spec
-from .features import DocumentFeatures
+from lexile_corpus_tuner.calibration.featureset import make_regression_features
+from lexile_corpus_tuner.calibration.model_store import load_model_spec
+
+if TYPE_CHECKING:
+    from .features import DocumentFeatures
 
 MODEL_PATH = Path("data/model/lexile_regression_model.json")
 
@@ -33,7 +36,7 @@ def estimate_lexile_from_features(features: DocumentFeatures) -> float:
         raise ValueError("Model spec coefficients/features mismatch.")
 
     y_hat = intercept
-    for coef, feature_name in zip(coefficients, feature_names):
+    for coef, feature_name in zip(coefficients, feature_names, strict=False):
         value = float(feat_dict.get(feature_name, 0.0))
         y_hat += float(coef) * value
     return float(y_hat)

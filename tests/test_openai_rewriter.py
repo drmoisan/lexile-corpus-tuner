@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from pytest import MonkeyPatch
-
 from lexile_corpus_tuner.config import OpenAISettings
 from lexile_corpus_tuner.llm import openai_client as oa_client
 from lexile_corpus_tuner.rewriting import OpenAIRewriter, RewriteRequest
+from pytest import MonkeyPatch
 
 
 def test_openai_rewriter_builds_prompts() -> None:

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List
 
-from ..textutils import iter_tokens
+from lexile_corpus_tuner.textutils import iter_tokens
 
 SENTENCE_END_RE = re.compile(r"[.?!;]")
 
@@ -17,7 +16,7 @@ class Slice:
     sentence_lengths: list[int]
 
 
-def split_into_sentences(text: str) -> List[str]:
+def split_into_sentences(text: str) -> list[str]:
     """Split text into sentences using a simple punctuation-based heuristic."""
     if not text:
         return []

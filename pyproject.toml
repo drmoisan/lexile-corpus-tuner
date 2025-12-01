@@ -33,7 +33,7 @@ openai = { version = ">=1.40.0", optional = true }
 pytest = ">=7.0"
 pytest-cov = ">=7.0"
 black = ">=23.0"
-isort = ">=5.0"
+ruff = "^0.1.0"
 pyright = "^1.1.407"
 openai = "^2.8.0"
 
@@ -47,12 +47,44 @@ text-difficulty-pipeline = "lexile_corpus_tuner.cli:text_difficulty_cli"
 
 [tool.black]
 line-length = 88
-target-version = ["py310"]
+target-version = ["py312"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+fix = true
+show-fixes = true
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "S",    # flake8-bandit (security)
+    "TID",  # flake8-tidy-imports
+    "TCH",  # flake8-type-checking
+]
+per-file-ignores = { "tests/**/*" = ["S101"], "src/lexile_corpus_tuner/cli.py" = ["B008"] }
 
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra"
 testpaths = ["tests"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+diagnosticMode = "workspace"
+reportMissingTypeArgument = "none"
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+exclude = [
+  "**/__pycache__",
+  ".idea",
+  ".ruff_cache",
+  ".venv",
+  "build",
+  "dist"
+]

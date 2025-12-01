@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, cast
+from typing import Any, cast
 
 import yaml
 

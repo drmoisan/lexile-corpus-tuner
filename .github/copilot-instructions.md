@@ -1,5 +1,7 @@
 # Canonical Instructions
 
+> **Note:** This document defines the project's domain model, architecture, and functional requirements. For coding standards, testing policies, and development workflow, see [`docs/code-change.instructions.md`](../docs/code-change.instructions.md).
+
 ## 1. Project Overview
 
 1.1 **Project Name (working)**
@@ -42,16 +44,19 @@
 
 2.2 **Core Dependencies (minimal)**
 
-* `click` or `typer` for CLI (pick one and use consistently).
-* `pydantic` or `dataclasses` (dataclasses for core, Pydantic for config if useful).
+* `typer` for CLI.
+* `dataclasses` for core domain models.
 * `pytest` for tests.
 * **Optional / pluggable**: any ML or NLP libs needed for the Lexile estimator (e.g., `scikit-learn`, `tensorflow`, etc.), but these should be isolated in a dedicated module.
 
 2.3 **Code Quality**
 
-* Use **type hints** everywhere.
-* Use `black` + `isort` style (document in README).
-* Use docstrings with clear descriptions of arguments, returns, and behavior.
+* See [`docs/code-change.instructions.md`](../docs/code-change.instructions.md) for comprehensive coding standards, including:
+  * Formatting with **Black**
+  * Linting with **Ruff**
+  * Type checking with **Pyright**
+  * Testing with **Pytest**
+  * Documentation standards
 
 2.4 **Packaging & Layout**
 

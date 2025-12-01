@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import pickle
 import re
+from collections.abc import Callable, Iterable, Sequence
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence, Tuple, cast
+from typing import Any, cast
 
 _ALPHA_PATTERN = re.compile(r"[A-Za-z]")
 _nltk_cache: (
@@ -21,11 +22,11 @@ _nltk_cache: (
 def load_stopwords(path: str | Path) -> list[str]:
     """Load the serialized stopword list shipped with lexile-determination-v2."""
     data = _load_pickle(path)
-    if isinstance(data, (list, tuple, set)):
-        sequence = cast(Iterable[Any], data)
+    if isinstance(data, list | tuple | set):
+        sequence = cast("Iterable[Any]", data)
         return [str(item) for item in sequence]
     if isinstance(data, dict):
-        keys_iterable = cast(Iterable[Any], data.keys())
+        keys_iterable = cast("Iterable[Any]", data.keys())
         return [str(key) for key in keys_iterable]
     if isinstance(data, str):
         return data.splitlines()
@@ -48,7 +49,7 @@ def vectorize_with_lexile_pipeline(
 
 def _load_pickle(path: str | Path) -> Any:
     with Path(path).open("rb") as fh:
-        return pickle.load(fh)
+        return pickle.load(fh)  # noqa: S301  # Trusted model artifact
 
 
 def _segment_text(text: str, stopwords: Sequence[str]) -> list[str]:
@@ -59,12 +60,13 @@ def _segment_text(text: str, stopwords: Sequence[str]) -> list[str]:
     except ValueError:
         raw_segments = [text]
     if isinstance(raw_segments, tuple):
-        # TextTilingTokenizer may return a tuple; the first element contains the segments.
-        candidates_iterable = cast(Iterable[Any], raw_segments[0])
+        # TextTilingTokenizer may return a tuple; the first element
+        # contains the segments.
+        candidates_iterable = cast("Iterable[Any]", raw_segments[0])
     elif isinstance(raw_segments, str):
         return [raw_segments]
     else:
-        candidates_iterable = cast(Iterable[Any], raw_segments)
+        candidates_iterable = cast("Iterable[Any]", raw_segments)
     return [str(segment) for segment in candidates_iterable]
 
 
@@ -84,7 +86,7 @@ def _lemmatize_segments(segments: Iterable[str]) -> list[str]:
     return lemmas
 
 
-def _ensure_nltk_dependencies() -> Tuple[
+def _ensure_nltk_dependencies() -> tuple[
     type[Any],
     type[Any],
     Callable[..., list[str]],
@@ -100,10 +102,10 @@ def _ensure_nltk_dependencies() -> Tuple[
                 "nltk is required for the lexile_v2 preprocessing pipeline. "
                 "Install the 'lexile-v2' extra (e.g., `pip install .[lexile-v2]`)."
             ) from exc
-        WordNetLemmatizer = getattr(stem_module, "WordNetLemmatizer")
-        TextTilingTokenizer = getattr(tokenize_module, "TextTilingTokenizer")
-        sent_tokenize = getattr(tokenize_module, "sent_tokenize")
-        word_tokenize = getattr(tokenize_module, "word_tokenize")
+        WordNetLemmatizer = stem_module.WordNetLemmatizer
+        TextTilingTokenizer = tokenize_module.TextTilingTokenizer
+        sent_tokenize = tokenize_module.sent_tokenize
+        word_tokenize = tokenize_module.word_tokenize
         _nltk_cache = (
             WordNetLemmatizer,
             TextTilingTokenizer,

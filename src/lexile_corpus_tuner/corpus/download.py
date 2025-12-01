@@ -5,9 +5,12 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 import requests
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 RAW_ROOT = Path("data/corpus/raw")
 GUTENBERG_DIR = RAW_ROOT / "gutenberg"

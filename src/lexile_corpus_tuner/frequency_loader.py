@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
 
 
 @dataclass(slots=True)
@@ -14,7 +13,7 @@ class WordFrequency:
     rank: int
 
 
-def load_frequency_table(path: Path | None = None) -> Dict[str, WordFrequency]:
+def load_frequency_table(path: Path | None = None) -> dict[str, WordFrequency]:
     """
     Load a TSV table mapping tokens to WordFrequency values.
 
@@ -26,7 +25,7 @@ def load_frequency_table(path: Path | None = None) -> Dict[str, WordFrequency]:
     if path is None:
         path = Path("data/freq/word_frequencies.tsv")
 
-    table: Dict[str, WordFrequency] = {}
+    table: dict[str, WordFrequency] = {}
     if not path.exists():
         return table
 

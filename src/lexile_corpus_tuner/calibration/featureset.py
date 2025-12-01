@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import math
 import statistics
+from typing import TYPE_CHECKING
 
-from ..analyzer.features import DocumentFeatures
+if TYPE_CHECKING:
+    from lexile_corpus_tuner.analyzer.features import DocumentFeatures
 
 
 def make_regression_features(doc: DocumentFeatures) -> dict[str, float]:

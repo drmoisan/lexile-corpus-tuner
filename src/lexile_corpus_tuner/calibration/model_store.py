@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from sklearn.linear_model import ElasticNet
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from sklearn.linear_model import ElasticNet
 
 
 def save_model(

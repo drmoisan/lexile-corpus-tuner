@@ -10,9 +10,10 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from ..analyzer.features import compute_document_features
-from ..analyzer.slices import build_slices
-from ..textutils import normalize_text
+from lexile_corpus_tuner.analyzer.features import compute_document_features
+from lexile_corpus_tuner.analyzer.slices import build_slices
+from lexile_corpus_tuner.textutils import normalize_text
+
 from .featureset import make_regression_features
 from .model_store import save_model
 from .train import FEATURE_COLS, train_regression_model
@@ -65,12 +66,13 @@ def fetch_texts(catalog: str, texts_root: str) -> None:
                 _fetch_http_text(acquisition_key, dest)
                 downloaded += 1
             else:
-                click.echo(
-                    f"[warn] {text_id}: unsupported acquisition type {acquisition_type}",
-                    err=True,
+                msg = (
+                    f"[warn] {text_id}: unsupported acquisition "
+                    f"type {acquisition_type}"
                 )
+                click.echo(msg, err=True)
                 failures += 1
-        except Exception as exc:  # noqa: broad-except
+        except Exception as exc:  # noqa: BLE001
             failures += 1
             click.echo(f"[error] {text_id}: {exc}", err=True)
 
@@ -141,7 +143,7 @@ def build_dataset(
     if not dataset_rows:
         raise click.ClickException("No rows were added to the calibration dataset.")
 
-    df = cast(Any, pd.DataFrame(dataset_rows))
+    df = cast("Any", pd.DataFrame(dataset_rows))
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.suffix.lower() == ".csv":
@@ -169,12 +171,12 @@ def fit(dataset: str, out: str) -> None:
     out_path = Path(out)
     if dataset_path.suffix.lower() == ".csv":
         df = cast(
-            Any,
+            "Any",
             pd.read_csv(dataset_path),  # pyright: ignore[reportUnknownMemberType]
         )
     else:
         df = cast(
-            Any,
+            "Any",
             pd.read_parquet(dataset_path),  # pyright: ignore[reportUnknownMemberType]
         )
     model, metrics = train_regression_model(df)

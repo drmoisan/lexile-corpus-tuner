@@ -24,8 +24,15 @@ def main() -> None:
 
     estimator = build_estimator_from_config(config)
     samples = [
-        "The cat sat on the mat. It was raining outside, but the cat was warm and happy.",
-        "Quantum entanglement is a physical phenomenon that occurs when particles share proximity in ways such that their states cannot be described independently.",
+        (
+            "The cat sat on the mat. "
+            "It was raining outside, but the cat was warm and happy."
+        ),
+        (
+            "Quantum entanglement is a physical phenomenon that occurs when "
+            "particles share proximity in ways such that their states cannot "
+            "be described independently."
+        ),
     ]
 
     for sample in samples:

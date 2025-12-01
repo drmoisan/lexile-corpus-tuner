@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
-from typing import Iterable, List, Set
+from typing import TYPE_CHECKING
 
 import requests
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 API_URL = "https://gutendex.com/books"
 
@@ -14,13 +16,13 @@ API_URL = "https://gutendex.com/books"
 def fetch_ids(
     languages: Iterable[str],
     english_only: bool,
-) -> List[int]:
+) -> list[int]:
     normalized_langs = sorted({lang.strip().lower() for lang in languages if lang})
     if not normalized_langs:
         raise ValueError("At least one language must be provided.")
 
     params = {"languages": ",".join(normalized_langs)}
-    results: Set[int] = set()
+    results: set[int] = set()
     url: str | None = API_URL
 
     while url:

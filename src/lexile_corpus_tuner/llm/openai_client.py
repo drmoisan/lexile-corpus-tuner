@@ -4,11 +4,13 @@ import importlib
 import logging
 import threading
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from ..config import OpenAISettings
+if TYPE_CHECKING:
+    from lexile_corpus_tuner.config import OpenAISettings
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +135,7 @@ class OpenAIRewriteClient:
     @staticmethod
     def _materialize_item(item: Any) -> dict[str, Any]:
         if isinstance(item, dict):
-            return cast(dict[str, Any], item)
+            return cast("dict[str, Any]", item)
         if hasattr(item, "model_dump"):
             dumpable: Any = item
             raw_dump: dict[str, Any] = dumpable.model_dump()
@@ -146,7 +148,9 @@ class OpenAIRewriteClient:
 
 
 def _load_openai_factory() -> Callable[..., Any]:
-    """Dynamically import the OpenAI client factory to avoid hard dependency at import."""
+    """Dynamically import the OpenAI client factory to avoid hard
+    dependency at import.
+    """
     global OpenAI
     if OpenAI is not None:
         return OpenAI
@@ -154,12 +158,13 @@ def _load_openai_factory() -> Callable[..., Any]:
         module = importlib.import_module("openai")
     except Exception as exc:  # pragma: no cover - handled at runtime
         raise RuntimeError(
-            "openai package is not installed. Install extras via 'pip install .[llm-openai]'."
+            "openai package is not installed. Install extras via "
+            "'pip install .[llm-openai]'."
         ) from exc
     openai_cls = getattr(module, "OpenAI", None)
     if openai_cls is None:  # pragma: no cover - defensive
         raise RuntimeError(
             "openai.OpenAI client class is unavailable in this environment."
         )
-    OpenAI = cast(Callable[..., Any], openai_cls)
+    OpenAI = cast("Callable[..., Any]", openai_cls)
     return OpenAI

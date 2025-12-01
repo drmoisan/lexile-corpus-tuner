@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Iterable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+(?:['\-][A-Za-z0-9]+)*", re.UNICODE)
 

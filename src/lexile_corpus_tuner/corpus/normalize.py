@@ -5,9 +5,12 @@ import json
 import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterator, List, Tuple
+from typing import TYPE_CHECKING, Any
 
-from ..textutils import iter_tokens, normalize_text
+from lexile_corpus_tuner.textutils import iter_tokens, normalize_text
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 RAW_ROOT = Path("data/corpus/raw")
 NORMALIZED_ROOT = Path("data/corpus/normalized")
@@ -28,7 +31,7 @@ class NormalizedShardMeta:
 
 def normalize_all_sources(
     shard_size_tokens: int = 100_000,
-) -> List[NormalizedShardMeta]:
+) -> list[NormalizedShardMeta]:
     """Normalize and tokenize raw sources into fixed-size shards."""
     NORMALIZED_ROOT.mkdir(parents=True, exist_ok=True)
     SHARDS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -80,14 +83,14 @@ def normalize_all_sources(
     return shard_metas
 
 
-def iter_raw_texts() -> Iterator[Tuple[str, str, str]]:
+def iter_raw_texts() -> Iterator[tuple[str, str, str]]:
     """Yield (source_id, text_id, raw_text) tuples for every available source."""
     yield from _iter_gutenberg_texts()
     yield from _iter_simple_wiki_texts()
     yield from _iter_oer_texts()
 
 
-def _iter_gutenberg_texts() -> Iterator[Tuple[str, str, str]]:
+def _iter_gutenberg_texts() -> Iterator[tuple[str, str, str]]:
     base_dir = RAW_ROOT / "gutenberg"
     if not base_dir.exists():
         return
@@ -101,7 +104,7 @@ def _iter_gutenberg_texts() -> Iterator[Tuple[str, str, str]]:
         yield source_id, text_id, text
 
 
-def _iter_simple_wiki_texts() -> Iterator[Tuple[str, str, str]]:
+def _iter_simple_wiki_texts() -> Iterator[tuple[str, str, str]]:
     base_dir = RAW_ROOT / "simple_wiki"
     if not base_dir.exists():
         return
@@ -195,7 +198,7 @@ def _write_summary(shards: list[NormalizedShardMeta]) -> None:
     SUMMARY_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
-def _iter_oer_texts() -> Iterator[Tuple[str, str, str]]:
+def _iter_oer_texts() -> Iterator[tuple[str, str, str]]:
     for source in OER_SOURCE_DIRS:
         base_dir = RAW_ROOT / source
         if not base_dir.exists():

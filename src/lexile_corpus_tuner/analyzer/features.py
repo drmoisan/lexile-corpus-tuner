@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass
-from typing import List
+from typing import TYPE_CHECKING
 
-from ..frequency_loader import WordFrequency, load_frequency_table
-from .slices import Slice
+from lexile_corpus_tuner.frequency_loader import WordFrequency, load_frequency_table
+
+if TYPE_CHECKING:
+    from .slices import Slice
 
 
 @dataclass(slots=True)
@@ -23,7 +25,7 @@ class DocumentFeatures:
     total_tokens: int
     overall_mean_sentence_length: float
     overall_mean_log_word_freq: float
-    slice_features: List[SliceFeatures]
+    slice_features: list[SliceFeatures]
 
 
 def compute_document_features(slices: list[Slice]) -> DocumentFeatures:

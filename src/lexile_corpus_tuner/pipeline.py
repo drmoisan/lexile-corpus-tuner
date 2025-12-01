@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Dict, List, Tuple
+from typing import TYPE_CHECKING
 
-from .config import LexileTunerConfig
 from .constraints import find_violations, has_hard_window_violations
-from .estimators import LexileEstimator
 from .models import (
     ConstraintViolation,
     Document,
@@ -19,19 +17,23 @@ from .scoring import compute_document_stats, score_windows, smooth_window_lexile
 from .tokenization import tokenize_words
 from .windowing import create_windows
 
+if TYPE_CHECKING:
+    from .config import LexileTunerConfig
+    from .estimators import LexileEstimator
+
 
 def process_document(
     doc: Document,
     config: LexileTunerConfig,
     estimator: LexileEstimator,
     rewriter: Rewriter,
-) -> Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]:
+) -> tuple[Document, DocumentLexileStats, list[ConstraintViolation]]:
     """Run the Lexile tuning loop for a single document."""
     current_doc = Document(doc.doc_id, doc.text)
     last_stats = DocumentLexileStats(
         doc_id=doc.doc_id, avg_lexile=0.0, max_lexile=0.0, window_scores=[]
     )
-    last_violations: List[ConstraintViolation] = []
+    last_violations: list[ConstraintViolation] = []
     passes = max(1, config.max_passes)
 
     for _ in range(passes):
@@ -44,7 +46,7 @@ def process_document(
             )
             window_scores = [
                 WindowScore(window=score.window, lexile=value)
-                for score, value in zip(window_scores, smoothed)
+                for score, value in zip(window_scores, smoothed, strict=False)
             ]
         stats = _build_document_stats(current_doc, window_scores)
         violations = find_violations(stats, config)
@@ -84,14 +86,14 @@ def process_document(
 
 
 def process_corpus(
-    documents: List[Document],
+    documents: list[Document],
     config: LexileTunerConfig,
     estimator: LexileEstimator,
     rewriter: Rewriter,
-) -> Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]]:
+) -> dict[str, tuple[Document, DocumentLexileStats, list[ConstraintViolation]]]:
     """Process all documents and return the per-document outputs."""
-    results: Dict[
-        str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]
+    results: dict[
+        str, tuple[Document, DocumentLexileStats, list[ConstraintViolation]]
     ] = {}
     for document in documents:
         results[document.doc_id] = process_document(
@@ -100,7 +102,7 @@ def process_corpus(
     return results
 
 
-def get_window_span_text(doc: Document, window: Window, tokens: List[Token]) -> str:
+def get_window_span_text(doc: Document, window: Window, tokens: list[Token]) -> str:
     """Extract the substring corresponding to a window."""
     if not tokens or window.end_token_idx <= window.start_token_idx:
         return ""
@@ -110,7 +112,7 @@ def get_window_span_text(doc: Document, window: Window, tokens: List[Token]) -> 
 
 
 def replace_window_span(
-    doc: Document, window: Window, tokens: List[Token], new_text: str
+    doc: Document, window: Window, tokens: list[Token], new_text: str
 ) -> str:
     """Return the updated document text with the window replaced by new_text."""
     if not tokens or window.end_token_idx <= window.start_token_idx:
@@ -123,7 +125,7 @@ def replace_window_span(
 
 
 def _build_document_stats(
-    doc: Document, window_scores: List[WindowScore]
+    doc: Document, window_scores: list[WindowScore]
 ) -> DocumentLexileStats:
     if not window_scores:
         return DocumentLexileStats(
