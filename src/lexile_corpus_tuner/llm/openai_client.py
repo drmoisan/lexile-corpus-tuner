@@ -4,12 +4,13 @@ import importlib
 import logging
 import threading
 import time
-from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from lexile_corpus_tuner.config import OpenAISettings
 
 logger = logging.getLogger(__name__)

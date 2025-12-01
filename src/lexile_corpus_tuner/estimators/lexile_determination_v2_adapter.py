@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib
 import re
-from collections.abc import Callable, Mapping
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 import numpy as np
 

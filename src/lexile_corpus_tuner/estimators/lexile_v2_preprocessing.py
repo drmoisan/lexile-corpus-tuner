@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import pickle
 import re
-from collections.abc import Callable, Iterable, Sequence
 from importlib import import_module
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Sequence
 
 _ALPHA_PATTERN = re.compile(r"[A-Za-z]")
 _nltk_cache: (

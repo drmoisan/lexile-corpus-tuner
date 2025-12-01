@@ -8,7 +8,6 @@ Please adhere to the following policy every time you make **any change** to code
 ## Before making changes
 
 * [ ] Clarify the objective. Begin reasoning from clearly stated assumptions or axioms.
-* [ ] Review [unit-test-policy.md](../docs/unit-test-policy.md) and [developer-tooling](../docs/developer-tooling.md)
 * [ ] Read existing change plans (e.g., change-plan.md)
 * [ ] Document the plan to make changes. If it is part of an existing change plan, make any relevant updates to the plan before executing.
 
@@ -33,7 +32,7 @@ These rules are **requirements**, not suggestions. Code that doesn’t follow th
 4. **Testing**
 
    * All new logic must be covered by **Pytest** tests.
-   * Follow the project’s [unit-test-policy.md](unit-test-policy.md)
+   * Write focused unit tests that verify behavior without mocking unless necessary.
 
 ---
 

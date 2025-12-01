@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lexile_corpus_tuner.epub import extract_text_from_epub
-from tests.utils import write_minimal_epub
-
 if TYPE_CHECKING:
     from pathlib import Path
+
+from lexile_corpus_tuner.epub import extract_text_from_epub
+
+from tests.utils import write_minimal_epub
 
 
 def test_extract_text_from_epub_reads_spine(tmp_path: Path):
