@@ -1317,7 +1317,7 @@ class QueryBuilderApp:
                 messagebox.showerror(
                     "Data Not Found",
                     f"Gutenberg data not found at {PARQUET_PATH}.\n"
-                    "Please run scripts/build_gutenberg_id_list.py first.",
+                    "Please run scripts/production/build_gutenberg_id_list.py first.",
                 )
                 self.status_bar.config(text="Error: Data file not found")
                 return

@@ -568,7 +568,10 @@ def interactive_explorer(parquet_path: Path) -> None:
     """Run interactive explorer loop for Gutenberg metadata."""
     if not parquet_path.exists():
         print(f"File not found: {parquet_path}", file=sys.stderr)
-        print("Please run 'scripts/build_gutenberg_id_list.py' first.", file=sys.stderr)
+        print(
+            "Please run 'scripts/production/build_gutenberg_id_list.py' first.",
+            file=sys.stderr,
+        )
         return
 
     print(f"Loading {parquet_path}...")

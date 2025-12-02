@@ -5,21 +5,21 @@
             "name": "PowerShell: Collect Commit Context",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/collect-commit-context.ps1",
+            "script": "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1",
             "cwd": "${workspaceFolder}"
         },
         {
             "name": "PowerShell: Collect PR Context",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/collect-pull-request-context.ps1",
+            "script": "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
             "cwd": "${workspaceFolder}"
         },
         {
             "name": "PowerShell: Load OpenAI Key",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/load-openai-key.ps1",
+            "script": "${workspaceFolder}/scripts/dev-tools/load-openai-key.ps1",
             "cwd": "${workspaceFolder}",
             "args": [
                 "-ItemName",
@@ -71,7 +71,7 @@
             "name": "Step 0.1 - Build Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/build_gutenberg_id_list.py",
+            "program": "${workspaceFolder}/scripts/production/build_gutenberg_id_list.py",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -94,7 +94,7 @@
             "name": "Step 2 - Extract Simple Wiki",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/extract_simple_wiki_dump.py",
+            "program": "${workspaceFolder}/scripts/production/extract_simple_wiki_dump.py",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [

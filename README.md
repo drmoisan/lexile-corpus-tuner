@@ -18,7 +18,7 @@ For a detailed, step-by-step build specification, see [`docs/text-difficulty-pip
 - Constraint detection for max-window and document-level Lexile targets.
 - OpenAI-backed rewriter abstraction (or no-op).
 - Typer CLI (`lexile-tuner`) with `analyze`, `rewrite`, `print-config`.
-- Corpus tooling (`text-difficulty-pipeline corpus`): Gutenberg ID bootstrap (`scripts/build_gutenberg_id_list.py`), Simple Wiki dump downloader/extractor (`scripts/extract_simple_wiki_dump.py`), OpenStax/CK-12 manifest fetcher (`data/meta/oer_sources.json`), shared normalization/sharding (`data/corpus/normalized/shards/`), and frequency computation with per-source weights (`data/meta/corpus_sources.json`).
+- Corpus tooling (`text-difficulty-pipeline corpus`): Gutenberg ID bootstrap (`scripts/production/build_gutenberg_id_list.py`), Simple Wiki dump downloader/extractor (`scripts/production/extract_simple_wiki_dump.py`), OpenStax/CK-12 manifest fetcher (`data/meta/oer_sources.json`), shared normalization/sharding (`data/corpus/normalized/shards/`), and frequency computation with per-source weights (`data/meta/corpus_sources.json`).
 - Analyzer/calibration stack: sentence segmentation, Lexile-style slice builder, MSL/MLF feature computation, regression inference, special-case adjustments, and calibration CLIs (`fetch-texts`, `build-dataset`, `fit`).
 
 ### In Process
@@ -51,7 +51,7 @@ poetry run lexile-tuner analyze --input-path examples/example_corpus/pg2701-imag
 ### Text Difficulty Pipeline
 ```bash
 # Optional: regenerate Gutenberg IDs (strict English)
-poetry run python scripts/build_gutenberg_id_list.py
+poetry run python scripts/production/build_gutenberg_id_list.py
 
 # Optional: copy examples/meta/oer_sources.example.json → data/meta/oer_sources.json and fill in OpenStax/CK-12 excerpts
 
@@ -59,7 +59,7 @@ poetry run python scripts/build_gutenberg_id_list.py
 poetry run text-difficulty-pipeline corpus download
 
 # 2) Convert Simple Wiki dump to JSONL articles
-poetry run python scripts/extract_simple_wiki_dump.py \
+poetry run python scripts/production/extract_simple_wiki_dump.py \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 
@@ -91,7 +91,7 @@ Interactive tool for exploring the Gutenberg metadata with powerful query capabi
 
 #### CLI Mode
 ```bash
-poetry run python scripts/explore_gutenberg.py
+poetry run python scripts/production/explore_gutenberg.py
 ```
 
 **Basic Commands:**
@@ -131,7 +131,7 @@ A visual query builder with drag-and-drop functionality, nested groups, and real
 
 **Launch the GUI:**
 ```bash
-poetry run python scripts/gutenberg_query_builder_ui.py
+poetry run python scripts/production/gutenberg_query_builder_ui.py
 ```
 
 **Features:**
@@ -236,7 +236,7 @@ poetry run python -m nltk.downloader punkt punkt_tab wordnet averaged_perceptron
 
 ---
 ## Rewriting with OpenAI
-Install the `llm-openai` extra, enable `rewrite_enabled: true`, and optionally use `scripts/load-openai-key.ps1` (LastPass helper). CLI overrides (`--openai-model`, `--openai-temperature`, etc.) control behavior per run.
+Install the `llm-openai` extra, enable `rewrite_enabled: true`, and optionally use `scripts/dev-tools/load-openai-key.ps1` (LastPass helper). CLI overrides (`--openai-model`, `--openai-temperature`, etc.) control behavior per run.
 
 ---
 ## Testing
@@ -249,7 +249,7 @@ poetry run isort --check-only .
 
 ---
 ## Code Statistics
-`cloc` binaries live in `tools/`. Run `./scripts/run-cloc.sh` or `pwsh ./scripts/run-cloc.ps1`.
+`cloc` binaries live in `tools/`. Run `./scripts/dev-tools/run-cloc.sh` or `pwsh ./scripts/dev-tools/run-cloc.ps1`.
 
 ---
 ## Next Steps / Roadmap

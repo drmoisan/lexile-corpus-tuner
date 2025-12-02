@@ -11,7 +11,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/scripts/load-openai-key.ps1",
+                "${workspaceFolder}/scripts/dev-tools/load-openai-key.ps1",
                 "-ItemName",
                 "Lexile OpenAI Key"
             ],
@@ -27,7 +27,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/scripts/run-cloc.ps1"
+                "${workspaceFolder}/scripts/dev-tools/run-cloc.ps1"
             ],
             "problemMatcher": []
         },
@@ -36,7 +36,7 @@
             "type": "shell",
             "command": "bash",
             "args": [
-                "${workspaceFolder}/scripts/run-cloc.sh"
+                "${workspaceFolder}/scripts/dev-tools/run-cloc.sh"
             ],
             "problemMatcher": []
         },
@@ -155,7 +155,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/scripts/fix-all.ps1"
+                "${workspaceFolder}/scripts/dev-tools/fix-all.ps1"
             ],
             "problemMatcher": [],
             "presentation": {

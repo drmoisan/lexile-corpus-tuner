@@ -128,7 +128,7 @@ Constraints:
 * **Simple English Wikipedia**:
 
   * Entire Simple English Wikipedia dump; edited informational text with simplified vocab.
-  * Use the helper script `scripts/extract_simple_wiki_dump.py` to turn the XML dump into
+  * Use the helper script `scripts/production/extract_simple_wiki_dump.py` to turn the XML dump into
     JSONL articles under `data/corpus/raw/simple_wiki/` so the normalizer can ingest them.
 
 * **OpenStax + CK-12 OER conversions**:
@@ -143,7 +143,7 @@ Constraints:
 
 * **Gutenberg ID bootstrapping**:
 
-  * Run `python scripts/build_gutenberg_id_list.py` to generate
+  * Run `python scripts/production/build_gutenberg_id_list.py` to generate
     `data/meta/gutenberg_ids.txt` (strictly English by default). This keeps the downloader
     reproducible and lets you curate/limit the catalog.
 
@@ -252,7 +252,7 @@ Implementation details:
 After downloading the XML dump, run a helper script that converts it into JSONL articles:
 
 ```bash
-python scripts/extract_simple_wiki_dump.py \
+python scripts/production/extract_simple_wiki_dump.py \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 ```
@@ -1537,7 +1537,7 @@ After fitting:
 lexile-corpus-tuner corpus download --gutenberg-limit 200   # example limit
 
 # 3) (Optional) Convert Simple Wiki dump into JSONL articles
-python scripts/extract_simple_wiki_dump.py \
+python scripts/production/extract_simple_wiki_dump.py \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 

@@ -4,7 +4,10 @@
     ".venv",
     "dist",
     "build",
-    "artifacts"
+    "artifacts",
+    "tests/test_build_gutenberg_id_list.py",
+    "tests/test_explore_gutenberg.py",
+    "tests/test_extract_simple_wiki_dump.py"
   ],
   "venvPath": ".",
   "venv": ".venv",

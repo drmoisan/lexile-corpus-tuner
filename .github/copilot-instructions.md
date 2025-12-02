@@ -636,10 +636,10 @@ lexile-tuner = "lexile_corpus_tuner.cli:main"
 
 * Never commit API keys or other credentials to the repository.
 * Store the OpenAI API key in LastPass (secure note preferred) under a predictable item name such as **Lexile OpenAI Key** and log in with `lpass login` before running the CLI.
-* Use `scripts/load-openai-key.ps1` to populate `OPENAI_API_KEY` on demand:
+* Use `scripts/dev-tools/load-openai-key.ps1` to populate `OPENAI_API_KEY` on demand:
 
   ```powershell
-  pwsh ./scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+  pwsh ./scripts/dev-tools/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
   ```
 
   * `-UsePasswordField` tells the helper to pull from the password slot if you don't use a note.

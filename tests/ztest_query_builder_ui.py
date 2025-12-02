@@ -15,6 +15,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# Save original modules before mocking
+_original_modules = {
+    name: sys.modules.get(name)
+    for name in [
+        "tkinter",
+        "tkinter.ttk",
+        "tkinter.messagebox",
+        "tkinter.filedialog",
+        "pandas",
+    ]
+}
+
 # Mock tkinter and pandas to avoid import errors in test environments
 # These must be mocked before importing gutenberg_query_builder_ui
 sys.modules["tkinter"] = MagicMock()
@@ -22,6 +34,19 @@ sys.modules["tkinter.ttk"] = MagicMock()
 sys.modules["tkinter.messagebox"] = MagicMock()
 sys.modules["tkinter.filedialog"] = MagicMock()
 sys.modules["pandas"] = MagicMock()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_mocked_modules():
+    """Restore original modules after this test module completes."""
+    yield
+    # Restore original modules
+    for name, original in _original_modules.items():
+        if original is not None:
+            sys.modules[name] = original
+        elif name in sys.modules:
+            del sys.modules[name]
+
 
 # Add scripts directory to path for imports
 scripts_dir = Path(__file__).parent.parent / "scripts"
