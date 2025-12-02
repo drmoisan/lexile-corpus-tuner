@@ -89,6 +89,7 @@ poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output r
 ### Gutenberg Corpus Explorer
 Interactive tool for exploring the Gutenberg metadata with powerful query capabilities including field-specific filtering, numeric comparisons, and range queries.
 
+#### CLI Mode
 ```bash
 poetry run python scripts/explore_gutenberg.py
 ```
@@ -123,6 +124,76 @@ q copyright:false AND download_count>5000
 - Text fields: `title`, `authors`, `subjects`, `bookshelves`, `languages`, `media_type`
 - Numeric fields: `id`, `download_count`
 - Boolean fields: `copyright`
+
+#### GUI Mode: Gutenberg Query Builder
+
+A visual query builder with drag-and-drop functionality, nested groups, and real-time query display.
+
+**Launch the GUI:**
+```bash
+poetry run python scripts/gutenberg_query_builder_ui.py
+```
+
+**Features:**
+- **Visual Query Construction**: Click field buttons to add constraints, build complex nested queries with AND/OR logic
+- **Field Palette**: Quick access to all available fields (title, authors, subjects, bookshelves, languages, media_type, id, download_count, copyright)
+- **Multiple Input Types**:
+  - Text fields: Type or paste values
+  - Numeric fields: Spinbox with validation (0-999999 range)
+  - Range fields: Min/max spinboxes for numeric ranges
+  - Boolean fields: Dropdown with true/false options
+  - Multi-select: Dialog with search, Select All/Clear All for subjects/bookshelves
+- **Query Groups**: Create nested groups with independent AND/OR logic
+- **Real-Time Display**: See your query string update as you build it
+- **Query Execution**: Run queries and view results in a sortable table (first 100 rows)
+- **Save/Load**: Save complex queries to JSON files for reuse
+- **Export Results**: Export query results to CSV or Parquet format
+
+**Keyboard Shortcuts:**
+- `F5`: Run query
+- `Ctrl+N`: New query (clear all)
+- `Ctrl+O`: Open saved query
+- `Ctrl+S`: Save query
+- `Ctrl+Shift+S`: Save query as...
+- `Ctrl+E`: Export results
+- `Ctrl+Q`: Quit application
+
+**Query File Format:**
+Queries are saved as JSON with recursive structure:
+```json
+{
+  "version": "1.0",
+  "created": "2025-12-02T10:30:00",
+  "modified": "2025-12-02T10:30:00",
+  "query": {
+    "type": "group",
+    "logic": "AND",
+    "constraints": [
+      {
+        "type": "constraint",
+        "field": "subjects",
+        "operator": "contains",
+        "value": "Fiction"
+      },
+      {
+        "type": "constraint",
+        "field": "download_count",
+        "operator": ">",
+        "value": "1000"
+      }
+    ]
+  }
+}
+```
+
+**Usage Example:**
+1. Launch the GUI and click "subjects" in the field palette
+2. Click the multi-select button (📋) and select "Fiction", "Adventure", "Fantasy"
+3. Click "+ Group" to add a nested OR group
+4. Inside the new group, change logic to "OR", add "download_count > 1000"
+5. Press F5 to run the query and view results
+6. Press Ctrl+S to save your query for later use
+7. Press Ctrl+E to export results to CSV
 
 ---
 ## Architecture Snapshot

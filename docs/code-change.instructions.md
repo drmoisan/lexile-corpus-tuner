@@ -29,6 +29,8 @@ These rules are **requirements**, not suggestions. Code that doesn’t follow th
 
    * Code must be **fully type-annotated** and pass **Pyright**.
    * No `Any` unless absolutely unavoidable. If `Any` is used, document why in a comment.
+   * **All custom code** (src, tests, scripts) must be type-checked. Only exclude third-party packages without proper stubs (e.g., tkinter, pandas).
+   * When using untyped third-party libraries, wrap usage in custom functions with **line-specific** type ignore comments. Never exclude entire files or directories from type checking.
 4. **Testing**
 
    * All new logic must be covered by **Pytest** tests.

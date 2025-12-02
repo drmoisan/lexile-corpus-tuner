@@ -8,8 +8,232 @@ from typing import Any
 
 import pandas as pd
 
+# =============================================================================
+# Pandas Operations Section - Isolated Type Suppressions
+# =============================================================================
+# All pandas DataFrame/Series operations with incomplete type stubs are
+# isolated in this section. Application logic remains fully typed.
 
-def get_canonical_sets(df: pd.DataFrame) -> tuple[set[str], set[str]]:
+
+def _pandas_get_column(df: pd.DataFrame, column: str) -> pd.Series:  # type: ignore[type-arg,misc]
+    """Get column from DataFrame as Series.
+
+    Isolated pandas operation: pandas-stubs incomplete for column access.
+
+    Args:
+        df: DataFrame
+        column: Column name
+
+    Returns:
+        Series
+    """
+    return df[column]  # type: ignore[no-any-return]
+
+
+def _pandas_string_series(series: pd.Series) -> Any:  # type: ignore[misc]
+    """Convert Series to string type.
+
+    Isolated pandas operation: pandas-stubs incomplete for Series.astype().
+
+    Args:
+        series: pandas Series to convert
+
+    Returns:
+        Series with string type
+    """
+    return series.astype(str)  # type: ignore[no-any-return]
+
+
+def _pandas_split_explode(series: pd.Series, delimiter: str) -> Any:  # type: ignore[misc]
+    """Split string series by delimiter and explode to rows.
+
+    Isolated pandas operation: pandas-stubs incomplete for str accessor.
+
+    Args:
+        series: pandas Series with string data
+        delimiter: Delimiter to split on
+
+    Returns:
+        Exploded series
+    """
+    return series.str.split(delimiter).explode()  # type: ignore[no-any-return]
+
+
+def _pandas_series_is_empty(series: pd.Series) -> bool:
+    """Check if series is empty.
+
+    Isolated pandas operation: pandas-stubs incomplete for empty property.
+
+    Args:
+        series: pandas Series to check
+
+    Returns:
+        True if empty, False otherwise
+    """
+    return series.empty  # type: ignore[no-any-return]
+
+
+def _pandas_strip_unique(series: pd.Series) -> Any:  # type: ignore[misc]
+    """Strip whitespace and get unique values.
+
+    Isolated pandas operation: pandas-stubs incomplete for str accessor.
+
+    Args:
+        series: pandas Series with string data
+
+    Returns:
+        Array of unique values
+    """
+    items = series.dropna().astype(str).str.strip()  # type: ignore[union-attr]
+    return items.unique()  # type: ignore[no-any-return]
+
+
+def _pandas_contains(series: pd.Series, term: str, case: bool = False) -> Any:  # type: ignore[misc]
+    """Check if series contains search term.
+
+    Isolated pandas operation: pandas-stubs incomplete for str.contains().
+
+    Args:
+        series: pandas Series to search
+        term: Search term
+        case: Case-sensitive search flag
+
+    Returns:
+        Boolean mask series
+    """
+    return series.astype(str).str.contains(term, case=case, regex=False, na=False)  # type: ignore[no-any-return,union-attr]
+
+
+def _pandas_comparison_mask(series: pd.Series, operator: str, value: float) -> Any:  # type: ignore[misc]
+    """Apply numeric comparison operator to series.
+
+    Isolated pandas operation: pandas-stubs incomplete for comparison operators.
+
+    Args:
+        series: pandas Series with numeric data
+        operator: Comparison operator (>, <, >=, <=)
+        value: Value to compare against
+
+    Returns:
+        Boolean mask series
+    """
+    if operator == ">":
+        return series > value  # type: ignore[no-any-return]
+    elif operator == "<":
+        return series < value  # type: ignore[no-any-return]
+    elif operator == ">=":
+        return series >= value  # type: ignore[no-any-return]
+    elif operator == "<=":
+        return series <= value  # type: ignore[no-any-return]
+    return pd.Series([True] * len(series), index=series.index)  # type: ignore[no-any-return]
+
+
+def _pandas_range_mask(series: pd.Series, min_val: float, max_val: float) -> Any:  # type: ignore[misc]
+    """Check if series values are within range.
+
+    Isolated pandas operation: pandas-stubs incomplete for comparison operators.
+
+    Args:
+        series: pandas Series with numeric data
+        min_val: Minimum value (inclusive)
+        max_val: Maximum value (inclusive)
+
+    Returns:
+        Boolean mask series
+    """
+    return (series >= min_val) & (series <= max_val)  # type: ignore[no-any-return]
+
+
+def _pandas_exact_match(series: pd.Series, term: str) -> Any:  # type: ignore[misc]
+    """Check for exact case-insensitive match.
+
+    Isolated pandas operation: pandas-stubs incomplete for str accessor.
+
+    Args:
+        series: pandas Series to search
+        term: Term to match
+
+    Returns:
+        Boolean mask series
+    """
+    return series.astype(str).str.lower() == term.lower()  # type: ignore[no-any-return,union-attr]
+
+
+def _pandas_filter_by_mask(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:  # type: ignore[type-arg]
+    """Filter DataFrame by boolean mask.
+
+    Isolated pandas operation: pandas-stubs incomplete for indexing.
+
+    Args:
+        df: DataFrame to filter
+        mask: Boolean mask series
+
+    Returns:
+        Filtered DataFrame
+    """
+    return df[mask]  # type: ignore[no-any-return]
+
+
+def _pandas_read_parquet(path: Path) -> pd.DataFrame:  # type: ignore[type-arg]
+    """Read parquet file.
+
+    Isolated pandas operation: pandas-stubs incomplete for read_parquet.
+
+    Args:
+        path: Path to parquet file
+
+    Returns:
+        DataFrame
+    """
+    return pd.read_parquet(path)  # type: ignore[no-any-return]
+
+
+def _pandas_to_csv(df: pd.DataFrame, path: Path) -> None:  # type: ignore[type-arg]
+    """Write DataFrame to CSV.
+
+    Isolated pandas operation: pandas-stubs incomplete for to_csv.
+
+    Args:
+        df: DataFrame to write
+        path: Output path
+    """
+    df.to_csv(path, index=False)  # type: ignore[call-overload]
+
+
+def _pandas_to_parquet(df: pd.DataFrame, path: Path) -> None:  # type: ignore[type-arg]
+    """Write DataFrame to Parquet.
+
+    Isolated pandas operation: pandas-stubs incomplete for to_parquet.
+
+    Args:
+        df: DataFrame to write
+        path: Output path
+    """
+    df.to_parquet(path, index=False)  # type: ignore[call-overload]
+
+
+def _pandas_to_string(df: pd.DataFrame, columns: list[str], max_rows: int = 10) -> str:  # type: ignore[type-arg]
+    """Convert DataFrame to string representation.
+
+    Isolated pandas operation: pandas-stubs incomplete for to_string.
+
+    Args:
+        df: DataFrame to convert
+        columns: Columns to include
+        max_rows: Maximum rows to display
+
+    Returns:
+        String representation
+    """
+    return df[columns].head(max_rows).to_string(index=False)  # type: ignore[no-any-return,call-overload]
+
+
+# =============================================================================
+# End Pandas Operations Section
+# =============================================================================
+
+
+def get_canonical_sets(df: pd.DataFrame) -> tuple[set[str], set[str]]:  # type: ignore[type-arg]
     """Extract canonical sets of subjects and bookshelves from DataFrame.
 
     Args:
@@ -25,17 +249,14 @@ def get_canonical_sets(df: pd.DataFrame) -> tuple[set[str], set[str]]:
             return set()
 
         # Convert to string, split by semicolon, explode to rows
-        # We use astype(str) to handle potential non-string types safely
-        series = df[column].astype(str)
-        exploded = series.str.split(";").explode()
+        series = _pandas_string_series(_pandas_get_column(df, column))
+        exploded = _pandas_split_explode(series, ";")
 
-        if exploded.empty:
+        if _pandas_series_is_empty(exploded):
             return set()
 
         # Strip whitespace and get unique values
-        # Filter out 'nan' which results from astype(str) on None/NaN
-        items = exploded.dropna().astype(str).str.strip()
-        unique_items = set(items.unique())
+        unique_items = set(_pandas_strip_unique(exploded))
 
         # Clean up artifacts
         unique_items.discard("")
@@ -136,10 +357,8 @@ class BooleanQueryEngine:
             mask = pd.Series([False] * len(self.df), index=self.df.index)
             for col in ["subjects", "bookshelves", "title", "authors"]:
                 if col in self.df.columns:
-                    mask |= (
-                        self.df[col]
-                        .astype(str)
-                        .str.contains(search_term, case=False, regex=False, na=False)
+                    mask |= _pandas_contains(
+                        _pandas_get_column(self.df, col), search_term
                     )
             return mask
 
@@ -148,7 +367,7 @@ class BooleanQueryEngine:
             print(f"Warning: Unknown field '{field}', ignoring.", file=sys.stderr)
             return pd.Series([True] * len(self.df), index=self.df.index)
 
-        col = self.df[field]
+        col = _pandas_get_column(self.df, field)
 
         # Handle range queries (field:min..max)
         if operator == "..":
@@ -164,7 +383,7 @@ class BooleanQueryEngine:
                 min_val, max_val = value.split("..", 1)
                 min_num = float(min_val.strip())
                 max_num = float(max_val.strip())
-                return (col >= min_num) & (col <= max_num)
+                return _pandas_range_mask(col, min_num, max_num)
             except ValueError:
                 print(
                     f"Warning: Invalid range '{value}', expected 'min..max'.",
@@ -184,14 +403,7 @@ class BooleanQueryEngine:
 
             try:
                 num_val = float(value)
-                if operator == ">":
-                    return col > num_val
-                elif operator == "<":
-                    return col < num_val
-                elif operator == ">=":
-                    return col >= num_val
-                elif operator == "<=":
-                    return col <= num_val
+                return _pandas_comparison_mask(col, operator, num_val)
             except ValueError:
                 print(
                     f"Warning: Invalid numeric value '{value}'.",
@@ -211,12 +423,10 @@ class BooleanQueryEngine:
 
         if exact_match:
             # Case-insensitive exact match
-            return col.astype(str).str.lower() == search_term.lower()
+            return _pandas_exact_match(col, search_term)
         else:
             # Substring match
-            return col.astype(str).str.contains(
-                search_term, case=False, regex=False, na=False
-            )
+            return _pandas_contains(col, search_term)
 
     def _to_rpn(self, tokens: list[str]) -> list[str]:
         # Shunting-yard algorithm
@@ -315,7 +525,7 @@ class BooleanQueryEngine:
             return pd.DataFrame()
 
         final_mask = stack[0]
-        return self.df[final_mask]  # type: ignore[return-value]
+        return _pandas_filter_by_mask(self.df, final_mask)
 
 
 class QueryHistory:
@@ -363,7 +573,7 @@ def interactive_explorer(parquet_path: Path) -> None:
 
     print(f"Loading {parquet_path}...")
     try:
-        df: pd.DataFrame = pd.read_parquet(parquet_path)  # type: ignore[assignment]
+        df = _pandas_read_parquet(parquet_path)
     except Exception as e:
         print(f"Error reading parquet: {e}", file=sys.stderr)
         return
@@ -419,7 +629,7 @@ def interactive_explorer(parquet_path: Path) -> None:
                     for c in ["id", "title", "subjects", "bookshelves"]
                     if c in df.columns
                 ]
-                print(last_results[cols].head(10).to_string(index=False))  # type: ignore[call-overload]
+                print(_pandas_to_string(last_results, cols, 10))
                 if len(last_results) > 10:
                     print(f"... {len(last_results) - 10} more")
 
@@ -430,8 +640,9 @@ def interactive_explorer(parquet_path: Path) -> None:
                 print("\n".join(sorted(bookshelves)))
             elif arg == "f":
                 print("Available fields:")
-                for col in df.columns:
-                    print(f"  {col}")
+                for col in df.columns:  # type: ignore[misc]
+                    col_name: str = str(col)  # type: ignore[arg-type]
+                    print(f"  {col_name}")
             else:
                 print("Usage: ls s | ls b | ls f")
 
@@ -479,7 +690,7 @@ Combined examples:
             print(f"Found {len(last_results)} matches:")
             if not last_results.empty:
                 cols = ["id", "title", "subjects"]
-                print(last_results[cols].head(10).to_string(index=False))  # type: ignore[call-overload]
+                print(_pandas_to_string(last_results, cols, 10))
                 if len(last_results) > 10:
                     print(f"... {len(last_results) - 10} more")
 
@@ -492,7 +703,7 @@ Combined examples:
             print(f"Found {len(last_results)} matches:")
             if not last_results.empty:
                 cols = ["id", "title", "bookshelves"]
-                print(last_results[cols].head(10).to_string(index=False))  # type: ignore[call-overload]
+                print(_pandas_to_string(last_results, cols, 10))
                 if len(last_results) > 10:
                     print(f"... {len(last_results) - 10} more")
 
@@ -512,9 +723,9 @@ Combined examples:
             out_path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 if out_path.suffix == ".parquet":
-                    last_results.to_parquet(out_path, index=False)  # type: ignore[call-overload]
+                    _pandas_to_parquet(last_results, out_path)
                 else:
-                    last_results.to_csv(out_path, index=False)
+                    _pandas_to_csv(last_results, out_path)
                 print(f"Saved {len(last_results)} records to {out_path}")
             except Exception as e:
                 print(f"Error saving file: {e}", file=sys.stderr)

@@ -10,8 +10,15 @@
   "venv": ".venv",
   "typeCheckingMode": "strict",
   "reportMissingTypeStubs": false,
-  "reportUnknownParameterType": "warning",
-  "reportUnknownArgumentType": "warning",
-  "reportUnknownVariableType": "warning",
-  "reportUnknownMemberType": "warning"
+  "reportUnknownParameterType": "error",
+  "reportUnknownArgumentType": "error",
+  "reportUnknownVariableType": "error",
+  "reportUnknownMemberType": "error",
+  "reportMissingImports": "error",
+  "reportGeneralTypeIssues": "error",
+  "reportOptionalMemberAccess": "error",
+  "reportOptionalSubscript": "error",
+  "reportPrivateUsage": "error",
+  "reportUntypedFunctionDecorator": "error",
+  "reportUntypedClassDecorator": "error"
 }
