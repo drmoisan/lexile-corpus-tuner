@@ -236,7 +236,7 @@ poetry run python -m nltk.downloader punkt punkt_tab wordnet averaged_perceptron
 
 ---
 ## Rewriting with OpenAI
-Install the `llm-openai` extra, enable `rewrite_enabled: true`, and optionally use `scripts/dev-tools/load-openai-key.ps1` (LastPass helper). CLI overrides (`--openai-model`, `--openai-temperature`, etc.) control behavior per run.
+Install the `llm-openai` extra, enable `rewrite_enabled: true`, and optionally use `scripts/production/load-openai-key.ps1` (LastPass helper). CLI overrides (`--openai-model`, `--openai-temperature`, etc.) control behavior per run.
 
 ---
 ## Testing

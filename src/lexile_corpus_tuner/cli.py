@@ -528,7 +528,7 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
     the API key on demand.
     """
     script_path = (
-        Path(__file__).resolve().parents[2] / "scripts" / "load-openai-key.ps1"
+        Path(__file__).resolve().parents[2] / "scripts" / "production" / "load-openai-key.ps1"
     )
     if not script_path.exists():
         return None
