@@ -9,13 +9,17 @@ import io
 import json
 import sys
 from io import BytesIO
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, patch
 
-# Add scripts/production to path (must be before importing from script)
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "production"))
+from scripts.production.extract_simple_wiki_dump import (
+    NAMESPACE,
+    iter_articles,
+    open_dump,
+)
 
-from extract_simple_wiki_dump import NAMESPACE, iter_articles, open_dump  # noqa: E402
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestOpenDump:
@@ -318,7 +322,7 @@ class TestIterArticles:
 class TestMainIntegration:
     """Integration tests for the main function."""
 
-    @patch("extract_simple_wiki_dump.open_dump")
+    @patch("scripts.production.extract_simple_wiki_dump.open_dump")
     @patch("pathlib.Path.open", new_callable=MagicMock)
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.exists", return_value=True)
@@ -352,7 +356,7 @@ class TestMainIntegration:
         mock_open_dump.return_value.__enter__.return_value = mock_dump_stream
 
         # Capture output written
-        written_content = []
+        written_content: list[str] = []
 
         def capture_write(content: str) -> None:
             written_content.append(content)
@@ -362,7 +366,7 @@ class TestMainIntegration:
         mock_path_open.return_value.__enter__.return_value = mock_output_file
 
         # Import and call main with mocked argv
-        import extract_simple_wiki_dump
+        import scripts.production.extract_simple_wiki_dump as extract_simple_wiki_dump
 
         sys.argv = [
             "extract_simple_wiki_dump.py",
@@ -377,14 +381,14 @@ class TestMainIntegration:
         # Verify output content
         assert len(written_content) > 0
         # Find the JSON line (not the newline)
-        json_lines = [c for c in written_content if c and c != "\n"]
+        json_lines: list[str] = [c for c in written_content if c and c != "\n"]
         assert len(json_lines) >= 1
         article = json.loads(json_lines[0])
         assert article["id"] == 999
         assert article["title"] == "Test Article"
         assert "integration" in article["text"]
 
-    @patch("extract_simple_wiki_dump.open_dump")
+    @patch("scripts.production.extract_simple_wiki_dump.open_dump")
     @patch("pathlib.Path.open", new_callable=MagicMock)
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.exists", return_value=True)
@@ -433,7 +437,7 @@ class TestMainIntegration:
         mock_open_dump.return_value.__enter__.return_value = mock_dump_stream
 
         # Capture output written
-        written_content = []
+        written_content: list[str] = []
 
         def capture_write(content: str) -> None:
             written_content.append(content)
@@ -442,7 +446,7 @@ class TestMainIntegration:
         mock_output_file.write.side_effect = capture_write
         mock_path_open.return_value.__enter__.return_value = mock_output_file
 
-        import extract_simple_wiki_dump
+        import scripts.production.extract_simple_wiki_dump as extract_simple_wiki_dump
 
         sys.argv = [
             "extract_simple_wiki_dump.py",
@@ -458,5 +462,5 @@ class TestMainIntegration:
 
         # Should write 2 articles total.
         # Each one produces JSON plus newline (two writes per article).
-        json_lines = [c for c in written_content if c and c != "\n"]
+        json_lines: list[str] = [c for c in written_content if c and c != "\n"]
         assert len(json_lines) == 2

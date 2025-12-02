@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import io
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
@@ -147,7 +147,7 @@ class TestFetchBooksIncremental:
                 parquet_store=memory_parquet_store,
             )
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_fetches_single_page_successfully(
         self, mock_get: Mock, tmp_path: Path, memory_parquet_store: InMemoryParquetStore
     ) -> None:
@@ -189,7 +189,7 @@ class TestFetchBooksIncremental:
         assert df.iloc[0]["authors"] == "Test Author"
         mock_get.assert_called_once()
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_filters_english_only_when_flag_set(
         self,
         mock_get: Mock,
@@ -241,7 +241,7 @@ class TestFetchBooksIncremental:
         assert len(df) == 1
         assert df.iloc[0]["id"] == 1
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_includes_multi_language_when_flag_not_set(
         self,
         mock_get: Mock,
@@ -282,7 +282,7 @@ class TestFetchBooksIncremental:
         assert len(df) == 1
         assert df.iloc[0]["id"] == 2
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_follows_pagination_links(
         self,
         mock_get: Mock,
@@ -346,8 +346,8 @@ class TestFetchBooksIncremental:
         assert df.iloc[1]["id"] == 2
         assert mock_get.call_count == 2
 
-    @patch("build_gutenberg_id_list.requests.get")
-    @patch("build_gutenberg_id_list.time.sleep")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.time.sleep")
     def test_retries_on_rate_limit(
         self,
         mock_sleep: Mock,
@@ -396,8 +396,8 @@ class TestFetchBooksIncremental:
         assert len(df) == 1
         assert mock_sleep.call_count == 1  # Should have slept once
 
-    @patch("build_gutenberg_id_list.requests.get")
-    @patch("build_gutenberg_id_list.time.sleep")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.time.sleep")
     def test_gives_up_after_max_retries(
         self,
         mock_sleep: Mock,
@@ -426,7 +426,7 @@ class TestFetchBooksIncremental:
         assert len(df) == 0  # No data fetched
         assert mock_get.call_count == 5  # MAX_RETRIES
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_resumes_from_checkpoint(
         self,
         mock_get: Mock,
@@ -496,10 +496,13 @@ class TestFetchBooksIncremental:
 
         # Should have both existing and new book
         assert len(df) == 2
-        assert 1 in df["id"].values
-        assert 2 in df["id"].values
+        # pandas-stubs marks Series.to_list as unknown; cast for type checker only.
+        id_values = cast(list[int], df["id"].astype(int).to_list())  # type: ignore[reportUnknownMemberType]
+        ids = set(id_values)
+        assert 1 in ids
+        assert 2 in ids
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_saves_checkpoint_after_each_page(
         self,
         mock_get: Mock,
@@ -541,7 +544,7 @@ class TestFetchBooksIncremental:
         data = json.loads(checkpoint.read_text(encoding="utf-8"))
         assert data["last_page"] == 1
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_handles_missing_optional_fields(
         self,
         mock_get: Mock,
@@ -578,7 +581,7 @@ class TestFetchBooksIncremental:
         assert df.iloc[0]["authors"] == ""
         assert df.iloc[0]["subjects"] == ""
 
-    @patch("build_gutenberg_id_list.requests.get")
+    @patch("scripts.build_gutenberg_id_list.requests.get")
     def test_normalizes_language_codes(
         self,
         mock_get: Mock,

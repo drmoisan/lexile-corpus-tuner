@@ -6,22 +6,43 @@ Tests the Gutenberg query engine with boolean search capabilities.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
 
-# Add scripts/production to path (must be before importing from script)
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "production"))
-
-from explore_gutenberg import (  # noqa: E402
+from scripts.production.explore_gutenberg import (
     BooleanQueryEngine,
     QueryHistory,
     get_canonical_sets,
     save_canonical_sets,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+def _tokenize(engine: BooleanQueryEngine, query: str) -> list[str]:
+    """Access protected tokenizer for testing only."""
+    return engine._tokenize(query)  # pyright: ignore[reportPrivateUsage]
+
+
+def _parse_field_query(
+    engine: BooleanQueryEngine, token: str
+) -> tuple[str | None, str, str | None]:
+    """Access protected field parser for testing only."""
+    return engine._parse_field_query(token)  # pyright: ignore[reportPrivateUsage]
+
+
+def _to_rpn(engine: BooleanQueryEngine, tokens: list[str]) -> list[str]:
+    """Access protected RPN converter for testing only."""
+    return engine._to_rpn(tokens)  # pyright: ignore[reportPrivateUsage]
+
+
+def _column_ints(df: pd.DataFrame, column: str) -> list[int]:
+    """Convert a DataFrame column to ints for assertions."""
+    return [int(value) for value in df[column].to_list()]  # type: ignore[reportUnknownMemberType]
 
 
 class TestGetCanonicalSets:
@@ -174,7 +195,7 @@ class TestBooleanQueryEngine:
         """Test tokenization of simple query."""
         engine = BooleanQueryEngine(sample_df)
 
-        tokens = engine._tokenize("Fiction AND Drama")
+        tokens = _tokenize(engine, "Fiction AND Drama")
 
         assert tokens == ["Fiction", "AND", "Drama"]
 
@@ -182,7 +203,7 @@ class TestBooleanQueryEngine:
         """Test tokenization of field-specific query."""
         engine = BooleanQueryEngine(sample_df)
 
-        tokens = engine._tokenize("subject:Fiction")
+        tokens = _tokenize(engine, "subject:Fiction")
 
         assert "subject:Fiction" in tokens
 
@@ -190,7 +211,7 @@ class TestBooleanQueryEngine:
         """Test tokenization of numeric comparison."""
         engine = BooleanQueryEngine(sample_df)
 
-        tokens = engine._tokenize("download_count>100")
+        tokens = _tokenize(engine, "download_count>100")
 
         assert "download_count>100" in tokens
 
@@ -198,7 +219,7 @@ class TestBooleanQueryEngine:
         """Test tokenization of range query."""
         engine = BooleanQueryEngine(sample_df)
 
-        tokens = engine._tokenize("download_count:100..200")
+        tokens = _tokenize(engine, "download_count:100..200")
 
         assert "download_count:100..200" in tokens
 
@@ -206,7 +227,7 @@ class TestBooleanQueryEngine:
         """Test tokenization with parentheses."""
         engine = BooleanQueryEngine(sample_df)
 
-        tokens = engine._tokenize("(Fiction OR Drama) AND Adventure")
+        tokens = _tokenize(engine, "(Fiction OR Drama) AND Adventure")
 
         assert "(" in tokens
         assert ")" in tokens
@@ -215,7 +236,7 @@ class TestBooleanQueryEngine:
         """Test parsing field:value syntax."""
         engine = BooleanQueryEngine(sample_df)
 
-        field, operator, value = engine._parse_field_query("subject:Fiction")
+        field, operator, value = _parse_field_query(engine, "subject:Fiction")
 
         assert field == "subject"
         assert operator == ":"
@@ -225,7 +246,7 @@ class TestBooleanQueryEngine:
         """Test parsing field>value syntax."""
         engine = BooleanQueryEngine(sample_df)
 
-        field, operator, value = engine._parse_field_query("download_count>100")
+        field, operator, value = _parse_field_query(engine, "download_count>100")
 
         assert field == "download_count"
         assert operator == ">"
@@ -235,7 +256,7 @@ class TestBooleanQueryEngine:
         """Test parsing field:min..max syntax."""
         engine = BooleanQueryEngine(sample_df)
 
-        field, operator, value = engine._parse_field_query("download_count:50..200")
+        field, operator, value = _parse_field_query(engine, "download_count:50..200")
 
         assert field == "download_count"
         assert operator == ".."
@@ -245,7 +266,7 @@ class TestBooleanQueryEngine:
         """Test parsing plain term without field."""
         engine = BooleanQueryEngine(sample_df)
 
-        field, operator, value = engine._parse_field_query("Fiction")
+        field, operator, value = _parse_field_query(engine, "Fiction")
 
         assert field is None
         assert operator == "contains"
@@ -255,7 +276,7 @@ class TestBooleanQueryEngine:
         """Test RPN conversion for simple AND query."""
         engine = BooleanQueryEngine(sample_df)
 
-        rpn = engine._to_rpn(["Fiction", "AND", "Drama"])
+        rpn = _to_rpn(engine, ["Fiction", "AND", "Drama"])
 
         assert rpn == ["Fiction", "Drama", "AND"]
 
@@ -263,7 +284,7 @@ class TestBooleanQueryEngine:
         """Test RPN conversion with parentheses."""
         engine = BooleanQueryEngine(sample_df)
 
-        rpn = engine._to_rpn(["(", "Fiction", "OR", "Drama", ")", "AND", "Adventure"])
+        rpn = _to_rpn(engine, ["(", "Fiction", "OR", "Drama", ")", "AND", "Adventure"])
 
         # Parentheses should change precedence
         assert rpn.index("OR") < rpn.index("AND")
@@ -272,7 +293,7 @@ class TestBooleanQueryEngine:
         """Test RPN conversion with NOT operator."""
         engine = BooleanQueryEngine(sample_df)
 
-        rpn = engine._to_rpn(["NOT", "Fiction"])
+        rpn = _to_rpn(engine, ["NOT", "Fiction"])
 
         assert rpn == ["Fiction", "NOT"]
 
@@ -315,7 +336,8 @@ class TestBooleanQueryEngine:
         result = engine.evaluate("download_count>100")
 
         assert len(result) == 2  # Books with download_count > 100
-        assert all(result["download_count"] > 100)
+        download_counts = _column_ints(result, "download_count")
+        assert all(count > 100 for count in download_counts)
 
     def test_evaluate_range_query(self, sample_df: pd.DataFrame) -> None:
         """Test evaluation of range query."""
@@ -324,9 +346,8 @@ class TestBooleanQueryEngine:
         result = engine.evaluate("download_count:100..200")
 
         assert len(result) == 2  # Books with download_count between 100 and 200
-        assert all(
-            (result["download_count"] >= 100) & (result["download_count"] <= 200)
-        )
+        download_counts = _column_ints(result, "download_count")
+        assert all(100 <= count <= 200 for count in download_counts)
 
     def test_evaluate_field_specific_query(self, sample_df: pd.DataFrame) -> None:
         """Test evaluation of field-specific query."""
@@ -448,7 +469,7 @@ class TestQueryHistory:
         history.queries = ["Query 1", "Query 2"]
 
         # Capture what's written
-        written_content = []
+        written_content: list[str] = []
 
         def capture_write(content: str) -> None:
             written_content.append(content)

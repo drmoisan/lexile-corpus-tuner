@@ -6,10 +6,19 @@ import json
 import sys
 import xml.etree.ElementTree as ET  # noqa: S314
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+
+class Article(TypedDict):
+    """Typed representation of a Simple Wiki article."""
+
+    id: int
+    title: str
+    text: str
+    source_id: str
 
 NAMESPACE = "{http://www.mediawiki.org/xml/export-0.10/}"
 
@@ -20,7 +29,7 @@ def open_dump(path: Path) -> IO[bytes]:
     return path.open("rb")
 
 
-def iter_articles(stream: IO[bytes]) -> Iterator[dict[str, str | int]]:
+def iter_articles(stream: IO[bytes]) -> Iterator[Article]:
     context = ET.iterparse(stream, events=("end",))  # noqa: S314
     for _, elem in context:
         if elem.tag != f"{NAMESPACE}page":
