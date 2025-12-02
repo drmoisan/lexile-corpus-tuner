@@ -30,6 +30,55 @@ from explore_gutenberg import BooleanQueryEngine  # noqa: E402
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+
+class ToolTip:
+    """Simple tooltip widget that appears on hover.
+
+    Creates a small label that appears near the widget when the mouse hovers over it.
+    """
+
+    def __init__(self, widget: tk.Widget, text: str):
+        """Initialize tooltip.
+
+        Args:
+            widget: Widget to attach tooltip to
+            text: Tooltip text to display
+        """
+        self.widget = widget
+        self.text = text
+        self.tipwindow: tk.Toplevel | None = None
+        self.widget.bind("<Enter>", self._show_tip)
+        self.widget.bind("<Leave>", self._hide_tip)
+
+    def _show_tip(self, event: Any = None) -> None:
+        """Show the tooltip."""
+        if self.tipwindow or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify=tk.LEFT,
+            background="#ffffe0",
+            relief=tk.SOLID,
+            borderwidth=1,
+            font=("Arial", 9),
+            padx=5,
+            pady=3,
+        )
+        label.pack()
+
+    def _hide_tip(self, event: Any = None) -> None:
+        """Hide the tooltip."""
+        if self.tipwindow:
+            self.tipwindow.destroy()
+        self.tipwindow = None
+
+
 # Constants
 WINDOW_TITLE = "Gutenberg Query Builder"
 WINDOW_SIZE = "1400x900"
@@ -335,18 +384,41 @@ class QueryConstraintWidget(ttk.Frame):
         entry.pack()
 
     def _create_numeric_widget(self) -> None:
-        """Create numeric spinbox widget."""
+        """Create numeric spinbox widget with validation."""
         spinbox = ttk.Spinbox(
             self.value_widget_frame,
             textvariable=self.value_var,
             from_=0,
             to=999999,
             width=15,
+            validate="key",
+            validatecommand=(
+                self.value_widget_frame.register(self._validate_numeric),
+                "%P",
+            ),
         )
         spinbox.pack()
+        ToolTip(spinbox, "Enter a numeric value (0-999999)")
+
+    def _validate_numeric(self, value: str) -> bool:
+        """Validate numeric input.
+
+        Args:
+            value: Input value to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        if value == "":
+            return True
+        try:
+            num = int(value)
+            return 0 <= num <= 999999
+        except ValueError:
+            return False
 
     def _create_range_widget(self) -> None:
-        """Create range input widget (min..max)."""
+        """Create range input widget (min..max) with validation."""
         frame = ttk.Frame(self.value_widget_frame)
         frame.pack()
 
@@ -361,13 +433,31 @@ class QueryConstraintWidget(ttk.Frame):
         min_var = tk.StringVar(value=min_val)
         max_var = tk.StringVar(value=max_val)
 
-        ttk.Spinbox(frame, textvariable=min_var, from_=0, to=999999, width=8).pack(
-            side=tk.LEFT, padx=2
+        min_spin = ttk.Spinbox(
+            frame,
+            textvariable=min_var,
+            from_=0,
+            to=999999,
+            width=8,
+            validate="key",
+            validatecommand=(frame.register(self._validate_numeric), "%P"),
         )
+        min_spin.pack(side=tk.LEFT, padx=2)
+        ToolTip(min_spin, "Minimum value")
+
         ttk.Label(frame, text="..").pack(side=tk.LEFT)
-        ttk.Spinbox(frame, textvariable=max_var, from_=0, to=999999, width=8).pack(
-            side=tk.LEFT, padx=2
+
+        max_spin = ttk.Spinbox(
+            frame,
+            textvariable=max_var,
+            from_=0,
+            to=999999,
+            width=8,
+            validate="key",
+            validatecommand=(frame.register(self._validate_numeric), "%P"),
         )
+        max_spin.pack(side=tk.LEFT, padx=2)
+        ToolTip(max_spin, "Maximum value")
 
         # Update value_var when either spinbox changes
         def update_range(*args: Any) -> None:
@@ -619,19 +709,25 @@ class QueryGroupWidget(ttk.Frame):
         )
 
         # Control buttons
-        ttk.Button(
+        add_constraint_btn = ttk.Button(
             header_frame, text="+ Constraint", command=self._add_constraint, width=12
-        ).pack(side=tk.LEFT, padx=2)
+        )
+        add_constraint_btn.pack(side=tk.LEFT, padx=2)
+        ToolTip(add_constraint_btn, "Add a new constraint to this group")
 
-        ttk.Button(
+        add_group_btn = ttk.Button(
             header_frame, text="+ Group", command=self._add_group, width=10
-        ).pack(side=tk.LEFT, padx=2)
+        )
+        add_group_btn.pack(side=tk.LEFT, padx=2)
+        ToolTip(add_group_btn, "Add a nested group with its own logic")
 
         if self.nesting_level > 0:
             # Show ungroup button only for nested groups
-            ttk.Button(
+            ungroup_btn = ttk.Button(
                 header_frame, text="Ungroup", command=self._ungroup, width=10
-            ).pack(side=tk.LEFT, padx=2)
+            )
+            ungroup_btn.pack(side=tk.LEFT, padx=2)
+            ToolTip(ungroup_btn, "Remove this group and move children to parent")
 
         # Children container (scrollable)
         self.children_frame = ttk.Frame(self)
@@ -926,6 +1022,8 @@ class QueryBuilderApp:
                 command=lambda f=field_name: self._add_constraint_from_field(f),
             )
             btn.pack(fill=tk.X, pady=2)
+            # Add tooltip
+            ToolTip(btn, f"Click to add '{field_name}' constraint to query")
 
     def _create_query_builder(self, parent: ttk.Frame) -> None:
         """Create query builder panel with root QueryGroupWidget.
@@ -941,9 +1039,9 @@ class QueryBuilderApp:
             side=tk.LEFT
         )
 
-        ttk.Button(header_frame, text="Run Query", command=self._run_query).pack(
-            side=tk.RIGHT, padx=2
-        )
+        run_btn = ttk.Button(header_frame, text="Run Query", command=self._run_query)
+        run_btn.pack(side=tk.RIGHT, padx=2)
+        ToolTip(run_btn, "Execute query and display results (F5)")
 
         # Query group container (scrollable)
         canvas_frame = ttk.Frame(parent)
@@ -990,6 +1088,7 @@ class QueryBuilderApp:
             width=8,
         )
         copy_btn.pack(side=tk.RIGHT, padx=(5, 0))
+        ToolTip(copy_btn, "Copy query string to clipboard")
 
     def _create_results_panel(self, parent: ttk.Frame) -> None:
         """Create results display panel.
@@ -1356,16 +1455,25 @@ class QueryBuilderApp:
         return formatted
 
     def _show_about(self) -> None:
-        """Show about dialog."""
+        """Show about dialog with keyboard shortcuts."""
         messagebox.showinfo(
             "About",
             f"{WINDOW_TITLE}\n\n"
             "Visual query builder for Gutenberg metadata.\n\n"
             "Features:\n"
-            "- Drag-and-drop query construction\n"
-            "- Field-specific operators\n"
-            "- Multi-select for subjects/bookshelves\n"
-            "- Query persistence and results export\n\n"
+            "• Click-to-add field selection\n"
+            "• Field-specific operators & value inputs\n"
+            "• Multi-select for subjects/bookshelves\n"
+            "• Nested query groups with AND/OR logic\n"
+            "• Query persistence and results export\n\n"
+            "Keyboard Shortcuts:\n"
+            "• F5 - Run Query\n"
+            "• Ctrl+N - New Query\n"
+            "• Ctrl+O - Open Query\n"
+            "• Ctrl+S - Save Query\n"
+            "• Ctrl+Shift+S - Save Query As\n"
+            "• Ctrl+E - Export Results\n"
+            "• Ctrl+Q - Quit\n\n"
             "Part of lexile-corpus-tuner project.",
         )
 

@@ -198,28 +198,44 @@ class SavedQuery:
 - [x] Handle NaN values safely in results display (try/except with isinstance check)
 - [x] Pass all validation checks (Black/Ruff/Pyright/Pytest)
 
-### Phase 8: Save/Load Queries (Task 9) [0%]
-- [ ] Implement SavedQuery serialization
-- [ ] Add File > Save Query dialog
-- [ ] Add File > Load Query dialog
-- [ ] Validate query format on load
-- [ ] Handle serialization errors gracefully
+### Phase 8: Save/Load Queries (Task 9) [COMPLETE - 100%]
+- [x] SavedQuery dataclass with version, created, modified, query fields
+- [x] Recursive serialization via _serialize_group() for nested structures
+- [x] Recursive deserialization via _deserialize_group()
+- [x] JSON serialization with from_json()/to_json() methods
+- [x] File > Save Query menu item with Ctrl+S shortcut
+- [x] File > Save Query As menu item with Ctrl+Shift+S shortcut
+- [x] File > Open Query menu item with Ctrl+O shortcut and file dialog
+- [x] _save_query(), _save_query_as(), _save_query_to_file() methods
+- [x] _open_query() with file dialog, error handling
+- [x] Validate query format on load (try/except with messagebox)
+- [x] Handle serialization errors gracefully (error dialogs)
+- [x] Track current_file Path for save without dialog
+- [x] Status bar feedback on save/load operations
 
-### Phase 9: Export Results (Task 10) [0%]
-- [ ] Add Export Results button/menu
-- [ ] Implement CSV export
-- [ ] Implement Parquet export
-- [ ] Add file format selection dialog
-- [ ] Show export success/failure feedback
+### Phase 9: Export Results (Task 10) [COMPLETE - 100%]
+- [x] _export_results() method implementation
+- [x] File > Export Results menu item with Ctrl+E shortcut
+- [x] Check if results exist (last_results not None/empty)
+- [x] File format selection dialog (CSV or Parquet via filetypes)
+- [x] Implement CSV export via to_csv() with index=False
+- [x] Implement Parquet export via to_parquet() with index=False
+- [x] Path suffix detection (.parquet vs .csv)
+- [x] Show export success feedback in status bar with count
+- [x] Show export failure feedback via messagebox
+- [x] Warning dialog if no results available
 
-### Phase 10: Integration & Polish (Tasks 11-12) [0%]
-- [ ] Ensure BooleanQueryEngine integration works
-- [ ] Add tooltips to all UI elements
-- [ ] Add keyboard shortcuts (Ctrl+S, Ctrl+O, Ctrl+Q, etc.)
-- [ ] Add input validation and error dialogs
-- [ ] Add confirm dialogs for destructive actions
-- [ ] Implement status bar for feedback
-- [ ] Add proper window sizing and resizing
+### Phase 10: Integration & Polish (Tasks 11-12) [COMPLETE - 100%]
+- [x] Ensure BooleanQueryEngine integration works (Phase 7)
+- [x] Create ToolTip helper class for hover tooltips
+- [x] Add tooltips to all key UI elements (buttons, spinboxes)
+- [x] Add keyboard shortcuts (Ctrl+N/O/S/Shift+S/E/Q, F5) - already complete
+- [x] Add numeric input validation (_validate_numeric for 0-999999 range)
+- [x] Add confirm dialogs for destructive actions (_new_query, _on_closing)
+- [x] Implement status bar for feedback - already complete
+- [x] Add proper window sizing and resizing - already complete (1400x900)
+- [x] Improve About dialog with full keyboard shortcuts list
+- [x] Pass all validation checks (Black/Ruff/Pyright/Pytest)
 
 ### Phase 11: Testing (Task 13) [0%]
 - [ ] Write unit tests for data models
@@ -292,7 +308,7 @@ class SavedQuery:
 
 ## Progress Tracking
 
-### Overall Completion: 58%
+### Overall Completion: 83%
 - Phase 1: 100% (Planning + Core Framework COMPLETE)
 - Phase 2: 100% (Query Constraint Components COMPLETE)
 - Phase 3: 100% (Query Group Components COMPLETE)
@@ -300,8 +316,12 @@ class SavedQuery:
 - Phase 5: 100% (Multi-Select Lists COMPLETE)
 - Phase 6: 100% (Query String Display COMPLETE)
 - Phase 7: 100% (Query Execution & Results Display COMPLETE)
-- Phase 8: 0%
-- Phase 9: 0%
+- Phase 8: 100% (Save/Load Queries COMPLETE)
+- Phase 9: 100% (Export Results COMPLETE)
+- Phase 10: 100% (Integration & Polish COMPLETE)
+- Phase 11: 0%
+- Phase 12: 0%
+- Phase 13: 0%
 - Phase 10: 0%
 - Phase 11: 0%
 - Phase 12: 0%
