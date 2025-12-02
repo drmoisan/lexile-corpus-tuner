@@ -43,7 +43,8 @@ def iter_articles(stream: IO[bytes]) -> Iterator[dict[str, str | int]]:
 
         revision = elem.find(f"{NAMESPACE}revision")
         text_elem = revision.find(f"{NAMESPACE}text") if revision is not None else None
-        text = text_elem.text or ""
+        text = text_elem.text if text_elem is not None else ""
+        text = text or ""
 
         yield {
             "id": page_id,
