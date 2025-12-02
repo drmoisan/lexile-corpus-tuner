@@ -85,6 +85,20 @@ poetry run text-difficulty-pipeline calibration fit \
 
 # 6) Analyze new text with the Lexile-faithful analyzer
 poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output report.json
+
+### Gutenberg Corpus Explorer
+Interactive tool for exploring the Gutenberg metadata (subjects, bookshelves) and filtering books.
+
+```bash
+poetry run python scripts/explore_gutenberg.py
+```
+
+**Commands:**
+- `s <query>`: Search subjects (e.g., `s "Science Fiction" AND (Space OR Time)`).
+- `b <query>`: Search bookshelves (e.g., `b Children`).
+- `ls s` / `ls b`: List all unique subjects or bookshelves.
+- `export_sets [dir]`: Export unique subjects/bookshelves to text files.
+- `export_results <file>`: Save the last search results to CSV or Parquet.
 ```
 
 ---
