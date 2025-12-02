@@ -33,7 +33,7 @@ openai = { version = ">=1.40.0", optional = true }
 pytest = ">=7.0"
 pytest-cov = ">=7.0"
 black = ">=23.0"
-ruff = "^0.1.0"
+ruff = "^0.5.3"
 pyright = "^1.1.407"
 openai = "^2.8.0"
 

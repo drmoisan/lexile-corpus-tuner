@@ -20,6 +20,7 @@ class Article(TypedDict):
     text: str
     source_id: str
 
+
 NAMESPACE = "{http://www.mediawiki.org/xml/export-0.10/}"
 
 
