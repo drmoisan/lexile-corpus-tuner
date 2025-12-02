@@ -87,19 +87,42 @@ poetry run text-difficulty-pipeline calibration fit \
 poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output report.json
 
 ### Gutenberg Corpus Explorer
-Interactive tool for exploring the Gutenberg metadata (subjects, bookshelves) and filtering books.
+Interactive tool for exploring the Gutenberg metadata with powerful query capabilities including field-specific filtering, numeric comparisons, and range queries.
 
 ```bash
 poetry run python scripts/explore_gutenberg.py
 ```
 
-**Commands:**
-- `s <query>`: Search subjects (e.g., `s "Science Fiction" AND (Space OR Time)`).
-- `b <query>`: Search bookshelves (e.g., `b Children`).
-- `ls s` / `ls b`: List all unique subjects or bookshelves.
+**Basic Commands:**
+- `s <query>`: Search subjects (legacy boolean syntax).
+- `b <query>`: Search bookshelves (legacy boolean syntax).
+- `ls s` / `ls b` / `ls f`: List subjects, bookshelves, or all available fields.
 - `export_sets [dir]`: Export unique subjects/bookshelves to text files.
 - `export_results <file>`: Save the last search results to CSV or Parquet.
+- `history`: Show recent query history.
+- `help`: Display comprehensive syntax help.
+
+**Enhanced Query Syntax (use with `q` command):**
+- **Field-specific queries**: `field:value` (e.g., `subject:Fiction`, `title:Alice`)
+- **Numeric comparisons**: `field>1000`, `field<500`, `field>=100`, `field<=200`
+- **Range queries**: `field:min..max` (e.g., `download_count:1000..5000`)
+- **Exact matches**: `field="exact value"` (case-insensitive)
+- **Boolean operators**: `AND`, `OR`, `NOT` with parentheses for grouping
+- **Universal search**: Terms without field prefix search across all text fields
+
+**Query Examples:**
 ```
+q subject:Fiction AND download_count>1000
+q (subject:Science OR subject:Technology) AND NOT language:en
+q download_count:1000..5000 AND subject:"Science Fiction"
+q title:Alice OR title:Wonderland
+q copyright:false AND download_count>5000
+```
+
+**Available Fields:**
+- Text fields: `title`, `authors`, `subjects`, `bookshelves`, `languages`, `media_type`
+- Numeric fields: `id`, `download_count`
+- Boolean fields: `copyright`
 
 ---
 ## Architecture Snapshot
