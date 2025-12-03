@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
+
 from lexile_corpus_tuner.corpus import download
 
 if TYPE_CHECKING:
