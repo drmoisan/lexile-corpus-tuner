@@ -120,7 +120,7 @@ def download_oer_sources() -> None:
         try:
             if url.startswith("file://"):
                 _copy_local_file(Path(url[7:]), dest)
-            elif url.startswith("/"):
+            elif Path(url).is_absolute():
                 _copy_local_file(Path(url), dest)
             else:
                 _download_file(url, dest)

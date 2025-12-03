@@ -141,10 +141,10 @@ This document outlines a systematic, phased approach to expanding test coverage 
 - [ ] Coverage checkpoint: Re-run and verify ≥70% for assigned modules
 
 ### Agent 2 Tasks (Corpus Pipeline)
-- [ ] `test_corpus_download.py` - Download functions with mocked requests
-- [ ] `test_corpus_normalize.py` - Text normalization workflows
-- [ ] `test_corpus_frequencies.py` - Frequency computation
-- [ ] Coverage checkpoint: Re-run and verify ≥70% for assigned modules
+- [x] `test_corpus_download.py` - Download functions with mocked requests
+- [x] `test_corpus_normalize.py` - Text normalization workflows
+- [x] `test_corpus_frequencies.py` - Frequency computation
+- [x] Coverage checkpoint: Re-run and verify ≥70% for assigned modules (achieved 97%!)
 
 ### Agent 3 Tasks (Calibration CLI & Preprocessing)
 - [ ] `test_calibration_cli.py` - CLI command tests (fetch-texts, build-dataset, fit)
@@ -287,6 +287,39 @@ This document outlines a systematic, phased approach to expanding test coverage 
 **Blockers:**
 - None.
 
+### Agent 2 Update - 2025-12-03
+
+**Phase:** 1
+
+**Completed:**
+- `tests/test_corpus_download.py` ✅ (43 tests)
+- `tests/test_corpus_normalize.py` ✅ (40 tests)
+- `tests/test_corpus_frequencies.py` ✅ (25 tests)
+
+**Coverage Snapshot:**
+- `corpus/download.py`: 18% → 100%
+- `corpus/normalize.py`: 16% → 93%
+- `corpus/frequencies.py`: 21% → 100%
+- `corpus/cli.py`: 100% (maintained)
+- **Overall corpus module coverage: 22% → 97%**
+
+**Details:**
+- All 108 new tests pass
+- All quality gates pass (black, ruff, pyright, pytest)
+- Tests run fast (<0.5s total)
+- All network calls are mocked
+- All file system operations use tmp_path fixture
+
+**In Progress:**
+- Phase 1 complete. Ready for Phase 2 tasks.
+
+**Blockers:**
+- None.
+
+**Notes:**
+- 12 lines remain uncovered in normalize.py (duplicated jsonl processing blocks)
+- These are OSError exception handlers for edge cases that are difficult to simulate
+
 ### Agent 1 Update - 2025-12-03
 
 **Phase:** 1 (Complete)
@@ -321,7 +354,6 @@ This document outlines a systematic, phased approach to expanding test coverage 
 
 **Blockers:**
 - None.
-
 ---
 
 ## Risk Mitigation
