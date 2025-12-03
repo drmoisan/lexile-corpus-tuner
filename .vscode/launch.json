@@ -78,6 +78,17 @@
                 "--languages", "en"
             ]
         },
+                {
+            "name": "Step 0.2 - Curate Gutenberg ID List",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/production/gutenberg_query_builder_ui.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--languages", "en"
+            ]
+        },
         {
             "name": "Step 1 - Corpus Download",
             "type": "debugpy",

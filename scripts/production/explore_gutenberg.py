@@ -312,9 +312,11 @@ class BooleanQueryEngine:
         # 5. Non-whitespace, non-paren sequences (terms)
         pattern = (
             r"\(|\)"
-            r'|[a-zA-Z_][a-zA-Z0-9_]*:["\'][^"\']+["\']'  # field:"quoted"
+            r'|[a-zA-Z_][a-zA-Z0-9_]*:"[^"]*"'  # field:"quoted" (double quotes)
+            r"|[a-zA-Z_][a-zA-Z0-9_]*:'[^']*'"  # field:'quoted' (single quotes)
             r"|[a-zA-Z_][a-zA-Z0-9_]*(?:[><=:][^\s()]+)"  # field:unquoted or field>123
-            r'|"[^"]+"|\'[^\']+\''  # standalone quoted strings
+            r'|"[^"]*"'  # standalone double-quoted strings
+            r"|'[^']*'"  # standalone single-quoted strings
             r"|[^\s()]+"  # unquoted terms
         )
         return re.findall(pattern, query)

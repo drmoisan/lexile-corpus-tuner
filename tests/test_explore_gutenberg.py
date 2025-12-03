@@ -223,6 +223,50 @@ class TestBooleanQueryEngine:
 
         assert "download_count:100..200" in tokens
 
+    def test_tokenize_field_with_apostrophe_in_double_quotes(
+        self, sample_df: pd.DataFrame
+    ) -> None:
+        """Test tokenization of field value with apostrophe in double quotes.
+
+        Regression test for bug where apostrophes inside quoted strings
+        would break tokenization, causing "Invalid query" errors.
+
+        Previously `bookshelves:"Children's Fiction"` was incorrectly split into:
+        ['bookshelves:"Children\\'', 's', 'Fiction"']
+
+        Now it should tokenize as a single unit.
+        """
+        engine = BooleanQueryEngine(sample_df)
+
+        tokens = _tokenize(engine, 'bookshelves:"Children\'s Fiction"')
+
+        assert len(tokens) == 1
+        assert tokens[0] == 'bookshelves:"Children\'s Fiction"'
+
+    def test_tokenize_multiple_fields_with_apostrophes_in_or_query(
+        self, sample_df: pd.DataFrame
+    ) -> None:
+        """Test tokenization of OR query with multiple apostrophe-containing values.
+
+        Regression test for the exact scenario that failed in production:
+        UI multi-select generates queries like this when selecting bookshelves
+        such as "Children's Fiction" and "Children's Biography".
+        """
+        engine = BooleanQueryEngine(sample_df)
+
+        query = (
+            '(bookshelves:"Children\'s Fiction" OR '
+            'bookshelves:"Children\'s Biography" OR '
+            'bookshelves:"Child\'s Own Book")'
+        )
+        tokens = _tokenize(engine, query)
+
+        # Should tokenize cleanly without splitting on apostrophes
+        assert len(tokens) == 7  # (, field1, OR, field2, OR, field3, )
+        assert tokens[1] == 'bookshelves:"Children\'s Fiction"'
+        assert tokens[3] == 'bookshelves:"Children\'s Biography"'
+        assert tokens[5] == 'bookshelves:"Child\'s Own Book"'
+
     def test_tokenize_parentheses(self, sample_df: pd.DataFrame) -> None:
         """Test tokenization with parentheses."""
         engine = BooleanQueryEngine(sample_df)
