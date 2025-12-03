@@ -66,7 +66,7 @@ def _build_kwargs(data: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(openai_value, OpenAISettings):
             kwargs["openai"] = openai_value
         elif isinstance(openai_value, Mapping):
-            openai_mapping = cast(Mapping[str, Any], openai_value)
+            openai_mapping = cast("Mapping[str, Any]", openai_value)
             kwargs["openai"] = _build_openai_settings(openai_mapping)
     return kwargs
 
@@ -91,7 +91,7 @@ def config_from_yaml(path: str | Path) -> LexileTunerConfig:
     if parsed is None:
         mapping: Mapping[str, Any] = {}
     elif isinstance(parsed, MutableMapping):
-        typed_parsed = cast(MutableMapping[Any, Any], parsed)
+        typed_parsed = cast("MutableMapping[Any, Any]", parsed)
         mapping_dict: dict[str, Any] = {}
         for key_obj, value in typed_parsed.items():
             if not isinstance(key_obj, str):

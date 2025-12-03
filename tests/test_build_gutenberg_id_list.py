@@ -497,7 +497,7 @@ class TestFetchBooksIncremental:
         # Should have both existing and new book
         assert len(df) == 2
         # pandas-stubs marks Series.to_list as unknown; cast for type checker only.
-        id_values = cast(list[int], df["id"].astype(int).to_list())  # type: ignore[reportUnknownMemberType]
+        id_values = cast("list[int]", df["id"].astype(int).to_list())  # type: ignore[reportUnknownMemberType]
         ids = set(id_values)
         assert 1 in ids
         assert 2 in ids

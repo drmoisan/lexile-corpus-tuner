@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from lexile_corpus_tuner.config import (
     LexileTunerConfig,
     OpenAISettings,

@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from lexile_corpus_tuner.cli import app
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
+from lexile_corpus_tuner.cli import app
 from tests.utils import write_minimal_epub
 
 runner = CliRunner()

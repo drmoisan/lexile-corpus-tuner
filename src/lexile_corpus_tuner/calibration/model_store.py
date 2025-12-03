@@ -14,7 +14,7 @@ def save_model(
     model: ElasticNet, metrics: dict[str, float], feature_names: list[str], path: Path
 ) -> None:
     """Persist a trained ElasticNet model as a JSON spec."""
-    model_any = cast(Any, model)
+    model_any = cast("Any", model)
     spec: dict[str, Any] = {
         "version": date.today().isoformat(),
         "features": feature_names,

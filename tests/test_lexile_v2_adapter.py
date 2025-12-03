@@ -1,9 +1,10 @@
 import types
 from typing import Any
 
-import lexile_corpus_tuner.estimators.lexile_determination_v2_adapter as adapter
 import numpy as np
 import pytest
+
+import lexile_corpus_tuner.estimators.lexile_determination_v2_adapter as adapter
 
 
 class DummyModel:
