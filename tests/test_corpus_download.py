@@ -7,9 +7,11 @@ All network calls are mocked to ensure tests run without internet access.
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 import requests
 
 from lexile_corpus_tuner.corpus import download
@@ -17,7 +19,6 @@ from lexile_corpus_tuner.corpus import download
 if TYPE_CHECKING:
     from pathlib import Path
 
-    import pytest
     from pytest import MonkeyPatch
 
 
@@ -311,8 +312,6 @@ class TestDownloadFile:
     def test_raises_on_http_error(self, mock_get: Mock, tmp_path: Path) -> None:
         """Test that HTTP errors are propagated."""
         # Arrange
-        import pytest
-
         dest = tmp_path / "test.txt"
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
@@ -361,8 +360,6 @@ class TestCopyLocalFile:
     def test_raises_on_missing_source(self, tmp_path: Path) -> None:
         """Test that FileNotFoundError is raised for missing source."""
         # Arrange
-        import pytest
-
         src = tmp_path / "nonexistent.txt"
         dest = tmp_path / "dest.txt"
 
@@ -419,7 +416,6 @@ class TestDownloadGutenbergSubset:
         monkeypatch.setattr(download, "GUTENBERG_IDS_FILE", ids_file)
 
         # Act
-        import logging
 
         with caplog.at_level(logging.WARNING):
             download.download_gutenberg_subset()
@@ -482,7 +478,6 @@ class TestDownloadGutenbergSubset:
         mock_resolve.return_value = None
 
         # Act
-        import logging
 
         with caplog.at_level(logging.WARNING):
             download.download_gutenberg_subset()
@@ -520,7 +515,6 @@ class TestDownloadGutenbergSubset:
         ]
 
         # Act
-        import logging
 
         with caplog.at_level(logging.ERROR):
             download.download_gutenberg_subset()
@@ -633,7 +627,6 @@ class TestDownloadSimpleWikiDump:
     ) -> None:
         """Test that download is skipped if file already exists."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         wiki_dir = raw_root / "simple_wiki"
@@ -686,7 +679,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that download is skipped when manifest file is missing."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         manifest_file = tmp_path / "nonexistent_manifest.json"
@@ -712,7 +704,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that invalid JSON is handled gracefully."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         manifest_file = tmp_path / "manifest.json"
@@ -735,7 +726,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that download is skipped when sources list is empty."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         manifest_file = tmp_path / "manifest.json"
@@ -866,7 +856,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that entries without URL are skipped with warning."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         manifest_file = tmp_path / "manifest.json"
@@ -896,7 +885,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that existing files are skipped."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         openstax_dir = raw_root / "openstax"
@@ -942,7 +930,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that download continues for other sources when one fails."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         manifest_file = tmp_path / "manifest.json"
@@ -1053,7 +1040,6 @@ class TestDownloadOerSources:
     ) -> None:
         """Test that copy errors are handled gracefully."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "data" / "corpus" / "raw"
         nonexistent_source = tmp_path / "nonexistent.txt"

@@ -7,6 +7,7 @@ All file system operations use tmp_path fixture for isolation.
 from __future__ import annotations
 
 import json
+import logging
 from typing import TYPE_CHECKING
 
 from lexile_corpus_tuner.corpus import normalize
@@ -281,8 +282,9 @@ class TestIterSimpleWikiTexts:
         )
         results = list(iter_fn())
 
-        # Assert - note: duplicate processing in current code
-        # The code processes jsonl files twice, so we expect 4 results
+        # Assert - The source code has duplicate jsonl processing loops
+        # (lines 120-137 and 139-156). This results in each jsonl record
+        # being yielded twice. Test verifies at least 2 records are processed.
         jsonl_results = [r for r in results if "article" in r[1]]
         assert len(jsonl_results) >= 2
 
@@ -876,7 +878,6 @@ class TestNormalizeAllSources:
     ) -> None:
         """Test that shard count is logged after normalization."""
         # Arrange
-        import logging
 
         raw_root = tmp_path / "raw"
         (raw_root / "gutenberg").mkdir(parents=True)

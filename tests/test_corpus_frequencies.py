@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 from typing import TYPE_CHECKING, Any
 
 from lexile_corpus_tuner.corpus import frequencies
@@ -315,9 +316,9 @@ class TestComputeGlobalFrequencies:
         with freq_tsv.open() as f:
             reader = csv.DictReader(f, delimiter="\t")
             rows = list(reader)
-            first_token = rows[0]["token"]
-            expected = "frequent"  # noqa: S105 - not a password, it's a test token
-            assert first_token == expected  # Most frequent
+            # Most frequent token should be first - "frequent" appears 3 times
+            top_token = "frequent"  # noqa: S105
+            assert rows[0]["token"] == top_token
             assert rows[0]["rank"] == "1"
 
     def test_applies_source_weights(
@@ -409,7 +410,6 @@ class TestComputeGlobalFrequencies:
     ) -> None:
         """Test that warning is logged when no shard files exist."""
         # Arrange
-        import logging
 
         shards_root = tmp_path / "shards"
         shards_root.mkdir()  # Empty directory
@@ -440,7 +440,6 @@ class TestComputeGlobalFrequencies:
     ) -> None:
         """Test that warning is logged when shards contain zero tokens."""
         # Arrange
-        import logging
 
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
@@ -706,7 +705,6 @@ class TestComputeGlobalFrequencies:
     ) -> None:
         """Test that completion info is logged."""
         # Arrange
-        import logging
 
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
