@@ -367,6 +367,96 @@ class TestBooleanQueryEngine:
         assert len(result) == 1
         assert result.iloc[0]["title"] == "Book A"
 
+    def test_evaluate_exact_match_on_subjects_field(
+        self, sample_df: pd.DataFrame
+    ) -> None:
+        """Test exact match on semicolon-delimited subjects field.
+
+        The subjects field contains values like "Fiction; Drama". An exact match
+        query like subjects:"Fiction" should match rows where "Fiction" is one
+        of the semicolon-separated items, not require the entire field to equal
+        "Fiction".
+        """
+        engine = BooleanQueryEngine(sample_df)
+
+        # Test exact match on a single subject from multi-subject rows
+        # Both "Book A" (Fiction; Drama) and "Book B" (Fiction; Adventure)
+        # have "Fiction"
+        result = engine.evaluate('subjects:"Fiction"')
+
+        assert len(result) == 2
+        titles: set[str] = set(result["title"])  # type: ignore[arg-type]
+        assert titles == {"Book A", "Book B"}
+
+        # Test exact match on Drama (only in "Book A")
+        result = engine.evaluate('subjects:"Drama"')
+
+        assert len(result) == 1
+        assert result.iloc[0]["title"] == "Book A"
+
+        # Test exact match on single-value subject
+        result = engine.evaluate('subjects:"Poetry"')
+
+        assert len(result) == 1
+        assert result.iloc[0]["title"] == "Book C"
+
+        # Test exact match should NOT match partial strings
+        result = engine.evaluate('subjects:"Fict"')
+
+        assert len(result) == 0
+
+    def test_evaluate_exact_match_on_bookshelves_field(
+        self, sample_df: pd.DataFrame
+    ) -> None:
+        """Test exact match on semicolon-delimited bookshelves field.
+
+        Similar to subjects, bookshelves may contain multiple values like
+        "Classic; Adventure". Exact match should check each delimited item.
+        """
+        engine = BooleanQueryEngine(sample_df)
+
+        # Test exact match on a bookshelf that appears in multiple books
+        # Book A has "Classic; Adventure", Book B has just "Adventure"
+        result = engine.evaluate('bookshelves:"Adventure"')
+
+        assert len(result) == 2  # Both "Book A" and "Book B"
+        titles: set[str] = set(result["title"])  # type: ignore[arg-type]
+        assert titles == {"Book A", "Book B"}
+
+        # Test exact match on "Classic" (only in "Book A")
+        result = engine.evaluate('bookshelves:"Classic"')
+
+        assert len(result) == 1
+        assert result.iloc[0]["title"] == "Book A"
+
+        # Test exact match on single-value bookshelf
+        result = engine.evaluate('bookshelves:"Science"')
+
+        assert len(result) == 1
+        assert result.iloc[0]["title"] == "Book D"
+
+    def test_evaluate_exact_match_multiple_delimited_values(
+        self, sample_df: pd.DataFrame
+    ) -> None:
+        """Test OR query with multiple exact matches on delimited fields.
+
+        This simulates the UI's multi-select behavior where selecting multiple
+        bookshelves generates a query like:
+        bookshelves:"Adventure" OR bookshelves:"Classic"
+        """
+        engine = BooleanQueryEngine(sample_df)
+
+        # Query matching multiple bookshelf values with OR
+        # "Adventure" matches Book A and Book B
+        # "Poetry Collection" matches Book C
+        result = engine.evaluate(
+            'bookshelves:"Adventure" OR bookshelves:"Poetry Collection"'
+        )
+
+        assert len(result) == 3  # Books A, B, and C
+        titles: set[str] = set(result["title"])  # type: ignore[arg-type]
+        assert titles == {"Book A", "Book B", "Book C"}
+
     def test_evaluate_empty_query(self, sample_df: pd.DataFrame) -> None:
         """Test that empty query returns full DataFrame."""
         engine = BooleanQueryEngine(sample_df)

@@ -12,20 +12,18 @@ queries against the Gutenberg metadata database. It supports:
 
 from __future__ import annotations
 
-import json
-import sys
 import tkinter as tk
-from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-
-# Import query engine from explore_gutenberg
-sys.path.insert(0, str(Path(__file__).parent))
-from explore_gutenberg import BooleanQueryEngine  # noqa: E402
+from explore_gutenberg import BooleanQueryEngine, get_canonical_sets
+from gutenberg_query_core import (
+    QueryConstraintModel,
+    QueryGroupModel,
+    SavedQuery,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -252,7 +250,10 @@ class ToolTip:
 # Constants
 WINDOW_TITLE = "Gutenberg Query Builder"
 WINDOW_SIZE = "1400x900"
-PARQUET_PATH = Path("data/gutenberg_books.parquet")
+# Path relative to repository root (two levels up from this script)
+PARQUET_PATH = (
+    Path(__file__).parent.parent.parent / "data" / "meta" / "gutenberg_books.parquet"
+)
 
 # Field metadata
 FIELD_TYPES = {
@@ -270,150 +271,6 @@ FIELD_TYPES = {
 TEXT_OPERATORS = ["contains", "=", "!="]
 NUMERIC_OPERATORS = [">", "<", ">=", "<=", "=", "!=", "range"]
 BOOLEAN_OPERATORS = ["=", "!="]
-
-
-@dataclass
-class QueryConstraintModel:
-    """Model for a single query constraint (field:operator:value)."""
-
-    field: str
-    operator: str
-    value: str | list[str]
-
-    def to_query_string(self) -> str:
-        """Convert to query syntax compatible with BooleanQueryEngine.
-
-        Returns:
-            Query string like 'field:value', 'field>100', 'field:100..500'
-        """
-        if isinstance(self.value, list):
-            # Multi-select converts to OR clause
-            terms = [f'{self.field}:"{v}"' for v in self.value]
-            return f"({' OR '.join(terms)})"
-
-        if self.operator == "contains":
-            return f"{self.field}:{self.value}"
-        elif self.operator == "=":
-            return f'{self.field}="{self.value}"'
-        elif self.operator == "!=":
-            return f'NOT {self.field}="{self.value}"'
-        elif self.operator == "range":
-            return f"{self.field}:{self.value}"
-        else:
-            # >, <, >=, <=
-            return f"{self.field}{self.operator}{self.value}"
-
-
-@dataclass
-class QueryGroupModel:
-    """Model for a group of constraints with AND/OR logic."""
-
-    logic: str  # 'AND' or 'OR'
-    constraints: list[QueryConstraintModel | QueryGroupModel] = field(  # type: ignore[misc]
-        default_factory=list  # type: ignore[misc]
-    )
-
-    def to_query_string(self) -> str:
-        """Convert to nested query syntax with parentheses.
-
-        Returns:
-            Query string like '(a AND b) OR (c AND d)'
-        """
-        if not self.constraints:
-            return ""
-
-        parts: list[str] = [c.to_query_string() for c in self.constraints]
-        parts = [p for p in parts if p]  # Filter empty strings
-
-        if not parts:
-            return ""
-        if len(parts) == 1:
-            return parts[0]
-
-        joined = f" {self.logic} ".join(parts)
-        return f"({joined})"
-
-
-@dataclass
-class SavedQuery:
-    """Persistent query format for save/load."""
-
-    version: str
-    created: str
-    modified: str
-    query: dict[str, Any]  # Serialized QueryGroupModel
-
-    @classmethod
-    def from_query_group(cls, group: QueryGroupModel) -> SavedQuery:
-        """Create SavedQuery from QueryGroupModel."""
-        now = datetime.now().isoformat()
-        return cls(
-            version="1.0",
-            created=now,
-            modified=now,
-            query=cls._serialize_group(group),
-        )
-
-    @staticmethod
-    def _serialize_group(
-        group: QueryGroupModel | QueryConstraintModel,
-    ) -> dict[str, Any]:
-        """Recursively serialize query structure."""
-        if isinstance(group, QueryConstraintModel):
-            return {
-                "type": "constraint",
-                "field": group.field,
-                "operator": group.operator,
-                "value": group.value,
-            }
-        else:
-            constraints_serialized: list[dict[str, Any]] = [
-                SavedQuery._serialize_group(c) for c in group.constraints
-            ]
-            return {
-                "type": "group",
-                "logic": group.logic,
-                "constraints": constraints_serialized,
-            }
-
-    @classmethod
-    def from_json(cls, json_str: str) -> SavedQuery:
-        """Deserialize from JSON string."""
-        data = json.loads(json_str)
-        return cls(**data)
-
-    def to_json(self) -> str:
-        """Serialize to JSON string."""
-        return json.dumps(asdict(self), indent=2)
-
-    def to_query_group(self) -> QueryGroupModel:
-        """Deserialize query structure to QueryGroupModel.
-
-        Raises:
-            ValueError: If the root query is not a QueryGroupModel.
-        """
-        result = self._deserialize_group(self.query)
-        if not isinstance(result, QueryGroupModel):
-            # Root should always be a group, but wrap single constraint if needed
-            result = QueryGroupModel(logic="AND", constraints=[result])
-        return result
-
-    @staticmethod
-    def _deserialize_group(
-        data: dict[str, Any],
-    ) -> QueryGroupModel | QueryConstraintModel:
-        """Recursively deserialize query structure."""
-        if data["type"] == "constraint":
-            return QueryConstraintModel(
-                field=data["field"],
-                operator=data["operator"],
-                value=data["value"],
-            )
-        # Must be a group
-        return QueryGroupModel(
-            logic=data["logic"],
-            constraints=[SavedQuery._deserialize_group(c) for c in data["constraints"]],
-        )
 
 
 class QueryConstraintWidget(ttk.Frame):
@@ -828,6 +685,7 @@ class QueryGroupWidget(ttk.Frame):
         bookshelves: set[str],
         on_change: Callable[[], None],
         nesting_level: int = 0,
+        parent_group: QueryGroupWidget | None = None,
     ) -> None:
         """Initialize query group widget.
 
@@ -838,6 +696,7 @@ class QueryGroupWidget(ttk.Frame):
             bookshelves: Available bookshelf values for multi-select
             on_change: Callback when group or children change
             nesting_level: Nesting depth (0 = root, increases with nesting)
+            parent_group: Owning QueryGroupWidget (None for root)
         """
         super().__init__(parent)
         self.model = model
@@ -845,6 +704,7 @@ class QueryGroupWidget(ttk.Frame):
         self.bookshelves = bookshelves
         self.on_change = on_change
         self.nesting_level = nesting_level
+        self.parent_group = parent_group
         self.child_widgets: list[QueryConstraintWidget | QueryGroupWidget] = []
 
         self._create_widgets()
@@ -968,6 +828,7 @@ class QueryGroupWidget(ttk.Frame):
             bookshelves=self.bookshelves,
             on_change=self.on_change,
             nesting_level=self.nesting_level + 1,
+            parent_group=self,
         )
         widget.pack(fill=tk.X, pady=5)
         self.child_widgets.append(widget)
@@ -984,18 +845,48 @@ class QueryGroupWidget(ttk.Frame):
             widget.destroy()
             self.on_change()
 
+    def _replace_child_with_models(
+        self,
+        child: QueryConstraintWidget | QueryGroupWidget,
+        replacement_models: list[QueryConstraintModel | QueryGroupModel],
+    ) -> None:
+        """Replace a child widget with a sequence of models in the same position."""
+        if child not in self.child_widgets:
+            return
+
+        new_models: list[QueryConstraintModel | QueryGroupModel] = []
+        for existing in self.child_widgets:
+            if existing is child:
+                new_models.extend(replacement_models)
+            elif isinstance(existing, QueryConstraintWidget):
+                new_models.append(existing.get_model())
+            else:
+                new_models.append(existing.get_model())
+
+        self.clear_children()
+        for model in new_models:
+            if isinstance(model, QueryConstraintModel):
+                self._add_constraint_widget(model)
+            else:
+                self._add_group_widget(model)
+        self.on_change()
+
     def _ungroup(self) -> None:
         """Ungroup this group (move children to parent, remove this group).
 
-        This is handled by the parent, so we just signal via callback.
-        The parent will need to implement the ungroup logic.
+        Moves this group's children up one level and removes the group widget.
         """
-        # Placeholder - actual implementation will be in parent handling
-        # For now, just delete all children
-        for widget in list(self.child_widgets):
-            widget.destroy()
-        self.child_widgets.clear()
-        self.on_change()
+        if self.parent_group is None:
+            return  # Root cannot be ungrouped
+
+        replacement_models: list[QueryConstraintModel | QueryGroupModel] = []
+        for widget in self.child_widgets:
+            if isinstance(widget, QueryConstraintWidget):
+                replacement_models.append(widget.get_model())
+            else:
+                replacement_models.append(widget.get_model())
+
+        self.parent_group._replace_child_with_models(self, replacement_models)
 
     def _on_logic_change(self) -> None:
         """Handle logic selector change."""
@@ -1336,10 +1227,6 @@ class QueryBuilderApp:
         """Extract unique subjects and bookshelves from DataFrame."""
         if self.df is None:
             return
-
-        # Import function from explore_gutenberg.py
-        sys.path.insert(0, str(Path(__file__).parent))
-        from explore_gutenberg import get_canonical_sets
 
         self.subjects, self.bookshelves = get_canonical_sets(self.df)
 

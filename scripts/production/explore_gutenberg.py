@@ -306,12 +306,16 @@ class BooleanQueryEngine:
     def _tokenize(self, query: str) -> list[str]:
         # Pattern matches:
         # 1. ( or )
-        # 2. Field operators: field:value, field>value, field<value, etc.
-        # 3. Quoted strings (double or single)
-        # 4. Non-whitespace, non-paren sequences (terms)
+        # 2. Field operators with quoted values: field:"quoted value"
+        # 3. Field operators with unquoted values: field:value, field>value, etc.
+        # 4. Standalone quoted strings (double or single)
+        # 5. Non-whitespace, non-paren sequences (terms)
         pattern = (
-            r"\(|\)|[a-zA-Z_][a-zA-Z0-9_]*(?:[><=:][^\s()]+|:[^\s()]+)"
-            r'|"[^"]+"|\'[^\']+\'|[^\s()]+'
+            r"\(|\)"
+            r'|[a-zA-Z_][a-zA-Z0-9_]*:["\'][^"\']+["\']'  # field:"quoted"
+            r"|[a-zA-Z_][a-zA-Z0-9_]*(?:[><=:][^\s()]+)"  # field:unquoted or field>123
+            r'|"[^"]+"|\'[^\']+\''  # standalone quoted strings
+            r"|[^\s()]+"  # unquoted terms
         )
         return re.findall(pattern, query)
 
@@ -422,8 +426,21 @@ class BooleanQueryEngine:
             exact_match = True
 
         if exact_match:
-            # Case-insensitive exact match
-            return _pandas_exact_match(col, search_term)
+            # For semicolon-delimited fields (subjects/bookshelves),
+            # check if search term matches any delimited value
+            if field in ("subjects", "bookshelves"):
+                # Split on semicolon, strip whitespace, and check for exact match
+                def has_exact_item(cell_value: Any) -> bool:
+                    # pandas isna check has incomplete stubs
+                    if pd.isna(cell_value):  # type: ignore[reportUnknownMemberType]
+                        return False
+                    items = [item.strip() for item in str(cell_value).split(";")]
+                    return any(item.lower() == search_term.lower() for item in items)
+
+                return col.apply(has_exact_item)  # type: ignore[no-any-return]
+            else:
+                # Case-insensitive exact match for single-value fields
+                return _pandas_exact_match(col, search_term)
         else:
             # Substring match
             return _pandas_contains(col, search_term)

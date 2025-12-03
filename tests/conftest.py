@@ -16,6 +16,9 @@ def restore_pandas_module() -> Iterator[None]:
     Some tests (like test_query_builder_ui.py) mock pandas in sys.modules
     to avoid import errors when tkinter isn't available. This fixture ensures
     the real pandas module is restored so other tests can use it normally.
+
+    Yields:
+        None
     """
     # Save the original pandas module if it exists
     original_pandas = sys.modules.get("pandas", None)
