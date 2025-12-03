@@ -6,8 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner, Result
-from lexile_corpus_tuner.analyzer.cli import analyze_group
 from pytest import MonkeyPatch
+
+from lexile_corpus_tuner.analyzer.cli import analyze_group
 
 
 class TestAnalyzerCLI:

@@ -4,8 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner, Result
-from lexile_corpus_tuner.corpus.cli import corpus_group
 from pytest import MonkeyPatch
+
+from lexile_corpus_tuner.corpus.cli import corpus_group
 
 
 class TestCorpusCLI:

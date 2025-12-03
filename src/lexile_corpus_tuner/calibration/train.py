@@ -11,10 +11,10 @@ from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import train_test_split
 
 Array = Any
-pd = cast(Any, pd)
-np = cast(Any, np)
-pearsonr = cast(Any, pearsonr)
-train_test_split = cast(Any, train_test_split)
+pd = cast("Any", pd)
+np = cast("Any", np)
+pearsonr = cast("Any", pearsonr)
+train_test_split = cast("Any", train_test_split)
 
 FEATURE_COLS = [
     "overall_msl",
