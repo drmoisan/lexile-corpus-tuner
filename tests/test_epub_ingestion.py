@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from lexile_corpus_tuner.epub import extract_text_from_epub
+
 from tests.utils import write_minimal_epub
 
 

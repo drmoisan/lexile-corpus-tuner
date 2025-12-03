@@ -4,9 +4,8 @@ import csv
 from pathlib import Path
 
 import pytest
-from pytest import MonkeyPatch
-
 from lexile_corpus_tuner.frequency_loader import WordFrequency, load_frequency_table
+from pytest import MonkeyPatch
 
 
 class TestLoadFrequencyTable:

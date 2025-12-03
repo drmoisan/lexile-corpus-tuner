@@ -8,7 +8,6 @@ helper functions for computing Lexile-style features from text slices.
 from unittest.mock import patch
 
 import pytest
-
 from lexile_corpus_tuner.analyzer.features import (
     DocumentFeatures,
     SliceFeatures,

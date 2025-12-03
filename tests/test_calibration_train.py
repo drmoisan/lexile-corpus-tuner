@@ -10,7 +10,6 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 import pytest
-
 from lexile_corpus_tuner.calibration.train import (
     FEATURE_COLS,
     TARGET_COL,
@@ -187,7 +186,7 @@ class TestTrainRegressionModel:
         predictions = model_any.predict(X_sample)
 
         assert len(predictions) == 1
-        assert isinstance(predictions[0], (int, float, np.floating))
+        assert isinstance(predictions[0], int | float | np.floating)
 
     def test_empty_dataset_raises_error(self):
         """Test that empty dataset raises ValueError."""

@@ -11,7 +11,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from lexile_corpus_tuner.analyzer.features import DocumentFeatures, SliceFeatures
 from lexile_corpus_tuner.analyzer.model import (
     MODEL_PATH,
