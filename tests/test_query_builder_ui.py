@@ -1,4 +1,4 @@
-"""Unit tests for scripts/production/gutenberg_query_builder_ui.py.
+"""Unit tests for scripts/production/gutenberg_query_builder_ui/ module.
 
 Tests the UI query builder components and integration with the query engine.
 Focuses on core query building logic and edge cases that caused production bugs.

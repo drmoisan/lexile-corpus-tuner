@@ -131,7 +131,7 @@ A visual query builder with drag-and-drop functionality, nested groups, and real
 
 **Launch the GUI:**
 ```bash
-poetry run python scripts/production/gutenberg_query_builder_ui.py
+poetry run python -m scripts.production.gutenberg_query_builder_ui
 ```
 
 **Features:**

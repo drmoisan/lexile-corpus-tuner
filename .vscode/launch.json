@@ -82,7 +82,7 @@
             "name": "Step 0.2 - Curate Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/production/gutenberg_query_builder_ui.py",
+            "module": "scripts.production.gutenberg_query_builder_ui",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
