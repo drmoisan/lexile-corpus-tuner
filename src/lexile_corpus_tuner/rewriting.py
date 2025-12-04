@@ -3,10 +3,14 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from .llm.openai_client import OpenAIRewriteClient, RewriteMetadata
-from .models import ConstraintViolation
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .models import ConstraintViolation
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +21,10 @@ SYSTEM_PROMPT = (
     "- Keep every factual detail, name, and event.\n"
     "- Maintain the same paragraph boundaries and roughly the same length "
     "(±10% tokens).\n"
-    "- Simplify vocabulary and sentence structure while keeping the tone age appropriate.\n"
-    "- Output plain text only (no Markdown, no quotes, no introductions or commentary).\n"
+    "- Simplify vocabulary and sentence structure while keeping the tone "
+    "age appropriate.\n"
+    "- Output plain text only (no Markdown, no quotes, no introductions or "
+    "commentary).\n"
     "- Never invent new facts or remove safety-critical information."
 )
 

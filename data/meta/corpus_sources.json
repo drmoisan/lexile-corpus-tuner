@@ -1,0 +1,30 @@
+{
+  "version": "2025-11-17",
+  "sources": [
+    {
+      "id": "gutenberg_child",
+      "description": "Project Gutenberg juvenile / children’s prose",
+      "path_glob": "data/corpus/normalized/shards/*-gutenberg_child.jsonl",
+      "weight": 1.0
+    },
+    {
+      "id": "simple_wiki",
+      "description": "Simple English Wikipedia articles",
+      "path_glob": "data/corpus/normalized/shards/*-simple_wiki.jsonl",
+      "weight": 1.0
+    },
+    {
+      "id": "openstax",
+      "description": "OpenStax OER textbooks (plain-text conversions)",
+      "path_glob": "data/corpus/normalized/shards/*-openstax.jsonl",
+      "weight": 1.4
+    },
+    {
+      "id": "ck12",
+      "description": "CK-12 FlexBook excerpts",
+      "path_glob": "data/corpus/normalized/shards/*-ck12.jsonl",
+      "weight": 1.3
+    }
+  ],
+  "notes": "Proxy Lexile-like corpus built from open sources. Tokenization + normalization are fixed by lexile_corpus_tuner.corpus."
+}

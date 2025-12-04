@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # noqa: S314  # User's own EPUB files
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -41,7 +41,7 @@ def _locate_opf(zf: zipfile.ZipFile) -> str:
     except KeyError as exc:
         raise EPUBParseError("EPUB missing META-INF/container.xml") from exc
     try:
-        root = ET.fromstring(container_xml)
+        root = ET.fromstring(container_xml)  # noqa: S314
     except ET.ParseError as exc:
         raise EPUBParseError("Unable to parse container.xml") from exc
     rootfile = root.find(".//{*}rootfile")
@@ -59,7 +59,7 @@ def _spine_items(zf: zipfile.ZipFile, opf_path: str) -> list[str]:
     except KeyError:
         return []
     try:
-        root = ET.fromstring(opf_xml)
+        root = ET.fromstring(opf_xml)  # noqa: S314
     except ET.ParseError:
         return []
     manifest: dict[str, dict[str, str]] = {}

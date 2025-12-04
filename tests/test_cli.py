@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from lexile_corpus_tuner.cli import app
 from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
-from lexile_corpus_tuner.cli import app
 from tests.utils import write_minimal_epub
 
 runner = CliRunner()
@@ -122,7 +122,8 @@ def test_cli_analyze_accepts_epub_file(tmp_path: Path):
     write_minimal_epub(
         epub_path,
         chapters=[
-            "<html xmlns='http://www.w3.org/1999/xhtml'><body><p>Single doc.</p></body></html>"
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body>"
+            "<p>Single doc.</p></body></html>"
         ],
     )
     result = runner.invoke(app, ["analyze", "--input-path", str(epub_path)])
@@ -142,7 +143,8 @@ def _create_sample_corpus(tmp_path: Path) -> Path:
     write_minimal_epub(
         corpus_dir / "novella.epub",
         chapters=[
-            "<html xmlns='http://www.w3.org/1999/xhtml'><body><p>The captain stood on deck.</p></body></html>"
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body>"
+            "<p>The captain stood on deck.</p></body></html>"
         ],
     )
     return corpus_dir

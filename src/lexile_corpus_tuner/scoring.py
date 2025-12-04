@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List
+from typing import TYPE_CHECKING
 
-from .estimators import LexileEstimator
 from .models import DocumentLexileStats, Window, WindowScore
+
+if TYPE_CHECKING:
+    from .estimators import LexileEstimator
 
 
 def score_windows(
-    windows: List[Window], estimator: LexileEstimator
-) -> List[WindowScore]:
+    windows: list[Window], estimator: LexileEstimator
+) -> list[WindowScore]:
     """Score each window using the provided estimator."""
-    scores: List[WindowScore] = []
+    scores: list[WindowScore] = []
     for window in windows:
         lexile = estimator.predict_scalar(window.text)
         scores.append(WindowScore(window=window, lexile=lexile))
@@ -19,8 +21,8 @@ def score_windows(
 
 
 def smooth_window_lexiles(
-    window_scores: List[WindowScore], kernel_size: int
-) -> List[float]:
+    window_scores: list[WindowScore], kernel_size: int
+) -> list[float]:
     """
     Apply a moving average smoothing across window Lexile values.
     kernel_size <= 1 simply returns the raw lexiles.
@@ -30,7 +32,7 @@ def smooth_window_lexiles(
 
     values = [score.lexile for score in window_scores]
     length = len(values)
-    smoothed: List[float] = []
+    smoothed: list[float] = []
     half = kernel_size // 2
 
     for idx in range(length):
@@ -43,14 +45,14 @@ def smooth_window_lexiles(
 
 
 def compute_document_stats(
-    all_window_scores: List[WindowScore],
-) -> List[DocumentLexileStats]:
+    all_window_scores: list[WindowScore],
+) -> list[DocumentLexileStats]:
     """Group window scores by document and compute aggregate Lexile statistics."""
-    grouped: Dict[str, List[WindowScore]] = defaultdict(list)
+    grouped: dict[str, list[WindowScore]] = defaultdict(list)
     for score in all_window_scores:
         grouped[score.window.doc_id].append(score)
 
-    stats: List[DocumentLexileStats] = []
+    stats: list[DocumentLexileStats] = []
     for doc_id, scores in grouped.items():
         avg = sum(s.lexile for s in scores) / len(scores) if scores else 0.0
         max_score = max((s.lexile for s in scores), default=0.0)

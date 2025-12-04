@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from .config import LexileTunerConfig
+from typing import TYPE_CHECKING
+
 from .models import ConstraintViolation, DocumentLexileStats
+
+if TYPE_CHECKING:
+    from .config import LexileTunerConfig
 
 
 def find_violations(
@@ -17,7 +21,10 @@ def find_violations(
                     doc_id=score.window.doc_id,
                     window_id=score.window.window_id,
                     lexile=score.lexile,
-                    reason=f"Window Lexile {score.lexile:.1f} exceeds max {config.max_window_lexile:.1f}",
+                    reason=(
+                        f"Window Lexile {score.lexile:.1f} exceeds max "
+                        f"{config.max_window_lexile:.1f}"
+                    ),
                     start_token_idx=score.window.start_token_idx,
                     end_token_idx=score.window.end_token_idx,
                 )

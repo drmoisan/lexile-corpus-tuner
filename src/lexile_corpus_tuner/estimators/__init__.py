@@ -7,7 +7,7 @@ from .dummy_estimator import DummyLexileEstimator
 from .lexile_determination_v2_adapter import LexileDeterminationV2Estimator
 
 if TYPE_CHECKING:  # pragma: no cover - import for typing only
-    from ..config import LexileTunerConfig
+    from lexile_corpus_tuner.config import LexileTunerConfig
 
 __all__ = [
     "LexileEstimator",
@@ -28,7 +28,7 @@ def create_estimator(name: str, **kwargs: Any) -> LexileEstimator:
     raise ValueError(f"Unknown estimator '{name}'.")
 
 
-def build_estimator_from_config(config: "LexileTunerConfig") -> LexileEstimator:
+def build_estimator_from_config(config: LexileTunerConfig) -> LexileEstimator:
     """Convenience helper to build an estimator from LexileTunerConfig."""
     normalized = config.estimator_name.lower().strip()
     if normalized in {"lexile_v2", "lexile_determination_v2"}:

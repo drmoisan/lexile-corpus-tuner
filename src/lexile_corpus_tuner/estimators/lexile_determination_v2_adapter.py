@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import importlib
 import re
-from typing import Any, Callable, Mapping, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 import numpy as np
 
 from .base import LexileEstimator
+from .lexile_v2_preprocessing import load_stopwords as load_lexile_stopwords
 from .lexile_v2_preprocessing import (
-    load_stopwords as load_lexile_stopwords,
     vectorize_with_lexile_pipeline,
 )
 
@@ -42,10 +45,12 @@ class LexileDeterminationV2Estimator(LexileEstimator):
 
         if not model_path or not vectorizer_path:
             raise ValueError(
-                "model_path and vectorizer_path must be provided for LexileDeterminationV2Estimator."
+                "model_path and vectorizer_path must be provided for "
+                "LexileDeterminationV2Estimator."
             )
 
-        # TODO: Ensure the load call matches how lexile-determination-v2 persists its model.
+        # TODO: Ensure the load call matches how lexile-determination-v2
+        # persists its model.
         self.model = tf_load_model(model_path)
         self.vectorizer = joblib_module.load(vectorizer_path)
         label_payload = (
@@ -68,7 +73,8 @@ class LexileDeterminationV2Estimator(LexileEstimator):
             self._stopwords and hasattr(self.vectorizer, "texts_to_matrix")
         )
         self._band_to_midpoint: dict[str, float] = dict(band_to_midpoint or {})
-        # TODO: Populate default mapping when lexile-determination-v2 exposes class indices.
+        # TODO: Populate default mapping when lexile-determination-v2
+        # exposes class indices.
         self._index_to_band: dict[int, str] = {}
 
     def predict_scalar(self, text: str) -> float:
@@ -149,7 +155,7 @@ def _ensure_tensorflow() -> Callable[..., Any]:
         return load_model
 
     try:  # pragma: no cover - import guard
-        keras_models = cast(Any, importlib.import_module("tensorflow.keras.models"))
+        keras_models = cast("Any", importlib.import_module("tensorflow.keras.models"))
     except Exception as exc:  # pragma: no cover - import guard
         raise ImportError(
             "TensorFlow/Keras is required for LexileDeterminationV2Estimator. "
@@ -158,9 +164,10 @@ def _ensure_tensorflow() -> Callable[..., Any]:
     keras_load_model = getattr(keras_models, "load_model", None)
     if not callable(keras_load_model):  # pragma: no cover - defensive
         raise ImportError(
-            "tensorflow.keras.models.load_model is unavailable in the current installation."
+            "tensorflow.keras.models.load_model is unavailable in the "
+            "current installation."
         )
-    load_model = cast(Callable[..., Any], keras_load_model)
+    load_model = cast("Callable[..., Any]", keras_load_model)
     return load_model
 
 
@@ -169,7 +176,7 @@ def _ensure_joblib() -> Any:
     if joblib is not None:
         return joblib
     try:  # pragma: no cover - import guard
-        joblib_module = cast(Any, importlib.import_module("joblib"))
+        joblib_module = cast("Any", importlib.import_module("joblib"))
     except Exception as exc:  # pragma: no cover - import guard
         raise ImportError(
             "joblib is required for LexileDeterminationV2Estimator. "

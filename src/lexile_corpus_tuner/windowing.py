@@ -1,22 +1,20 @@
 from __future__ import annotations
 
-from typing import List
-
 from .models import Document, Token, Window
 
 
 def create_windows(
     doc: Document,
-    tokens: List[Token],
+    tokens: list[Token],
     window_size: int,
     stride: int,
-) -> List[Window]:
+) -> list[Window]:
     """Create overlapping windows of tokens for a document."""
     if not tokens:
         return []
 
     stride = max(1, stride)
-    windows: List[Window] = []
+    windows: list[Window] = []
     start_idx = 0
     window_id = 0
 

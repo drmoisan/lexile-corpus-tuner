@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import replace as dc_replace
-from pathlib import Path
-from typing import Dict, List, Tuple, TypedDict
 import shutil
 import subprocess
+from dataclasses import replace as dc_replace
+from pathlib import Path
+from typing import TypedDict
 
+import click
 import typer
 import yaml
 
+from .analyzer.cli import analyze_group as analyzer_pipeline_group
+from .calibration.cli import calibration_group
 from .config import LexileTunerConfig, OpenAISettings, load_config
+from .corpus.cli import corpus_group
 from .epub import EPUBParseError, extract_text_from_epub
 from .estimators import build_estimator_from_config
 from .llm import OpenAIRewriteClient
@@ -24,7 +28,7 @@ app = typer.Typer(help="Lexile Corpus Tuner CLI.", no_args_is_help=True)
 
 @app.command()
 def analyze(
-    input_path: Path = typer.Option(
+    input_path: Path = typer.Option(  # noqa: B008  # Typer framework pattern
         ..., exists=True, readable=True, dir_okay=True, file_okay=True
     ),
     config: Path | None = typer.Option(None, "--config", "-c"),
@@ -260,12 +264,13 @@ def rewrite(
         dest.write_text(final_doc.text, encoding="utf-8")
 
     # Build a per-document before/after summary for downstream inspection.
-    summary_items: List[RewriteSummaryEntry] = []
+    summary_items: list[RewriteSummaryEntry] = []
     for doc_id in sorted(final_results.keys()):
         baseline_entry = baseline_results.get(doc_id)
         final_entry = final_results.get(doc_id)
         if baseline_entry is None or final_entry is None:
-            # If either pass is missing, skip the entry rather than emitting partial data.
+            # If either pass is missing, skip the entry rather than
+            # emitting partial data.
             continue
         summary_items.append(
             {
@@ -396,14 +401,14 @@ class ViolationPayload(TypedDict):
 class StatsPayload(TypedDict):
     avg_lexile: float
     max_lexile: float
-    violations: List[ViolationPayload]
+    violations: list[ViolationPayload]
 
 
 class DocumentSummary(TypedDict):
     doc_id: str
     avg_lexile: float
     max_lexile: float
-    violations: List[ViolationPayload]
+    violations: list[ViolationPayload]
 
 
 class RewriteSummaryEntry(TypedDict):
@@ -412,21 +417,22 @@ class RewriteSummaryEntry(TypedDict):
     final: StatsPayload
 
 
-def _load_documents(input_path: Path) -> Tuple[List[Document], Dict[str, Path]]:
+def _load_documents(input_path: Path) -> tuple[list[Document], dict[str, Path]]:
     """Expand the input path into documents plus a doc_id -> original path mapping."""
     if input_path.is_file():
         # Single-file input: just wrap it in a Document and shortcut the mapping.
         doc = _document_from_file(input_path, input_path.name)
         return [doc], {doc.doc_id: input_path}
 
-    # Directory input: gather all supported files so we rewrite subtrees deterministically.
+    # Directory input: gather all supported files so we rewrite
+    # subtrees deterministically.
     files = sorted(
         p
         for p in input_path.rglob("*")
         if p.is_file() and p.suffix.lower() in SUPPORTED_INPUT_EXTENSIONS
     )
-    documents: List[Document] = []
-    mapping: Dict[str, Path] = {}
+    documents: list[Document] = []
+    mapping: dict[str, Path] = {}
     for file in files:
         relative_id = str(file.relative_to(input_path))
         # Use relative paths as doc IDs so regenerated output mirrors the input tree.
@@ -459,10 +465,10 @@ def _relative_output_path(doc_id: str) -> Path:
 
 
 def _build_summary(
-    results: Dict[str, Tuple[Document, DocumentLexileStats, List[ConstraintViolation]]],
-) -> List[DocumentSummary]:
+    results: dict[str, tuple[Document, DocumentLexileStats, list[ConstraintViolation]]],
+) -> list[DocumentSummary]:
     """Create a JSON-serializable summary for each processed document."""
-    summary: List[DocumentSummary] = []
+    summary: list[DocumentSummary] = []
     for doc_id, (_, stats, violations) in sorted(results.items()):
         summary.append(
             {
@@ -476,7 +482,7 @@ def _build_summary(
 
 
 def _stats_dict(
-    stats: DocumentLexileStats, violations: List[ConstraintViolation]
+    stats: DocumentLexileStats, violations: list[ConstraintViolation]
 ) -> StatsPayload:
     """Convert lexile stats + violations into a standard dictionary shape."""
     return {
@@ -498,7 +504,9 @@ def _violation_dict(violation: ConstraintViolation) -> ViolationPayload:
 
 
 def _resolve_openai_api_key(settings: OpenAISettings) -> str:
-    """Resolve the API key from explicit config or the configured environment variable."""
+    """Resolve the API key from explicit config or the configured
+    environment variable.
+    """
     if settings.api_key:
         return settings.api_key
     env_name = settings.api_key_env or "OPENAI_API_KEY"
@@ -510,14 +518,20 @@ def _resolve_openai_api_key(settings: OpenAISettings) -> str:
         if script_key:
             return script_key
     raise RuntimeError(
-        "OpenAI API key not provided. Use --openai-api-key or set the configured environment variable."
+        "OpenAI API key not provided. Use --openai-api-key or set "
+        "the configured environment variable."
     )
 
 
 def _load_openai_key_from_script(env_name: str) -> str | None:
-    """Attempt to invoke the local LastPass helper script to populate the API key on demand."""
+    """Attempt to invoke the local LastPass helper script to populate
+    the API key on demand.
+    """
     script_path = (
-        Path(__file__).resolve().parents[2] / "scripts" / "load-openai-key.ps1"
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "production"
+        / "load-openai-key.ps1"
     )
     if not script_path.exists():
         return None
@@ -537,7 +551,7 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
         item_name,
         "-PrintOnly",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)  # noqa: S603
     if result.returncode != 0:
         return None
     secret = result.stdout.strip()
@@ -545,6 +559,16 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
         return None
     os.environ[env_name] = secret
     return secret
+
+
+@click.group(name="text-difficulty")
+def text_difficulty_cli() -> None:
+    """Lexile-faithful text difficulty pipeline CLI."""
+
+
+text_difficulty_cli.add_command(corpus_group)
+text_difficulty_cli.add_command(analyzer_pipeline_group)
+text_difficulty_cli.add_command(calibration_group)
 
 
 if __name__ == "__main__":
