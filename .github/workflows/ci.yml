@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  quality-checks7:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Verify poetry.lock is in sync
+        run: |
+          poetry check --lock
+          if ! git diff --exit-code poetry.lock; then
+            echo "ERROR: poetry.lock is out of sync with pyproject.toml"
+            echo "Run 'poetry lock --no-update' locally and commit the changes"
+            exit 1
+          fi
+
+      - name: Check formatting with Black
+        run: |
+          poetry run black --check .
+        continue-on-error: false
+
+      - name: Lint with Ruff
+        run: |
+          poetry run ruff check
+        continue-on-error: false
+
+      - name: Type check with Pyright
+        run: |
+          poetry run pyright
+        continue-on-error: false
+
+      - name: Run tests with Pytest
+        run: |
+          poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=xml --cov-report=term-missing
+        continue-on-error: false
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+
+      - name: Check for security vulnerabilities
+        run: |
+          poetry run pip install safety
+          poetry export -f requirements.txt --without-hashes | poetry run safety check --stdin
+        continue-on-error: true
+
+  docs-validation:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate README exists and is not empty
+        run: |
+          if [ ! -f README.md ] || [ ! -s README.md ]; then
+            echo "ERROR: README.md is missing or empty"
+            exit 1
+          fi
+
+      - name: Check for LICENSE file
+        run: |
+          if [ ! -f LICENSE ]; then
+            echo "ERROR: LICENSE file is missing"
+            exit 1
+          fi
+
+      - name: Validate instruction documents exist
+        run: |
+          if [ ! -f .github/copilot-instructions.md ]; then
+            echo "WARNING: .github/copilot-instructions.md is missing"
+          fi
+          if [ ! -f docs/code-change.instructions.md ]; then
+            echo "WARNING: docs/code-change.instructions.md is missing"
+          fi
+
+  build-check:
+    name: Build Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+
+      - name: Build package
+        run: poetry build
+
+      - name: Verify package can be installed
+        run: |
+          python -m venv test-venv
+          source test-venv/bin/activate
+          pip install dist/*.whl
+          lexile-tuner --help
+          text-difficulty-pipeline --help
