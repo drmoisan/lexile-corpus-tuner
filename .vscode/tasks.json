@@ -162,6 +162,186 @@
                 "reveal": "always",
                 "panel": "new"
             }
+        },
+            {
+      "label": "GitHub: New Feature Issue",
+      "type": "shell",
+      "command": "gh",
+      "args": [
+        "issue",
+        "create",
+        "--template",
+        "feature-request.md",
+        "--web"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Opens browser with .github/ISSUE_TEMPLATE/feature-request.md via gh (requires gh CLI auth)."
+    },
+    {
+      "label": "GitHub: Feature Issue from Potential",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/dev-tools/potential-to-issue.ps1",
+        "-PotentialPath",
+        "${input:PotentialFilePath}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Creates a feature issue from a potential file using gh issue create (non-interactive)."
+    },
+    {
+      "label": "GitHub: Link Feature Docs",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/dev-tools/link-feature-docs.ps1",
+        "-IssueNumber",
+        "${input:LinkIssueNumber}",
+        "-FeatureName",
+        "${input:LinkFeatureName}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Adds/updates a Feature Docs section in an issue with links to user-story/spec/plan."
+    },
+        {
+            "label": "Feature: Create Active Folder",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/new-active-feature-folder.ps1",
+                "-FeatureName",
+                "${input:ActiveFeatureName}",
+                "-IssueNumber",
+                "${input:ActiveIssueNumber}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Copies docs/features/templates/feature into docs/features/active/<name> and opens the files."
+    },
+    {
+      "label": "GitHub: New Bug Issue",
+      "type": "shell",
+      "command": "gh",
+      "args": [
+        "issue",
+        "create",
+        "--template",
+        "bug-report.md",
+        "--web"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Opens browser with .github/ISSUE_TEMPLATE/bug-report.md via gh (requires gh CLI auth)."
+    },
+        {
+            "label": "Feature: New Potential Entry",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/new-potential-entry.ps1",
+                "-ShortName",
+                "${input:PotentialShortName}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "detail": "Creates a dated potential feature file from the template and opens it plus backlog.md for editing."
+        }
+    ],
+  "inputs": [
+    {
+      "id": "PotentialShortName",
+      "type": "promptString",
+      "description": "Short name (kebab-case, e.g., notes-feature)",
+      "default": "notes-feature"
+    },
+        {
+            "id": "PotentialFilePath",
+            "type": "promptString",
+            "description": "Path to potential feature file",
+            "default": "docs/features/potential/2025-12-01-new-feature.md"
+    },
+        {
+            "id": "ActiveFeatureName",
+            "type": "promptString",
+            "description": "Feature folder name (kebab/underscore-case, e.g., notes_feature)",
+            "default": "new_feature"
+        },
+        {
+            "id": "ActiveIssueNumber",
+            "type": "promptString",
+            "description": "Issue number (optional, e.g., 14)",
+            "default": "auto"
+        },
+        {
+            "id": "LinkIssueNumber",
+            "type": "promptString",
+            "description": "Issue number to update (e.g., 14)",
+            "default": ""
+        },
+        {
+            "id": "LinkFeatureName",
+            "type": "promptString",
+            "description": "Feature folder name (e.g., new_feature)",
+            "default": "new_feature"
         }
     ]
 }

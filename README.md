@@ -1,46 +1,32 @@
 # Lexile Corpus Tuner
 
-Lexile Corpus Tuner now ships two complementary toolsets:
+Lexile Corpus Tuner helps keep text at a ~350 Lexile level (10-year-old readers) by analyzing overlapping windows and rewriting the hard parts. The project ships two coordinated toolsets that share tokenization/normalization utilities so corpus statistics and analyzer features stay aligned.
 
-1. **Lexile Tuner CLI (`lexile-tuner`)** – a Lexile-inspired analysis + rewriting pipeline. It slices overlapping windows, scores them with pluggable estimators, and optionally rewrites high-Lexile spans via an LLM-powered rewriter.
-2. **Lexile-Faithful Text Difficulty Pipeline (`text-difficulty-pipeline`) _(in process)_** – a corpus/analyzer/calibration workflow that mirrors the official Lexile analyzer: it builds a proxy corpus (Gutenberg + Simple Wiki + OpenStax/CK-12), computes word frequencies per 5M tokens, extracts Lexile-style features, and fits a ridge regression against curated texts with known Lexiles.
+1. **Lexile Tuner CLI (`lexile-tuner`)** - analyze + optionally rewrite text with pluggable estimators and an OpenAI-backed rewriter.
+2. **Lexile-Faithful Text Difficulty Pipeline (`text-difficulty-pipeline`)** - build a proxy corpus (Gutenberg, Simple Wiki, OpenStax/CK-12), compute 5M-token frequency tables, extract Lexile-style features, and fit a regression-calibrated analyzer.
+3. **Gutenberg Query Builder (CLI + GUI)** - explore and export Gutenberg metadata with structured queries.
 
-Both layers share the same normalization/tokenization utilities so lexicon frequencies and analyzer features stay aligned.
-
-For a detailed, step-by-step build specification, see [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md).
-
----
-## Features
-
-### Completed
-- Character-offset tokenization + deterministic sliding windowing.
-- Pluggable estimator interface (dummy heuristic + TensorFlow `lexile_v2`).
-- Constraint detection for max-window and document-level Lexile targets.
-- OpenAI-backed rewriter abstraction (or no-op).
-- Typer CLI (`lexile-tuner`) with `analyze`, `rewrite`, `print-config`.
-- Corpus tooling (`text-difficulty-pipeline corpus`): Gutenberg ID bootstrap (`scripts/production/build_gutenberg_id_list.py`), Simple Wiki dump downloader/extractor (`scripts/production/extract_simple_wiki_dump.py`), OpenStax/CK-12 manifest fetcher (`data/meta/oer_sources.json`), shared normalization/sharding (`data/corpus/normalized/shards/`), and frequency computation with per-source weights (`data/meta/corpus_sources.json`).
-- Analyzer/calibration stack: sentence segmentation, Lexile-style slice builder, MSL/MLF feature computation, regression inference, special-case adjustments, and calibration CLIs (`fetch-texts`, `build-dataset`, `fit`).
-
-### In Process
-- Promoting the `docs/text-difficulty-pipeline.md` content into first-class docs/README sections.
-- Adding more modern CC-BY/CC0 sources (NOAA/NASA/CDC/etc.) via manifest downloads.
-- Richer calibration diagnostics (per-band MAE/RMSE, residual plots, reporting).
-- Example calibration catalogs + staging instructions.
+For the step-by-step build specification, see [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md).
 
 ---
-## Installation
+
+## Quick Install
+
 ```bash
 poetry install --with dev
 # Optional extras
 # poetry install --with dev --extras "lexile-v2"
 # poetry install --with dev --extras "llm-openai"
 ```
-Formatting uses `black` + `isort`.
+
+Formatting uses `black` (88 chars) + `isort` (per-project config).
 
 ---
-## Usage
+
+## CLI Quickstarts
 
 ### Lexile Tuner CLI
+
 ```bash
 poetry run lexile-tuner analyze --input-path examples/example_corpus --config examples/example_config.yaml
 poetry run lexile-tuner rewrite --input-path examples/example_corpus --output-path artifacts/tuned --config examples/example_config.yaml
@@ -49,11 +35,12 @@ poetry run lexile-tuner analyze --input-path examples/example_corpus/pg2701-imag
 ```
 
 ### Text Difficulty Pipeline
+
 ```bash
 # Optional: regenerate Gutenberg IDs (strict English)
 poetry run python scripts/production/build_gutenberg_id_list.py
 
-# Optional: copy examples/meta/oer_sources.example.json → data/meta/oer_sources.json and fill in OpenStax/CK-12 excerpts
+# Optional: copy examples/meta/oer_sources.example.json to data/meta/oer_sources.json and fill in OpenStax/CK-12 excerpts
 
 # 1) Download raw sources (Gutenberg + Simple Wiki + OER manifest)
 poetry run text-difficulty-pipeline corpus download
@@ -85,149 +72,72 @@ poetry run text-difficulty-pipeline calibration fit \
 
 # 6) Analyze new text with the Lexile-faithful analyzer
 poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output report.json
+```
 
 ### Gutenberg Corpus Explorer
-Interactive tool for exploring the Gutenberg metadata with powerful query capabilities including field-specific filtering, numeric comparisons, and range queries.
 
-#### CLI Mode
 ```bash
+# CLI
 poetry run python scripts/production/explore_gutenberg.py
-```
 
-**Basic Commands:**
-- `s <query>`: Search subjects (legacy boolean syntax).
-- `b <query>`: Search bookshelves (legacy boolean syntax).
-- `ls s` / `ls b` / `ls f`: List subjects, bookshelves, or all available fields.
-- `export_sets [dir]`: Export unique subjects/bookshelves to text files.
-- `export_results <file>`: Save the last search results to CSV or Parquet.
-- `history`: Show recent query history.
-- `help`: Display comprehensive syntax help.
-
-**Enhanced Query Syntax (use with `q` command):**
-- **Field-specific queries**: `field:value` (e.g., `subject:Fiction`, `title:Alice`)
-- **Numeric comparisons**: `field>1000`, `field<500`, `field>=100`, `field<=200`
-- **Range queries**: `field:min..max` (e.g., `download_count:1000..5000`)
-- **Exact matches**: `field="exact value"` (case-insensitive)
-- **Boolean operators**: `AND`, `OR`, `NOT` with parentheses for grouping
-- **Universal search**: Terms without field prefix search across all text fields
-
-**Query Examples:**
-```
-q subject:Fiction AND download_count>1000
-q (subject:Science OR subject:Technology) AND NOT language:en
-q download_count:1000..5000 AND subject:"Science Fiction"
-q title:Alice OR title:Wonderland
-q copyright:false AND download_count>5000
-```
-
-**Available Fields:**
-- Text fields: `title`, `authors`, `subjects`, `bookshelves`, `languages`, `media_type`
-- Numeric fields: `id`, `download_count`
-- Boolean fields: `copyright`
-
-#### GUI Mode: Gutenberg Query Builder
-
-A visual query builder with drag-and-drop functionality, nested groups, and real-time query display.
-
-**Launch the GUI:**
-```bash
+# GUI
 poetry run python -m scripts.production.gutenberg_query_builder_ui
 ```
 
-**Features:**
-- **Visual Query Construction**: Click field buttons to add constraints, build complex nested queries with AND/OR logic
-- **Field Palette**: Quick access to all available fields (title, authors, subjects, bookshelves, languages, media_type, id, download_count, copyright)
-- **Multiple Input Types**:
-  - Text fields: Type or paste values
-  - Numeric fields: Spinbox with validation (0-999999 range)
-  - Range fields: Min/max spinboxes for numeric ranges
-  - Boolean fields: Dropdown with true/false options
-  - Multi-select: Dialog with search, Select All/Clear All for subjects/bookshelves
-- **Query Groups**: Create nested groups with independent AND/OR logic
-- **Real-Time Display**: See your query string update as you build it
-- **Query Execution**: Run queries and view results in a sortable table (first 100 rows)
-- **Save/Load**: Save complex queries to JSON files for reuse
-- **Export Results**: Export query results to CSV or Parquet format
-
-**Keyboard Shortcuts:**
-- `F5`: Run query
-- `Ctrl+N`: New query (clear all)
-- `Ctrl+O`: Open saved query
-- `Ctrl+S`: Save query
-- `Ctrl+Shift+S`: Save query as...
-- `Ctrl+E`: Export results
-- `Ctrl+Q`: Quit application
-
-**Query File Format:**
-Queries are saved as JSON with recursive structure:
-```json
-{
-  "version": "1.0",
-  "created": "2025-12-02T10:30:00",
-  "modified": "2025-12-02T10:30:00",
-  "query": {
-    "type": "group",
-    "logic": "AND",
-    "constraints": [
-      {
-        "type": "constraint",
-        "field": "subjects",
-        "operator": "contains",
-        "value": "Fiction"
-      },
-      {
-        "type": "constraint",
-        "field": "download_count",
-        "operator": ">",
-        "value": "1000"
-      }
-    ]
-  }
-}
-```
-
-**Usage Example:**
-1. Launch the GUI and click "subjects" in the field palette
-2. Click the multi-select button (📋) and select "Fiction", "Adventure", "Fantasy"
-3. Click "+ Group" to add a nested OR group
-4. Inside the new group, change logic to "OR", add "download_count > 1000"
-5. Press F5 to run the query and view results
-6. Press Ctrl+S to save your query for later use
-7. Press Ctrl+E to export results to CSV
+Features: structured queries (field/value, ranges, boolean), sortable results table (first 100 rows), save/load/export to CSV or Parquet, keyboard shortcuts, and drag-and-drop nested groups.
 
 ---
-## Architecture Snapshot
 
-### Lexile Tuner
-1. `tokenization.py` – regex tokenizer with offsets.
-2. `windowing.py` – overlapping windows.
-3. `scoring.py` – applies `LexileEstimator` implementations.
-4. `constraints.py` – per-window + document checks.
-5. `rewriting.py` – OpenAI-backed rewriter abstraction.
-6. `pipeline.py` – orchestrates the tokenize → window → score → rewrite loop.
-7. `cli.py` – Typer entry points.
+## Architecture and Domain Model
 
-### Text-Difficulty Pipeline
-1. **Corpus Builder** – Gutenberg/Simple Wiki/OER downloaders, Normalization (`corpus/normalize.py`), Frequency computation (`corpus/frequencies.py`).
-2. **Analyzer Layer** – slice construction (`analyzer/slices.py`), feature computation (`analyzer/features.py`), regression inference (`analyzer/model.py`), CLI (`analyzer/cli.py`).
-3. **Calibration Layer** – feature engineering (`calibration/featureset.py`), ElasticNet training (`calibration/train.py`), JSON model store (`calibration/model_store.py`), CLI (`calibration/cli.py`).
+**Core pipeline:** `Document -> Tokenization -> Windowing -> Scoring -> Constraint Checking -> (Rewriting?) -> Output`.
 
-Shared utilities live in `textutils.py`.
+**Module map (lexile_tuner):** `models.py` (Document/Token/Window/WindowScore/ConstraintViolation), `tokenization.py`, `windowing.py`, `estimators/` (dummy + optional `lexile_determination_v2_adapter.py`), `scoring.py`, `constraints.py`, `rewriting.py`, `pipeline.py`, `cli.py`, `config.py`.
+
+**Domain entities:**
+
+- `Document` with ID + raw text
+- `Token` with character offsets
+- `Window` (overlapping token spans)
+- `WindowScore` (window + Lexile score)
+- `DocumentLexileStats` (aggregate statistics)
+- `ConstraintViolation` (per-window/document issues)
+
+**Design principles:** pluggable estimators/rewriters, isolation of external deps, deterministic/testable core, YAML-configurable CLI overrides.
 
 ---
+
 ## Configuration
-`lexile_corpus_tuner.config` provides helpers for loading `LexileTunerConfig` from YAML (see `examples/example_config.yaml`).
+
+`LexileTunerConfig` defaults: `window_size=500`, `stride=250`, `max_window_lexile=450.0`, `target_avg_lexile=350.0`, `avg_tolerance=20.0`, `max_passes=3`, `estimator_name="dummy"`, `rewrite_enabled=False`, `rewrite_model` optional. Load via `config_from_dict` or `config_from_yaml`, or pass overrides on the CLI.
 
 ---
-## Using the `lexile_v2` Estimator
-The TensorFlow-based estimator is still available for backward compatibility. Install via `poetry install --with dev --extras "lexile-v2"`, set `estimator_name: lexile_v2`, and point to the artifacts in `examples/lexile_v2_artifacts/`. Download required NLTK corpora once:
-```bash
-poetry run python -m nltk.downloader punkt punkt_tab wordnet averaged_perceptron_tagger omw-1.4
-```
-> **Deprecation note:** Once the regression-calibrated analyzer reaches feature parity, the TensorFlow `lexile_v2` implementation will be retired.
+
+## Extension Points
+
+- **Estimators:** implement `LexileEstimator.predict_scalar(text: str) -> float` and register via `create_estimator(name, **kwargs)`.
+- **Rewriters:** implement `Rewriter.rewrite(request: RewriteRequest) -> str`. Built-ins: `NoOpRewriter`, `CallableRewriter`, `OpenAIRewriter`.
 
 ---
+
+## External Integrations and Secrets
+
+- **Lexile V2 (optional):** TensorFlow adapter for backwards compatibility (`estimator_name: lexile_v2`, artifacts under `examples/lexile_v2_artifacts/`).
+- **OpenAI rewriting (optional):** install `llm-openai`, set `rewrite_enabled: true`, and pass `--openai-*` flags as needed.
+- **Secret handling:** never commit keys. Load OpenAI keys from LastPass: `pwsh ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"`. Config supports direct values or env-var indirection.
+
+---
+
+## Developer Workflow and Quality
+
+- Policies: follow [`docs/code-change.instructions.md`](docs/code-change.instructions.md) for coding standards and workflow, [`docs/developer-tooling.md`](docs/developer-tooling.md) for tooling, and [`docs/unit-test-policy.md`](docs/unit-test-policy.md) for tests.
+- Common tasks: `poetry run black .`, `poetry run ruff check`, `poetry run pyright`, `poetry run pytest` (or VS Code tasks: Run All Checks).
+- CI mirrors these checks across Python 3.10-3.13; see [`docs/ci-documentation.md`](docs/ci-documentation.md).
+
+---
+
 ## Examples
+
 - `examples/example_corpus/chapter1.txt`
 - `examples/example_corpus/pg2701-images-3.epub`
 - `examples/run_lexile_v2_adapter.py`
@@ -235,11 +145,9 @@ poetry run python -m nltk.downloader punkt punkt_tab wordnet averaged_perceptron
 - `examples/meta/oer_sources.example.json`
 
 ---
-## Rewriting with OpenAI
-Install the `llm-openai` extra, enable `rewrite_enabled: true`, and optionally use `scripts/production/load-openai-key.ps1` (LastPass helper). CLI overrides (`--openai-model`, `--openai-temperature`, etc.) control behavior per run.
 
----
 ## Testing
+
 ```bash
 poetry run pytest
 poetry run pyright
@@ -248,17 +156,26 @@ poetry run isort --check-only .
 ```
 
 ---
-## Code Statistics
-`cloc` binaries live in `tools/`. Run `./scripts/dev-tools/run-cloc.sh` or `pwsh ./scripts/dev-tools/run-cloc.ps1`.
+
+## Documentation Map
+
+- Implementation plan: [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md)
+- Coding standards: [`docs/code-change.instructions.md`](docs/code-change.instructions.md)
+- Developer tooling: [`docs/developer-tooling.md`](docs/developer-tooling.md)
+- Unit tests: [`docs/unit-test-policy.md`](docs/unit-test-policy.md)
+- CI setup: [`docs/ci-documentation.md`](docs/ci-documentation.md)
+- Feature backlog/ideas: [`docs/features/backlog.md`](docs/features/backlog.md), [`docs/features/ideas/ideas.md`](docs/features/ideas/ideas.md)
 
 ---
+
 ## Next Steps / Roadmap
-1. Docs consolidation (promote plan → docs/README).
-2. Corpus expansion (more CC-BY/CC0 informational sources + weighting).
+
+1. Promote pipeline docs into README/docs.
+2. Expand corpus with CC-BY/CC0 informational sources and weighting.
 3. Advanced weighting/stratified sharding to keep Gutenberg under target share.
-4. Calibration diagnostics (per-band metrics, residual plots, automated reporting).
-5. Packaging/release to PyPI once docs/tests stabilize.
-6. Evaluator benchmarks (regression tests against known Lexile values).
-7. Deprecate `lexile_v2` once the calibrated analyzer fully replaces it.
+4. Rich calibration diagnostics (per-band metrics, residual plots, reporting).
+5. Package/release to PyPI when docs/tests stabilize.
+6. Evaluator benchmarks against known Lexile values.
+7. Deprecate `lexile_v2` after calibrated analyzer fully replaces it.
 
 Contributions and issue reports are welcome!
