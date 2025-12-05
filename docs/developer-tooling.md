@@ -215,6 +215,26 @@ bash scripts/dev-tools/run-cloc.sh
 - `Run cloc (PowerShell)`
 - `Run cloc (Bash)`
 
+## Repository Navigation
+
+Use `scripts/dev-tools/tree.ps1` to print a directory tree for quick inspection (entries marked with the Windows `Hidden` attribute are included by default; use `-IncludeHidden:$false` to suppress them).
+
+```powershell
+pwsh scripts/dev-tools/tree.ps1
+```
+
+- Show only directories:
+
+```powershell
+pwsh scripts/dev-tools/tree.ps1 -DirectoriesOnly
+```
+
+- Exclude entries or include dotfiles as needed, for example:
+
+```powershell
+pwsh scripts/dev-tools/tree.ps1 -Exclude @(".git", "node_modules", "artifacts") -IncludeHidden:$false
+```
+
 ## Git Workflow
 
 ### Commit Context Collection
@@ -304,6 +324,8 @@ poetry run pytest -vv tests/test_specific.py::test_function
 
 For comprehensive coding standards, testing policies, and development workflow, see:
 
-- **Coding Standards**: [`docs/code-change.instructions.md`](code-change.instructions.md)
-- **Testing Policy**: [`docs/unit-test-policy.md`](unit-test-policy.md)
+- **Coding standards (general)**: [`.github/instructions/general-code-change.instructions.md`](../.github/instructions/general-code-change.instructions.md)
+- **Coding standards (Python)**: [`.github/instructions/python-code-change.instructions.md`](../.github/instructions/python-code-change.instructions.md)
+- **Testing policy (general)**: [`.github/instructions/general-unit-test.instructions.md`](../.github/instructions/general-unit-test.instructions.md)
+- **Testing policy (Python)**: [`.github/instructions/python-unit-test.instructions.md`](../.github/instructions/python-unit-test.instructions.md)
 - **CI/CD**: [`docs/ci-documentation.md`](ci-documentation.md)
