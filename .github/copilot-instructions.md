@@ -1,302 +1,245 @@
 # Canonical Instructions
 
-> **Note:** This document defines the project's domain model, architecture, and functional requirements. For coding standards, testing policies, and development workflow, see [`docs/code-change.instructions.md`](../docs/code-change.instructions.md).
+> **Note:** This document defines the current project architecture and domain model. For detailed implementation specifications that have been completed, see [`docs/initial-development-plan.md`](../docs/initial-development-plan.md). For coding standards, testing policies, and development workflow, see [`docs/code-change.instructions.md`](../docs/code-change.instructions.md) and [`docs/developer-tooling.md`](../docs/developer-tooling.md).
 
 ## 1. Project Overview
 
-1.1 **Project Name (working)**
+**Project Name**: `lexile_corpus_tuner`
 
-* `lexile_corpus_tuner`
+**Purpose**: A Python package and CLI tool for analyzing and rewriting text to meet Lexile readability constraints.
 
-1.2 **Primary Goal**
+### Core Functionality
 
-* Build a Python package + CLI that:
+The system:
 
-  * Ingests arbitrary English text documents.
-  * Splits them into overlapping ~500-word windows.
-  * Estimates a **Lexile-like complexity score** per window using a pluggable estimator.
-  * Computes document-level stats (average, max).
-  * Identifies windows that violate constraints:
+* Ingests English text documents
+* Splits them into overlapping ~500-word windows
+* Estimates Lexile-like complexity scores per window using pluggable estimators
+* Computes document-level statistics (average, max)
+* Identifies constraint violations:
+  * Target average Lexile ≈ 350
+  * No 500-word window > 450
+* Optionally rewrites violating windows using LLM
+* Iteratively re-evaluates until constraints are satisfied or max passes reached
 
-    * Target average Lexile ≈ **350**.
-    * No 500-word window > **450**.
-  * Optionally calls an external LLM to **rewrite** violating windows to bring them into range.
-  * Iteratively re-evaluates until constraints are satisfied (or max passes reached).
+### Target Use Case
 
-1.3 **Key Use Case Context**
+Content modification for ~10-year-old students reading at ~350 Lexile:
 
-* Intended for modifying content for a ~10-year-old student reading at ~350 Lexile:
-
-  * Content should be **age-appropriate in topic** but simplified in language.
-  * We care about **local spikes** in difficulty: no 500-word passage should be too hard.
-* The system must be:
-
-  * Deterministic and reproducible where possible.
-  * Modular, testable, and usable as both a library and CLI tool.
+* Age-appropriate topics with simplified language
+* Focuses on preventing local spikes in difficulty
+* Deterministic and reproducible processing
+* Modular architecture for testing and extension
 
 ---
 
-## 2. Tech Stack & Standards
+## 2. Architecture Overview
 
-2.1 **Language & Version**
+### Core Pipeline
 
-* Python 3.10+ (safe default, type hints, dataclasses, etc.).
+```
+Document Input → Tokenization → Windowing → Scoring → Constraint Checking
+                                                           ↓
+                                                      Violations?
+                                                           ↓
+                                         Yes → Rewriting → Re-evaluate
+                                          ↓
+                                         No → Output Results
+```
 
-2.2 **Core Dependencies (minimal)**
+### Module Organization
 
-* `typer` for CLI.
-* `dataclasses` for core domain models.
-* `pytest` for tests.
-* **Optional / pluggable**: any ML or NLP libs needed for the Lexile estimator (e.g., `scikit-learn`, `tensorflow`, etc.), but these should be isolated in a dedicated module.
+* **models.py**: Domain dataclasses (Document, Token, Window, etc.)
+* **tokenization.py**: Word tokenization with character offsets
+* **windowing.py**: Overlapping window creation
+* **estimators/**: Pluggable Lexile estimators
+  * base.py: Abstract interface
+  * dummy_estimator.py: Heuristic-based fallback
+  * lexile_determination_v2_adapter.py: Optional ML model wrapper
+* **scoring.py**: Window scoring and document statistics
+* **constraints.py**: Violation detection
+* **rewriting.py**: LLM-based text rewriting interfaces
+* **pipeline.py**: End-to-end orchestration
+* **cli.py**: Command-line interface (analyze, rewrite, print-config)
+* **config.py**: Configuration management with YAML support
 
-2.3 **Code Quality**
+### Key Design Principles
 
-* ✅ **All coding standards, testing policies, and development workflows are documented in:**
-  * **Coding Standards**: [`docs/code-change.instructions.md`](../docs/code-change.instructions.md)
-  * **Developer Tooling**: [`docs/developer-tooling.md`](../docs/developer-tooling.md)
-
-2.4 **Packaging & Layout**
-
-* ✅ Uses `src/` layout with Poetry packaging
-* ✅ Includes:
-  * `pyproject.toml` with Poetry configuration
-  * `README.md` with comprehensive documentation
-  * `LICENSE` (MIT)
+1. **Pluggability**: Estimators and rewriters use abstract interfaces
+2. **Isolation**: External dependencies (ML models, LLM APIs) are isolated
+3. **Testability**: Core logic testable without external services
+4. **Configurability**: YAML-based configuration with CLI overrides
 
 ---
 
-## 3. Repository Structure
+## 3. Domain Model
 
-✅ **Implementation Status**: Core structure complete
+See [`docs/initial-development-plan.md`](../docs/initial-development-plan.md#2-domain-models-modelspy) for complete specifications.
 
-3.1 **Top-level layout**
+**Core Entities**:
 
-* `README.md`
-* `LICENSE`
-* `pyproject.toml`
-* `src/lexile_corpus_tuner/`
-
-  * `__init__.py`
-  * `config.py`
-  * `models.py`
-  * `tokenization.py`
-  * `windowing.py`
-  * `estimators/`
-
-    * `__init__.py`
-    * `base.py`
-    * `dummy_estimator.py`
-    * `lexile_determination_v2_adapter.py` (stub / optional)
-  * `scoring.py`
-  * `constraints.py`
-  * `rewriting.py`
-  * `pipeline.py`
-  * `cli.py`
-* `tests/`
-
-  * `test_tokenization.py`
-  * `test_windowing.py`
-  * `test_estimators.py`
-  * `test_scoring_and_constraints.py`
-  * `test_pipeline.py`
-* `examples/`
-
-  * `example_corpus/` (a couple of small text files)
-  * `example_config.yaml`
+* `Document`: Input text with ID
+* `Token`: Word with character offsets
+* `Window`: Overlapping text span with token indices
+* `WindowScore`: Window + Lexile score
+* `DocumentLexileStats`: Aggregate statistics per document
+* `ConstraintViolation`: Detected constraint failures
 
 ---
 
-## 4. Domain Models & Data Structures (`models.py`)
+## 4. Configuration
 
-✅ **Implementation Status**: All models implemented and tested
+**Configuration Class**: `LexileTunerConfig`
 
-4.1 **Document**
+**Key Parameters**:
 
-```python
-@dataclass
-class Document:
-    doc_id: str
-    text: str  # full original text
-```
+* `window_size`: Tokens per window (default: 500)
+* `stride`: Token step between windows (default: 250)
+* `max_window_lexile`: Maximum allowed for any window (default: 450.0)
+* `target_avg_lexile`: Target document average (default: 350.0)
+* `avg_tolerance`: Acceptable deviation from target (default: 20.0)
+* `max_passes`: Maximum rewriting iterations (default: 3)
+* `estimator_name`: Which estimator to use ("dummy", "lexile_v2", etc.)
+* `rewrite_enabled`: Whether to enable LLM rewriting
+* `rewrite_model`: LLM model identifier
 
-4.2 **Token**
+**Loading**:
 
-* Represented implicitly as a tuple `(token: str, start_char: int, end_char: int)`.
-* Optionally define a small dataclass for clarity:
-
-```python
-@dataclass
-class Token:
-    text: str
-    start_char: int
-    end_char: int
-```
-
-4.3 **Window**
-
-```python
-@dataclass
-class Window:
-    doc_id: str
-    window_id: int
-    start_token_idx: int
-    end_token_idx: int  # exclusive
-    text: str           # raw substring from Document.text
-```
-
-4.4 **WindowScore**
-
-```python
-@dataclass
-class WindowScore:
-    window: Window
-    lexile: float  # numeric approximation
-```
-
-4.5 **DocumentLexileStats**
-
-```python
-@dataclass
-class DocumentLexileStats:
-    doc_id: str
-    avg_lexile: float
-    max_lexile: float
-    window_scores: list[WindowScore]
-```
-
-4.6 **ConstraintViolation**
-
-```python
-@dataclass
-class ConstraintViolation:
-    doc_id: str
-    window_id: int  # -1 for document-level violation
-    lexile: float
-    reason: str
-    start_token_idx: int
-    end_token_idx: int
-```
+* From dict: `config_from_dict(d: dict)`
+* From YAML: `config_from_yaml(path: str)`
+* CLI overrides via flags
 
 ---
 
-## 5. Configuration (`config.py`)
+## 5. Extension Points
 
-✅ **Implementation Status**: Configuration system complete with YAML support and OpenAI settings
+### Custom Estimators
 
-5.1 **Config Structure**
-
-* Use a `Config` class (Pydantic or dataclass) to hold tunable parameters:
-
-```python
-@dataclass
-class LexileTunerConfig:
-    window_size: int = 500
-    stride: int = 250
-    max_window_lexile: float = 450.0
-    target_avg_lexile: float = 350.0
-    avg_tolerance: float = 20.0
-    max_passes: int = 3
-    smoothing_kernel_size: int = 3
-    estimator_name: str = "dummy"  # or "lexile_v2"
-    rewrite_enabled: bool = False
-    rewrite_model: str | None = None
-```
-
-5.2 **Config Loading**
-
-* Add helper functions for loading from:
-
-  * A `dict`.
-  * A YAML file (`config_from_yaml(path: str) -> LexileTunerConfig`).
-
----
-
-## 6. Tokenization (`tokenization.py`)
-
-✅ **Implementation Status**: Tokenization complete with full test coverage
-
-6.1 **Requirements**
-
-* Stable word tokenization with character offsets.
-* Use a simple regex-based tokenizer.
-
-6.2 **Functions**
-
-* `tokenize_words(text: str) -> list[Token]`:
-
-  * Uses regex like `r"\w+('\w+)?"` with `re.UNICODE`.
-  * Returns a list of `Token` objects with `start_char`/`end_char`.
-* Include unit tests verifying:
-
-  * Token boundaries.
-  * Behavior with punctuation, apostrophes, and multiple spaces.
-
----
-
-## 7. Windowing (`windowing.py`)
-
-✅ **Implementation Status**: Windowing complete with full test coverage
-
-7.1 **Requirements**
-
-* Create overlapping windows of `window_size` tokens with `stride` tokens between starts.
-* Each `Window` must have:
-
-  * `text` slice from original document.
-  * Accurate `start_token_idx` and `end_token_idx`.
-
-7.2 **Functions**
-
-* `create_windows(doc: Document, tokens: list[Token], window_size: int, stride: int) -> list[Window]`:
-
-  * Loop over token indices with step = `stride`.
-  * For each window:
-
-    * `end_idx = min(start_idx + window_size, len(tokens))`.
-    * Derive character slice via tokens `start_char` and `end_char`.
-  * Stop when `start_idx` has reached the final token.
-* Tests:
-
-  * Check number of windows given a known token count.
-  * Verify that adjacent windows overlap by expected amount.
-  * Verify that concatenating windows would cover the original text without off-by-one errors (at least at edges).
-
----
-
-## 8. Estimators Package (`estimators/`)
-
-✅ **Implementation Status**: Core estimator interface complete with DummyLexileEstimator
-
-### 8.1 Base Class (`base.py`)
-
-Define a pluggable interface for Lexile estimators:
+Implement `LexileEstimator` ABC from `estimators/base.py`:
 
 ```python
 class LexileEstimator(ABC):
     @abstractmethod
     def predict_scalar(self, text: str) -> float:
-        """
-        Return a numeric Lexile-like difficulty score for the input text.
-        """
+        """Return numeric Lexile-like difficulty score."""
         ...
 ```
 
-Optionally expose a `from_config` factory.
+Register via `create_estimator(name: str, **kwargs)` factory.
 
-### 8.2 Dummy Estimator (`dummy_estimator.py`)
+### Custom Rewriters
 
-✅ **Complete**: Basic heuristic estimator implemented and tested
+Implement `Rewriter` ABC from `rewriting.py`:
 
-* `DummyLexileEstimator(LexileEstimator)`:
+```python
+class Rewriter(ABC):
+    @abstractmethod
+    def rewrite(self, request: RewriteRequest) -> str:
+        """Rewrite text to meet target Lexile."""
+        ...
+```
 
-  * `predict_scalar(text: str) -> float`:
+Built-in implementations:
 
-    * Split text into sentences (simple `.`/`!`/`?` heuristic).
-    * Compute:
+* `NoOpRewriter`: Pass-through (no rewriting)
+* `CallableRewriter`: Adapts arbitrary functions
+* `OpenAIRewriter`: LLM-based rewriting
 
-      * average words per sentence,
-      * average characters per word.
-    * Map to a pseudo-Lexile via a simple linear formula (document in docstring).
-    * This gives reproducible outputs without external ML models.
+---
 
-      ### 8.4 Factory Function (`estimators/__init__.py`)
+## 6. CLI Interface
+
+**Entry Point**: `lexile-tuner`
+
+**Commands**:
+
+1. **analyze**: Analyze documents without rewriting
+
+   * `--input-path`: File or directory to analyze
+   * `--config`: YAML configuration file
+   * Output: JSON/YAML summary with stats and violations
+2. **rewrite**: Analyze and rewrite documents
+
+   * `--input-path`: Input file or directory
+   * `--output-path`: Output directory for rewritten documents
+   * `--config`: YAML configuration file
+   * `--rewrite-enabled`: Enable LLM rewriting
+   * `--openai-*`: OpenAI API configuration flags
+   * Output: Rewritten documents + summary report
+3. **print-config**: Print default configuration as YAML
+
+---
+
+## 7. Development Guidelines
+
+### Code Quality
+
+See [`docs/code-change.instructions.md`](../docs/code-change.instructions.md) for comprehensive standards:
+
+* **Formatting**: Black (88 char line length)
+* **Linting**: Ruff with project configuration
+* **Type Checking**: Pyright in strict mode
+* **Testing**: Pytest with coverage reporting
+* **Documentation**: Docstrings for all public APIs
+
+### Development Workflow
+
+See [`docs/developer-tooling.md`](../docs/developer-tooling.md) for tooling documentation:
+
+* **Installation**: Poetry or pip with optional extras
+* **Secret Management**: LastPass integration for API keys
+* **VS Code Integration**: Tasks for all quality checks
+* **Continuous Integration**: GitHub Actions with automated checks
+
+### Testing Requirements
+
+* All new code must have unit tests
+* Core logic testable without external dependencies
+* Integration tests for CLI commands
+* Mock external services (OpenAI, ML models)
+
+---
+
+## 8. External Integrations
+
+### Lexile V2 Model (Optional)
+
+Keras-based model for Lexile band prediction. See [`docs/features/archive/lexile_v2_plan.md`](../docs/features/archive/lexile_v2_plan.md) for details.
+
+**Status**: Adapter stub implemented, full integration documented separately.
+
+### OpenAI LLM (Optional)
+
+LLM-based text rewriting for constraint satisfaction. See [`docs/features/archive/llm_plan.md`](../docs/features/archive/llm_plan.md) for details.
+
+**Status**: Interface complete, OpenAI client integration documented separately.
+
+---
+
+## 9. Secret Management
+
+**Critical Rules**:
+
+* NEVER commit API keys, tokens, or `.env` files
+* Use environment variables or secure secret storage (LastPass)
+* Configuration supports both direct keys and env var references
+
+**OpenAI API Key Loading**:
+
+```powershell
+pwsh ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+```
+
+See [`docs/developer-tooling.md#secret-management`](../docs/developer-tooling.md#secret-management) for complete guide.
+
+---
+
+
+## 11. Key Documentation
+
+* **Initial Development Plan**: [`docs/initial-development-plan.md`](../docs/initial-development-plan.md) - Completed implementation specifications
+* **Coding Standards**: [`docs/code-change.instructions.md`](../docs/code-change.instructions.md) - Python coding policy
+* **Developer Tooling**: [`docs/developer-tooling.md`](../docs/developer-tooling.md) - Setup and workflow guide
+* **Unit Test Policy**: [`docs/unit-test-policy.md`](../docs/unit-test-policy.md) - Testing standards
+* **CI Documentation**: [`docs/ci-documentation.md`](../docs/ci-documentation.md) - Continuous integration setup
+* **README**: Project overview, installation, and usage examples
