@@ -2,7 +2,7 @@
 
 - Issue: #10
 - Owner: drmoisan
-- Last Updated: 2025-12-05
+- Last Updated: 2025-12-06
 
 ## Goal & Outcomes
 
@@ -10,9 +10,10 @@ Deliver a Lexile-faithful text difficulty pipeline that mirrors the MetaMetrics 
 
 ## Decomposition (Child Features)
 
-- Corpus Builder Layer (Issue #11) — `../lexile-corpus-builder-layer/`
-- Analyzer Layer (Issue #12) — `../lexile-analyzer-layer/`
-- Calibration Layer (Issue #13) — `../lexile-calibration-layer/`
+- Corpus Builder Layer (Issue #11) - `../lexile-corpus-builder-layer/`
+- Analyzer Layer (Issue #12) - `../lexile-analyzer-layer/`
+- Calibration Layer (Issue #13) - `../lexile-calibration-layer/`
+- Pipeline Structure Alignment (Issue #15) - `../lexile-refactor-pipeline-structure/`
 
 Dependencies: Analyzer requires corpus frequencies; Calibration requires analyzer features; execute in order #11 → #12 → #13.
 

@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Any
 
-from scripts.production.gutenberg_query_core import (
+from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
     QueryConstraintModel,
     QueryGroupModel,
 )

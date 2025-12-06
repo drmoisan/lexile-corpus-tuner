@@ -1,4 +1,4 @@
-"""Unit tests for scripts/production/explore_gutenberg.py.
+"""Unit tests for lexile_corpus_tuner/pipeline_scripts/explore_gutenberg.py.
 
 Tests the Gutenberg query engine with boolean search capabilities.
 """
@@ -11,8 +11,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
-
-from scripts.production.explore_gutenberg import (
+from lexile_corpus_tuner.pipeline_scripts.explore_gutenberg import (
     BooleanQueryEngine,
     QueryHistory,
     get_canonical_sets,
@@ -644,3 +643,5 @@ class TestQueryHistory:
         history = QueryHistory()
 
         assert history.history_file.name == ".gutenberg_query_history.json"
+
+

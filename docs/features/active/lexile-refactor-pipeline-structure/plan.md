@@ -16,27 +16,28 @@ Move the pipeline scripts from `scripts/production` into `src/lexile_corpus_tune
 
 ## Work Breakdown
 
-### Phase 1: Inventory & Plan [0%]
-- [ ] Enumerate all `scripts/production/*` scripts, entry points, and their imports
-- [ ] Grep for references to `scripts/production` in tasks/docs/tests/launch configs
-- [ ] Confirm invariants and non-goals with issue #10/#15 context
+### Phase 1: Inventory & Plan [100%]
+- [x] Enumerate all `scripts/production/*` scripts, entry points, and their imports
+- [x] Grep for references to `scripts/production` in tasks/docs/tests/launch configs
+- [x] Confirm invariants and non-goals with issue #10/#15 context
 
-### Phase 2: Execute Structural Changes [0%]
-- [ ] Create target package layout under `src/lexile_corpus_tuner/<pipeline_subdir>/` with `__init__.py`
-- [ ] `git mv` scripts into the new layout; convert relative imports to package imports
-- [ ] Update VS Code launch/tasks and any docs referencing old paths
-- [ ] Remove or add stub redirects in `scripts/production` (if needed) with guidance to new commands
+### Phase 2: Execute Structural Changes [100%]
+- [x] Create target package layout under `src/lexile_corpus_tuner/pipeline_scripts/` with `__init__.py`
+- [x] `git mv` scripts into the new layout; convert relative imports to package imports
+- [x] Update VS Code launch/tasks and any docs referencing old paths
+- [x] Remove legacy `scripts/production` content (no shims retained)
 
-### Phase 3: Verification & Cleanup [0%]
-- [ ] Run Ruff/Pyright/Pytest; fix import/path fallout
+### Phase 3: Verification & Cleanup [90%]
+- [x] Run Ruff/Pyright/Pytest; fix import/path fallout
 - [ ] Smoke CLI: corpus download/normalize/frequencies; calibration build-dataset/fit; analyze text (sanity run)
-- [ ] Update initiative/task/docs references; final scan for `scripts/production` references
+- [x] Update initiative/task/docs references; final scan for `scripts/production` references
 
 ## Test Plan
 
 - Unit/Integration: existing suites must pass after import/path updates
 - CLI/Workflow: `lexile_corpus_tuner pipeline_entry` commands for corpus/analyzer/calibration and the text-difficulty pipeline workflow
 - Tooling: `poetry run ruff check`, `poetry run pyright`, `poetry run pytest`
+- Completed: Ruff/Pyright/Pytest passing (466 tests). CLI smoke pending (data-dependent).
 
 ## Rollback / Contingency
 
@@ -45,5 +46,5 @@ Move the pipeline scripts from `scripts/production` into `src/lexile_corpus_tune
 
 ## Open Questions / Notes
 
-- Do we need temporary stubs in `scripts/production` for downstream consumers, or can we remove the folder entirely once tasks/docs are updated?
+- `scripts/production` fully retired; callers must use package entry points.
 

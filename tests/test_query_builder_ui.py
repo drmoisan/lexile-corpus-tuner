@@ -1,4 +1,4 @@
-"""Unit tests for scripts/production/gutenberg_query_builder_ui/ module.
+"""Unit tests for lexile_corpus_tuner pipeline_scripts Gutenberg query builder UI.
 
 Tests the UI query builder components and integration with the query engine.
 Focuses on core query building logic and edge cases that caused production bugs.
@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
-from scripts.production.explore_gutenberg import BooleanQueryEngine
-from scripts.production.gutenberg_query_core import (
+from lexile_corpus_tuner.pipeline_scripts.explore_gutenberg import BooleanQueryEngine
+from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
     QueryConstraintModel,
     QueryGroupModel,
 )
@@ -444,3 +443,5 @@ class TestIntegrationWithQueryEngine:
         assert _dataframe_len(result) == 3  # Books A, B, and D
         titles = _column_to_set(result, "title")
         assert titles == {"Book A", "Book B", "Book D"}
+
+

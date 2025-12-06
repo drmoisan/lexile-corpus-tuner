@@ -19,7 +19,7 @@
             "name": "PowerShell: Load OpenAI Key",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/load-openai-key.ps1",
+            "script": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_scripts/load-openai-key.ps1",
             "cwd": "${workspaceFolder}",
             "args": [
                 "-ItemName",
@@ -78,7 +78,7 @@
             "name": "Step 0.1 - Build Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/production/build_gutenberg_id_list.py",
+            "module": "lexile_corpus_tuner.pipeline_scripts.build_gutenberg_id_list",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -89,7 +89,7 @@
             "name": "Step 0.2 - Curate Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "module": "scripts.production.gutenberg_query_builder_ui",
+            "module": "lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -112,7 +112,7 @@
             "name": "Step 2 - Extract Simple Wiki",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/production/extract_simple_wiki_dump.py",
+            "module": "lexile_corpus_tuner.pipeline_scripts.extract_simple_wiki_dump",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [

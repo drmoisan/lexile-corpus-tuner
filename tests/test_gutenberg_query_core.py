@@ -1,8 +1,8 @@
-"""Unit tests for scripts/production/gutenberg_query_core.py."""
+"""Unit tests for lexile_corpus_tuner/pipeline_scripts/gutenberg_query_core.py."""
 
 from __future__ import annotations
 
-from scripts.production.gutenberg_query_core import (
+from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
     QueryConstraintModel,
     QueryGroupModel,
     SavedQuery,
@@ -57,3 +57,5 @@ def test_saved_query_round_trip() -> None:
     loaded_group = SavedQuery.from_json(saved.to_json()).to_query_group()
 
     assert loaded_group.to_query_string() == group.to_query_string()
+
+

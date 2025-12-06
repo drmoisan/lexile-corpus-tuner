@@ -1,10 +1,10 @@
 """Entry point for running gutenberg_query_builder_ui as a module.
 
 This allows execution via:
-    python -m scripts.production.gutenberg_query_builder_ui
+    python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui
 
-Or from the scripts/production directory:
-    python -m gutenberg_query_builder_ui
+Or from the package directory:
+    python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui
 """
 
 from __future__ import annotations

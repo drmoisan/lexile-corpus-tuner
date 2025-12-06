@@ -19,10 +19,10 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 
 ## Scope (structural changes)
 
-- Move `scripts/production/*` into `src/lexile_corpus_tuner/<pipeline_subdir>/` with `__init__.py` as needed; update imports to package-style absolute imports.
+- Move `scripts/production/*` into `src/lexile_corpus_tuner/pipeline_scripts/` with `__init__.py` as needed; update imports to package-style absolute imports.
 - Align module names/entry points to the existing CLI (`lexile_corpus_tuner.pipeline_entry`) and any UI modules (e.g., Gutenberg query builder) under the package.
 - Update VS Code launch/task references, docs, and automation to point to the new paths.
-- Remove/redirect legacy `scripts/production` references (optionally leave thin stubs with notices if needed).
+- Retire `scripts/production` (no shims); all entry points live under the package.
 
 ## Non-Goals
 
@@ -34,7 +34,7 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 
 - VS Code tasks/launch configs referencing `scripts/production` paths.
 - Any docs or README snippets pointing to `scripts/production/*`.
-- Downstream imports/tests that reach into `scripts.production` modules.
+- Downstream imports/tests that reach into `lexile_corpus_tuner.pipeline_scripts` modules.
 - Packaging/entry-points (CLI) that may assume module locations.
 
 ## Risks & Mitigations
@@ -46,9 +46,10 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 
 ## Definition of Done
 
-- [ ] Structure matches this spec; legacy paths retired or redirected
-- [ ] Behavior unchanged (validated against invariants)
-- [ ] Imports/tooling/entry points updated
-- [ ] Tests and type checks clean
-- [ ] Docs updated (initiative/README/tasks as needed)
+- [x] Structure matches this spec; legacy paths retired
+- [x] Behavior unchanged (validated against invariants)
+- [x] Imports/tooling/entry points updated
+- [x] Tests and type checks clean
+- [x] Docs updated (initiative/README/tasks as needed)
+
 
