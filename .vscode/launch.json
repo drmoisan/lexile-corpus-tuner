@@ -27,6 +27,13 @@
             ]
         },
         {
+            "name": "PowerShell: Link Parent/Child Issues",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Python: Analyze chapter1.txt",
             "type": "debugpy",
             "request": "launch",

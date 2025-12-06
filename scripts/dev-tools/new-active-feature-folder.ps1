@@ -3,6 +3,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string] $FeatureName,
+    [ValidateSet("feature", "refactor", "epic")]
+    [string] $Type = "feature",
     [switch] $Force,
     [string] $IssueNumber
 )
@@ -86,7 +88,7 @@ if ($FeatureName -notmatch $namePattern) {
 }
 
 $workspace = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$template = Join-Path $workspace 'docs/features/templates/feature'
+$template = Join-Path $workspace "docs/features/templates/$Type"
 $target = Join-Path $workspace "docs/features/active/$FeatureName"
 
 if (-not (Test-Path $template)) {
@@ -107,51 +109,69 @@ Copy-Item $template\* $target -Recurse -Force
 Write-Host "Created/updated: $target"
 
 $filesToOpen = @()
-$filesToOpen += (Join-Path $target 'user-story.md')
-$filesToOpen += (Join-Path $target 'spec.md')
-$filesToOpen += (Join-Path $target 'plan.md')
+switch ($Type) {
+    'feature' {
+        $filesToOpen += (Join-Path $target 'user-story.md')
+        $filesToOpen += (Join-Path $target 'spec.md')
+        $filesToOpen += (Join-Path $target 'plan.md')
+    }
+    'refactor' {
+        $filesToOpen += (Join-Path $target 'spec.md')
+        $filesToOpen += (Join-Path $target 'plan.md')
+    }
+    'epic' {
+        $filesToOpen += (Join-Path $target 'initiative.md')
+    }
+}
 
-# Seed from a similarly named potential feature, if present
-$normalizedName = $FeatureName -replace '_', '-'
-$potentialDir = Join-Path $workspace 'docs/features/potential'
-$promotedDir = Join-Path $potentialDir 'promoted'
+# Seed from a similarly named potential, if present (features/refactors)
 $potentialFile = $null
-if (Test-Path $potentialDir) {
-    $potentialFile = Get-ChildItem $potentialDir -File |
-        Where-Object {
-            $_.Name -like "*$normalizedName*.md" -and
-            $_.Name -notin @('template.md', 'README.md')
-        } |
-        Sort-Object Name -Descending |
-        Select-Object -First 1
-}
-if (-not $potentialFile -and (Test-Path $promotedDir)) {
-    $potentialFile = Get-ChildItem $promotedDir -File |
-        Where-Object {
-            $_.Name -like "*$normalizedName*.md"
-        } |
-        Sort-Object Name -Descending |
-        Select-Object -First 1
-}
+$problem = $null
+$behavior = $null
+$criteriaRaw = $null
+$constraints = $null
+$tests = $null
+if ($Type -ne 'epic') {
+    $normalizedName = $FeatureName -replace '_', '-'
+    $potentialDir = Join-Path $workspace 'docs/features/potential'
+    $promotedDir = Join-Path $potentialDir 'promoted'
+    if (Test-Path $potentialDir) {
+        $potentialFile = Get-ChildItem $potentialDir -File |
+            Where-Object {
+                $_.Name -like "*$normalizedName*.md" -and
+                $_.Name -notin @('template.md', 'README.md')
+            } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+    }
+    if (-not $potentialFile -and (Test-Path $promotedDir)) {
+        $potentialFile = Get-ChildItem $promotedDir -File |
+            Where-Object {
+                $_.Name -like "*$normalizedName*.md"
+            } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+    }
 
-if ($potentialFile) {
-    $potentialContent = Get-Content -Raw -Path $potentialFile.FullName
-    $problem = Get-Section -Content $potentialContent -Name 'Problem / Why'
-    $behavior = Get-Section -Content $potentialContent -Name 'Proposed Behavior'
-    $criteriaRaw = Get-Section -Content $potentialContent -Name 'Acceptance Criteria (early draft)'
-    $constraints = Get-Section -Content $potentialContent -Name 'Constraints & Risks'
-    $tests = Get-Section -Content $potentialContent -Name 'Test Conditions to Consider'
+    if ($potentialFile) {
+        $potentialContent = Get-Content -Raw -Path $potentialFile.FullName
+        $problem = Get-Section -Content $potentialContent -Name 'Problem / Why'
+        $behavior = Get-Section -Content $potentialContent -Name 'Proposed Behavior'
+        $criteriaRaw = Get-Section -Content $potentialContent -Name 'Acceptance Criteria (early draft)'
+        $constraints = Get-Section -Content $potentialContent -Name 'Constraints & Risks'
+        $tests = Get-Section -Content $potentialContent -Name 'Test Conditions to Consider'
 
-    $criteria = if ($criteriaRaw) { Format-Checklist $criteriaRaw } else { '' }
-    $testsFormatted = if ($tests) { Format-Checklist $tests } else { '' }
-
-    if (-not $IssueNumber) {
-        $issueMatch = [regex]::Match($potentialContent, '^\s*-\s*Issue\s*:\s*#?(\d+)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
-        if ($issueMatch.Success) {
-            $IssueNumber = $issueMatch.Groups[1].Value
+        if (-not $IssueNumber) {
+            $issueMatch = [regex]::Match($potentialContent, '^\s*-\s*Issue\s*:\s*#?(\d+)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
+            if ($issueMatch.Success) {
+                $IssueNumber = $issueMatch.Groups[1].Value
+            }
         }
     }
 }
+
+$criteria = if ($criteriaRaw) { Format-Checklist $criteriaRaw } else { '' }
+$testsFormatted = if ($tests) { Format-Checklist $tests } else { '' }
 
 # Always attempt to fetch issue metadata (if issue number is known) for headers.
 $issueMeta = $null
@@ -167,9 +187,25 @@ $ownerField = if ($issueMeta.author.login) { $issueMeta.author.login } else { "n
 $updatedField = if ($issueMeta.updatedAt) { ([datetime]$issueMeta.updatedAt).ToString('yyyy-MM-dd') } else { "YYYY-MM-DD" }
 
 # Paths to active files
-$userStoryPath = Join-Path $target 'user-story.md'
-$specPath = Join-Path $target 'spec.md'
-$planPath = Join-Path $target 'plan.md'
+$userStoryPath = $null
+$specPath = $null
+$planPath = $null
+$initiativePath = $null
+
+switch ($Type) {
+    'feature' {
+        $userStoryPath = Join-Path $target 'user-story.md'
+        $specPath = Join-Path $target 'spec.md'
+        $planPath = Join-Path $target 'plan.md'
+    }
+    'refactor' {
+        $specPath = Join-Path $target 'spec.md'
+        $planPath = Join-Path $target 'plan.md'
+    }
+    'epic' {
+        $initiativePath = Join-Path $target 'initiative.md'
+    }
+}
 
 # Helper to replace common header placeholders in a template file
 function Set-HeaderPlaceholders {
@@ -177,53 +213,87 @@ function Set-HeaderPlaceholders {
         [string] $Content
     )
     $result = $Content
-    $result = $result -replace '<feature-name>', $FeatureName
+    $namePlaceholders = @('<feature-name>', '<refactor-name>', '<epic-name>', '<name>')
+    foreach ($ph in $namePlaceholders) {
+        $result = $result -replace [regex]::Escape($ph), $FeatureName
+    }
     $result = [regex]::Replace($result, '#`?<id>`?', $issueField)
+    $result = [regex]::Replace($result, '#<tracking-issue>', $issueField)
     $result = [regex]::Replace($result, '^- Owner:\s+name', "- Owner: $ownerField", 'Multiline')
     $result = [regex]::Replace($result, '^- Last Updated:\s+YYYY-MM-DD', "- Last Updated: $updatedField", 'Multiline')
     return $result
 }
 
-# Update user-story from template + potential content
-if (Test-Path $userStoryPath) {
-    $content = Get-Content -Raw -Path $userStoryPath
-    $content = Set-HeaderPlaceholders -Content $content
-    if ($problem) {
-        $content = Set-Section -Content $content -Name 'Problem / Why' -Body $problem
+# Update docs based on type
+if ($Type -eq 'feature') {
+    # user-story
+    if (Test-Path $userStoryPath) {
+        $content = Get-Content -Raw -Path $userStoryPath
+        $content = Set-HeaderPlaceholders -Content $content
+        if ($problem) {
+            $content = Set-Section -Content $content -Name 'Problem / Why' -Body $problem
+        }
+        if ($criteria) {
+            $content = Set-Section -Content $content -Name 'Acceptance Criteria' -Body $criteria
+        }
+        Set-Content -Path $userStoryPath -Value $content -Encoding UTF8
     }
-    if ($criteria) {
-        $content = Set-Section -Content $content -Name 'Acceptance Criteria' -Body $criteria
-    }
-    $content = $content -replace '<feature-name>', $FeatureName
-    Set-Content -Path $userStoryPath -Value $content -Encoding UTF8
-}
 
-# Update spec from template + potential content
-if (Test-Path $specPath) {
-    $content = Get-Content -Raw -Path $specPath
-    $content = Set-HeaderPlaceholders -Content $content
-    if ($problem) {
-        $content = Set-Section -Content $content -Name 'Overview' -Body $problem
+    # spec
+    if (Test-Path $specPath) {
+        $content = Get-Content -Raw -Path $specPath
+        $content = Set-HeaderPlaceholders -Content $content
+        if ($problem) {
+            $content = Set-Section -Content $content -Name 'Overview' -Body $problem
+        }
+        if ($behavior) {
+            $content = Set-Section -Content $content -Name 'Behavior' -Body $behavior
+        }
+        if ($constraints) {
+            $content = Set-Section -Content $content -Name 'Constraints & Risks' -Body $constraints
+        }
+        if ($testsFormatted) {
+            $content = Set-Section -Content $content -Name 'Seeded Test Conditions (from potential)' -Body $testsFormatted
+        }
+        Set-Content -Path $specPath -Value $content -Encoding UTF8
     }
-    if ($behavior) {
-        $content = Set-Section -Content $content -Name 'Behavior' -Body $behavior
-    }
-    if ($constraints) {
-        $content = Set-Section -Content $content -Name 'Constraints & Risks' -Body $constraints
-    }
-    if ($testsFormatted) {
-        $content = Set-Section -Content $content -Name 'Seeded Test Conditions (from potential)' -Body $testsFormatted
-    }
-    $content = $content -replace '<feature-name>', $FeatureName
-    Set-Content -Path $specPath -Value $content -Encoding UTF8
-}
 
-# Update plan headers from template (no section seeding yet)
-if (Test-Path $planPath) {
-    $content = Get-Content -Raw -Path $planPath
-    $content = Set-HeaderPlaceholders -Content $content
-    $content = $content -replace '<feature-name>', $FeatureName
-    Set-Content -Path $planPath -Value $content -Encoding UTF8
+    # plan
+    if (Test-Path $planPath) {
+        $content = Get-Content -Raw -Path $planPath
+        $content = Set-HeaderPlaceholders -Content $content
+        Set-Content -Path $planPath -Value $content -Encoding UTF8
+    }
+} elseif ($Type -eq 'refactor') {
+    if (Test-Path $specPath) {
+        $content = Get-Content -Raw -Path $specPath
+        $content = Set-HeaderPlaceholders -Content $content
+        if ($problem) {
+            $content = Set-Section -Content $content -Name 'Intent & Outcomes' -Body $problem
+        }
+        if ($behavior) {
+            $content = Set-Section -Content $content -Name 'Scope (structural changes)' -Body $behavior
+        }
+        if ($constraints) {
+            $content = Set-Section -Content $content -Name 'Risks & Mitigations' -Body $constraints
+        }
+        if ($testsFormatted) {
+            $content = Set-Section -Content $content -Name 'Seeded Test Conditions (from potential)' -Body $testsFormatted
+        }
+        Set-Content -Path $specPath -Value $content -Encoding UTF8
+    }
+
+    if (Test-Path $planPath) {
+        $content = Get-Content -Raw -Path $planPath
+        $content = Set-HeaderPlaceholders -Content $content
+        Set-Content -Path $planPath -Value $content -Encoding UTF8
+    }
+} elseif ($Type -eq 'epic') {
+    if (Test-Path $initiativePath) {
+        $content = Get-Content -Raw -Path $initiativePath
+        $content = Set-HeaderPlaceholders -Content $content
+        Set-Content -Path $initiativePath -Value $content -Encoding UTF8
+    }
 }
 
 if ($potentialFile) {
