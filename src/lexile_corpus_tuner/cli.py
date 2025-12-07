@@ -567,7 +567,7 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
     return secret
 
 
-@click.group(name="text-difficulty")
+@click.group(name="lexile-scoring-model")
 def text_difficulty_cli() -> None:
     """Lexile-faithful text difficulty pipeline CLI."""
 

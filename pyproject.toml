@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "lexile-corpus-tuner"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lexile-inspired corpus tuner with CLI for analyzing and rewriting documents."
 authors = ["Lexile Corpus Tuner Maintainers"]
 license = "MIT"
@@ -43,6 +43,8 @@ llm-openai = ["openai"]
 
 [tool.poetry.scripts]
 lexile-tuner = "lexile_corpus_tuner.cli:main"
+lexile-scoring-model-pipeline = "lexile_corpus_tuner.cli:text_difficulty_cli"
+# Legacy alias kept for compatibility
 text-difficulty-pipeline = "lexile_corpus_tuner.cli:text_difficulty_cli"
 
 [tool.black]
