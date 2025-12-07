@@ -182,6 +182,27 @@
             },
             "detail": "Collects git diff and status information for commit message generation"
         },
+        {
+            "label": "Collect Pull Request Context",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
+                "-Base",
+                "${input:PRBaseBranch}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "detail": "Collects git PR context comparing current branch to specified base branch"
+        },
             {
       "label": "GitHub: New Feature Issue",
       "type": "shell",
@@ -354,6 +375,12 @@
         }
     ],
   "inputs": [
+    {
+      "id": "PRBaseBranch",
+      "type": "promptString",
+      "description": "Base branch for PR comparison (e.g., development, main)",
+      "default": "development"
+    },
     {
       "id": "PotentialShortName",
       "type": "promptString",
