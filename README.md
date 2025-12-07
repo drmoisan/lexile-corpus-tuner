@@ -1,140 +1,147 @@
 # Lexile Corpus Tuner
 
-Lexile Corpus Tuner helps keep text at a ~350 Lexile level (10-year-old readers) by analyzing overlapping windows and rewriting the hard parts. The project ships two coordinated toolsets that share tokenization/normalization utilities so corpus statistics and analyzer features stay aligned.
+Lexile Corpus Tuner is a toolkit for measuring, constraining, and rewriting a corpus based on the text difficulty level. It was designed to expand the availability of high / low reading material for struggling readers. It pairs a Lexile-style rewriting pipeline with a Lexile-approximation scoring model to produce texts that are calibrated to a reader's skill level. Since Lexile is a proprietary and closed system, a scoring model was developed to approximate lexile scores. This includes a corpus/analyzer/calibration stack that curates a custom mega-corpus, analyzes word frequency and sentence length, and then calibrates an overal score against known lexile measurements. 
 
-1. **Lexile Tuner CLI (`lexile-tuner`)** - analyze + optionally rewrite text with pluggable estimators and an OpenAI-backed rewriter.
-2. **Lexile-Faithful Text Difficulty Pipeline (`text-difficulty-pipeline`)** - build a proxy corpus (Gutenberg, Simple Wiki, OpenStax/CK-12), compute 5M-token frequency tables, extract Lexile-style features, and fit a regression-calibrated analyzer.
-3. **Gutenberg Query Builder (CLI + GUI)** - explore and export Gutenberg metadata with structured queries.
+## What You Can Do
 
-For the step-by-step build specification, see [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md).
+- Identify portions of a text that exceed a configurable maximium difficulty level.
+- Determine key words and sentences that trigger the violation
+- Rewrite portions of this text to avoid exceeding configured maximums
+- Build a custom Lexile-approximation model:
 
----
+  - Semi-automated curation of sources used for the mega-corpus
+  - Download and consolidate the mega-corpus
+  - Analyze the mega-corpus and individual texts to extract meta-metrics
+  - Calibrate these metrics by fitting a model based on word frequency and sentence length to known lexile levels
 
-## Quick Install
+## Install
 
 ```bash
 poetry install --with dev
 # Optional extras
-# poetry install --with dev --extras "lexile-v2"
-# poetry install --with dev --extras "llm-openai"
+poetry install --with dev --extras "lexile-v2"   # TensorFlow Lexile v2 adapter
+poetry install --with dev --extras "llm-openai"  # OpenAI-backed rewriting
 ```
-
-Formatting uses `black` (88 chars) + `isort` (per-project config).
-
----
 
 ## CLI Quickstarts
 
-### Lexile Tuner CLI
+### Lexile Tuner (`lexile-tuner`)
 
 ```bash
+# Analyze and report Lexile-style violations (no rewrites)
 poetry run lexile-tuner analyze --input-path examples/example_corpus --config examples/example_config.yaml
-poetry run lexile-tuner rewrite --input-path examples/example_corpus --output-path artifacts/tuned --config examples/example_config.yaml
+
+# Rewrite violating windows and emit tuned copies + summary.json
+poetry run lexile-tuner rewrite \
+  --input-path examples/example_corpus \
+  --output-path artifacts/tuned \
+  --config examples/example_config.yaml
+
+# Inspect defaults
 poetry run lexile-tuner print-config
 poetry run lexile-tuner analyze --input-path examples/example_corpus/pg2701-images-3.epub
 ```
 
-### Text Difficulty Pipeline
+### Lexile Scoring Model Pipeline (`lexile-scoring-model-pipeline`, alias: `text-difficulty-pipeline`)
 
 ```bash
-# Optional: regenerate Gutenberg IDs (strict English)
+# Optional helpers
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list
-
-# Optional: copy examples/meta/oer_sources.example.json to data/meta/oer_sources.json and fill in OpenStax/CK-12 excerpts
+# Copy examples/meta/oer_sources.example.json to data/meta/oer_sources.json if using OER excerpts
 
 # 1) Download raw sources (Gutenberg + Simple Wiki + OER manifest)
-poetry run text-difficulty-pipeline corpus download
+poetry run lexile-scoring-model-pipeline corpus download
 
 # 2) Convert Simple Wiki dump to JSONL articles
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 
-# 3) Normalize & shard
-poetry run text-difficulty-pipeline corpus normalize --shard-size-tokens 100000
+# 3) Normalize & shard (shared tokenizer/normalizer)
+poetry run lexile-scoring-model-pipeline corpus normalize --shard-size-tokens 100000
 
 # 4) Compute frequency table (per-source weights honored)
-poetry run text-difficulty-pipeline corpus frequencies
+poetry run lexile-scoring-model-pipeline corpus frequencies
 
-# 5) Calibration workflow (requires data/calibration/catalog/lexile_catalog.csv)
-poetry run text-difficulty-pipeline calibration fetch-texts \
+# 5) Calibration workflow (needs data/calibration/catalog/lexile_catalog.csv and downloaded texts)
+poetry run lexile-scoring-model-pipeline calibration fetch-texts \
   --catalog data/calibration/catalog/lexile_catalog.csv \
   --texts-root data/calibration/texts
 
-poetry run text-difficulty-pipeline calibration build-dataset \
+poetry run lexile-scoring-model-pipeline calibration build-dataset \
   --catalog data/calibration/catalog/lexile_catalog.csv \
   --texts-root data/calibration/texts \
   --output data/calibration/calibration_dataset.parquet
 
-poetry run text-difficulty-pipeline calibration fit \
+poetry run lexile-scoring-model-pipeline calibration fit \
   data/calibration/calibration_dataset.parquet \
   --out data/model/lexile_regression_model.json
 
-# 6) Analyze new text with the Lexile-faithful analyzer
-poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output report.json
+# 6) Analyze new text with the calibrated analyzer
+poetry run lexile-scoring-model-pipeline analyze text path/to/doc.txt --json-output report.json
 ```
 
 ### Gutenberg Corpus Explorer
 
 ```bash
-# CLI
+# CLI (Boolean query engine over metadata parquet)
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.explore_gutenberg
 
-# GUI
+# GUI (Tkinter query builder with save/load/export)
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 ```
 
-Features: structured queries (field/value, ranges, boolean), sortable results table (first 100 rows), save/load/export to CSV or Parquet, keyboard shortcuts, and drag-and-drop nested groups.
+Requires `data/meta/gutenberg_metadata.parquet` to be present.
 
----
+## Flow Maps
 
-## Architecture and Domain Model
+**Build the calibrated Lexile-style model**
+```
+lexile-scoring-model-pipeline corpus download
+  -> corpus normalize --shard-size-tokens 100000
+  -> corpus frequencies
+  -> calibration fetch-texts --catalog data/calibration/catalog/lexile_catalog.csv --texts-root data/calibration/texts
+  -> calibration build-dataset --catalog data/calibration/catalog/lexile_catalog.csv --texts-root data/calibration/texts --output data/calibration/calibration_dataset.parquet
+  -> calibration fit data/calibration/calibration_dataset.parquet --out data/model/lexile_regression_model.json
+```
 
-**Core pipeline:** `Document -> Tokenization -> Windowing -> Scoring -> Constraint Checking -> (Rewriting?) -> Output`.
+**Run the rewriting pipeline**
+```
+lexile-tuner analyze --input-path <txt|epub|dir> [--config ...]           # inspect violations only
+lexile-tuner rewrite --input-path <...> --output-path <out> [--config ...] \
+  [--estimator-name lexile_v2|dummy] [--openai-* flags when using llm-openai extra]
+  -> Baseline stats (no rewrite)
+  -> Optional OpenAI-backed rewrites of violating windows
+  -> Tuned documents + summary.json under output-path
+```
 
-**Module map (lexile_tuner):** `models.py` (Document/Token/Window/WindowScore/ConstraintViolation), `tokenization.py`, `windowing.py`, `estimators/` (dummy + optional `lexile_determination_v2_adapter.py`), `scoring.py`, `constraints.py`, `rewriting.py`, `pipeline.py`, `cli.py`, `config.py`.
+## Data & Artifacts
 
-**Domain entities:**
+- Corpus artifacts: `data/corpus/raw`, `data/corpus/normalized/shards`
+- Frequency tables: `data/freq/word_frequencies.tsv` (+ `.meta.json`)
+- Calibration assets: `data/calibration/catalog/*.csv`, `data/calibration/texts`, `data/calibration/calibration_dataset.parquet`
+- Model output: `data/model/lexile_regression_model.json`
+  All of the above are git-ignored; commands are deterministic given the same inputs.
 
-- `Document` with ID + raw text
-- `Token` with character offsets
-- `Window` (overlapping token spans)
-- `WindowScore` (window + Lexile score)
-- `DocumentLexileStats` (aggregate statistics)
-- `ConstraintViolation` (per-window/document issues)
+## Package Layout (src/lexile_corpus_tuner)
 
-**Design principles:** pluggable estimators/rewriters, isolation of external deps, deterministic/testable core, YAML-configurable CLI overrides.
+- `cli.py`: entry points `lexile-tuner` and `lexile-scoring-model-pipeline` (alias: `text-difficulty-pipeline`)
+- `corpus_tuning_pipeline/`: tokenization, windowing, constraints, scoring, rewriting, EPUB ingestion, text difficulty pipeline runner
+- `lexile_scoring_model/`: `corpus` (download/normalize/frequencies), `analyzer` (slices/features/CLI), `calibration` (dataset build + fit/CLI), `pipeline_scripts` (Gutenberg helpers, query builder, Simple Wiki extractor)
+- `estimators/`: dummy estimator and optional TensorFlow Lexile v2 adapter
+- `llm/`: OpenAI rewrite client used by `lexile-tuner` when `llm-openai` extra is installed
+- `config.py`, `models.py`, `frequency_loader.py`: shared config, domain models, and frequency loading helpers
 
----
+## Development & CI
 
-## Configuration
-
-`LexileTunerConfig` defaults: `window_size=500`, `stride=250`, `max_window_lexile=450.0`, `target_avg_lexile=350.0`, `avg_tolerance=20.0`, `max_passes=3`, `estimator_name="dummy"`, `rewrite_enabled=False`, `rewrite_model` optional. Load via `config_from_dict` or `config_from_yaml`, or pass overrides on the CLI.
-
----
-
-## Extension Points
-
-- **Estimators:** implement `LexileEstimator.predict_scalar(text: str) -> float` and register via `create_estimator(name, **kwargs)`.
-- **Rewriters:** implement `Rewriter.rewrite(request: RewriteRequest) -> str`. Built-ins: `NoOpRewriter`, `CallableRewriter`, `OpenAIRewriter`.
-
----
-
-## External Integrations and Secrets
-
-- **Lexile V2 (optional):** TensorFlow adapter for backwards compatibility (`estimator_name: lexile_v2`, artifacts under `examples/lexile_v2_artifacts/`).
-- **OpenAI rewriting (optional):** install `llm-openai`, set `rewrite_enabled: true`, and pass `--openai-*` flags as needed.
-- **Secret handling:** never commit keys. Load OpenAI keys from LastPass: `pwsh ./src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"`. Config supports direct values or env-var indirection.
-
----
-
-## Developer Workflow and Quality
-
-- Policies: follow [`docs/code-change.instructions.md`](docs/code-change.instructions.md) for coding standards and workflow, [`docs/developer-tooling.md`](docs/developer-tooling.md) for tooling, and [`docs/unit-test-policy.md`](docs/unit-test-policy.md) for tests.
-- Common tasks: `poetry run black .`, `poetry run ruff check`, `poetry run pyright`, `poetry run pytest` (or VS Code tasks: Run All Checks).
-- CI mirrors these checks across Python 3.10-3.13; see [`docs/ci-documentation.md`](docs/ci-documentation.md).
-
----
+- Tooling: Black (88), Ruff, Pyright (strict), Pytest. See `docs/developer-tooling.md`.
+- CI: matrix for Python 3.10–3.13 plus security/build/docs checks (`docs/ci-documentation.md`).
+- Policies: `.github/instructions/general-code-change.instructions.md`, `.github/instructions/python-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, `.github/instructions/python-unit-test.instructions.md`.
+- Common commands:
+  - `poetry run black .`
+  - `poetry run ruff check`
+  - `poetry run pyright`
+  - `poetry run pytest`
 
 ## Examples
 
@@ -144,46 +151,12 @@ Features: structured queries (field/value, ranges, boolean), sortable results ta
 - `examples/run_openai_rewrite.py`
 - `examples/meta/oer_sources.example.json`
 
----
+## Docs & Roadmap
 
-## Testing
-
-```bash
-poetry run pytest
-poetry run pyright
-poetry run black --check .
-poetry run isort --check-only .
-```
-
----
-
-## Documentation Map
-
-- Implementation plan: [`docs/text-difficulty-pipeline.md`](docs/text-difficulty-pipeline.md)
-- Coding standards: [`docs/code-change.instructions.md`](docs/code-change.instructions.md)
-- Developer tooling: [`docs/developer-tooling.md`](docs/developer-tooling.md)
-- Unit tests: [`docs/unit-test-policy.md`](docs/unit-test-policy.md)
-- CI setup: [`docs/ci-documentation.md`](docs/ci-documentation.md)
-- Feature backlog/ideas: [`docs/features/backlog.md`](docs/features/backlog.md), [`docs/features/ideas/ideas.md`](docs/features/ideas/ideas.md)
-
----
-
-## Next Steps / Roadmap
-
-1. Promote pipeline docs into README/docs.
-2. Expand corpus with CC-BY/CC0 informational sources and weighting.
-3. Advanced weighting/stratified sharding to keep Gutenberg under target share.
-4. Rich calibration diagnostics (per-band metrics, residual plots, reporting).
-5. Package/release to PyPI when docs/tests stabilize.
-6. Evaluator benchmarks against known Lexile values.
-7. Deprecate `lexile_v2` after calibrated analyzer fully replaces it.
+- Lexile-faithful initiative: `docs/features/active/lexile-faithful-text-difficulty-pipeline/initiative.md`
+- Refactor structure spec: `docs/features/active/lexile-refactor-pipeline-structure/spec.md`
+- Active feature specs/plans: `docs/features/active/`
+- Backlog: `docs/features/backlog.md`
+- Testing guidance: `docs/unit-test-policy.md`
 
 Contributions and issue reports are welcome!
-
-
-
-
-
-
-
-

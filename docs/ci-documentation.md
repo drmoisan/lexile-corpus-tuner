@@ -44,7 +44,7 @@ Runs on: Python 3.13
 **Steps:**
 - Builds the package using Poetry
 - Installs the built wheel in a clean venv
-- Verifies both CLI entry points work (`lexile-tuner`, `text-difficulty-pipeline`)
+- Verifies both CLI entry points work (`lexile-tuner`, `lexile-scoring-model-pipeline`; alias `text-difficulty-pipeline`)
 
 ## Local Development
 

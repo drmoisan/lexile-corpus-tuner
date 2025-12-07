@@ -31,7 +31,7 @@ Dependencies: Analyzer requires corpus frequencies; Calibration requires analyze
 - M1 Corpus frequencies available (download → normalize → frequencies) — ✔ Implemented
 - M2 Analyzer features available (slices, MSL/MLF, adjustments) — ✔ Implemented
 - M3 Calibrated model exported (dataset build, fit, JSON spec) — ✔ Implemented
-- CLI alignment: `lexile-corpus-tuner` exposes `corpus`, `analyze`, and `calibration` subcommands; end-to-end pipeline reachable via `text-difficulty-pipeline` workflow.
+- CLI alignment: `lexile-corpus-tuner` exposes `corpus`, `analyze`, and `calibration` subcommands; end-to-end pipeline reachable via `lexile-scoring-model-pipeline` workflow (alias: `text-difficulty-pipeline`).
 
 ## Initiative-Level Validation
 

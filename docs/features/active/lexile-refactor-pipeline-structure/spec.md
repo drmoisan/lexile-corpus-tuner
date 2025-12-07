@@ -11,7 +11,7 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 
 ## Invariants (must not change)
 
-- CLI surfaces and flags for corpus/analyzer/calibration/text-difficulty-pipeline flows remain identical.
+- CLI surfaces and flags for corpus/analyzer/calibration/lexile-scoring-model-pipeline flows remain identical (legacy alias: text-difficulty-pipeline).
 - Input/output file shapes and default data locations (e.g., `data/corpus/*`, `data/freq/word_frequencies.tsv`, `data/calibration/*`, `data/model/lexile_regression_model.json`) remain the same.
 - Pipeline determinism and processing logic stay unchanged; only module paths and imports move.
 - Existing VS Code launch/task behaviors are preserved (commands still runnable, even if the underlying path moves).
@@ -20,7 +20,7 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 ## Scope (structural changes)
 
 - Move `scripts/production/*` into `src/lexile_corpus_tuner/pipeline_scripts/` with `__init__.py` as needed; update imports to package-style absolute imports.
-- Align module names/entry points to the existing CLI (`lexile_corpus_tuner.cli` text-difficulty group) and any UI modules (e.g., Gutenberg query builder) under the package.
+- Align module names/entry points to the existing CLI (`lexile_corpus_tuner.cli` lexile-scoring-model group; alias text-difficulty) and any UI modules (e.g., Gutenberg query builder) under the package.
 - Update VS Code launch/task references, docs, and automation to point to the new paths.
 - Retire `scripts/production` (no shims); all entry points live under the package.
 

@@ -13,12 +13,12 @@ Pipeline scripts for the Lexile-faithful text difficulty epic live in a `product
 
 ## Proposed Behavior
 
-Consolidate the pipeline scripts under `src/` (aligned to the `lexile-faithful-text-difficulty-pipeline` initiative), with a clear package/module layout and updated imports/entry points. Preserve behavior/CLIs while making the code discoverable, testable, and ready for packaging and future maintenance.
+Consolidate the pipeline scripts under `src/` (aligned to the `lexile-faithful-text-difficulty-pipeline` initiative), with a clear package/module layout and updated imports/entry points. Preserve behavior/CLIs while making the code discoverable, testable, and ready for packaging and future maintenance. Use `lexile-scoring-model-pipeline` as the entry point (keep `text-difficulty-pipeline` as a legacy alias if needed during transition).
 
 ## Acceptance Criteria (early draft)
 
 - [ ] `production/` is retired; scripts live under `src/lexile_corpus_tuner/...` with package init in place.
-- [ ] All moved scripts keep identical runtime behavior/CLIs; commands still reachable via existing entry points/tasks.
+- [ ] All moved scripts keep identical runtime behavior/CLIs; commands still reachable via entry points/tasks (`lexile-scoring-model-pipeline`, legacy alias `text-difficulty-pipeline`).
 - [ ] Imports/config paths updated; Black/Ruff/Pyright/Pytest clean after the move.
 - [ ] Initiative docs point to the new structure (no stale references to `production/`).
 

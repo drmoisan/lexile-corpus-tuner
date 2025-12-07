@@ -43,7 +43,7 @@ A new three-layer pipeline architecture that implements the Lexile framework met
 - Fit regression model (features → official Lexile measures) using sklearn
 - Export trained model as JSON specification for runtime use (no sklearn dependency at runtime)
 
-**CLI Interface**: New `text-difficulty-pipeline` command with subcommands:
+**CLI Interface**: New `lexile-scoring-model-pipeline` command with subcommands (keep `text-difficulty-pipeline` as a legacy alias):
 
 - `corpus download` - Fetch Gutenberg subset, Simple Wiki dump, OER sources
 - `corpus normalize` - Normalize and shard corpus texts
