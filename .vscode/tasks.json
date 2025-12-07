@@ -163,6 +163,25 @@
                 "panel": "new"
             }
         },
+        {
+            "label": "Collect Commit Context",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "detail": "Collects git diff and status information for commit message generation"
+        },
             {
       "label": "GitHub: New Feature Issue",
       "type": "shell",
