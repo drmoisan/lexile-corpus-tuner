@@ -1,4 +1,4 @@
-# lexile-refactor-pipeline-structure - Refactor Spec
+# lexile-scoring-model-refactor-structure- Refactor Spec
 
 - Issue: #15
 - Parent Initiative (optional): #10
@@ -46,11 +46,8 @@ Retire the ad-hoc `scripts/production` layout and house the Lexile-faithful pipe
 
 ## Definition of Done
 
-- [x] Structure matches this spec; legacy paths retired
-- [x] Behavior unchanged (validated against invariants)
-- [x] Imports/tooling/entry points updated
-- [x] Tests and type checks clean
-- [x] Docs updated (initiative/README/tasks as needed)
-
-
-
+- [X] Structure matches this spec; legacy paths retired
+- [X] Behavior unchanged (validated against invariants)
+- [X] Imports/tooling/entry points updated
+- [X] Tests and type checks clean
+- [X] Docs updated (initiative/README/tasks as needed)

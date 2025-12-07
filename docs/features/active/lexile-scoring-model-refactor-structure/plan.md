@@ -1,7 +1,7 @@
-# lexile-refactor-pipeline-structure - Refactor Plan
+# lexile-scoring-model-refactor-structure - Refactor Plan
 
 - Issue: #15
-- Parent Initiative (optional): #<parent-id>
+- Parent Initiative (optional): #`<parent-id>`
 - Owner: drmoisan
 - Last Updated: 2025-12-06
 
@@ -17,21 +17,24 @@ Move the pipeline scripts from `scripts/production` into `src/lexile_corpus_tune
 ## Work Breakdown
 
 ### Phase 1: Inventory & Plan [100%]
-- [x] Enumerate all `scripts/production/*` scripts, entry points, and their imports
-- [x] Grep for references to `scripts/production` in tasks/docs/tests/launch configs
-- [x] Confirm invariants and non-goals with issue #10/#15 context
+
+- [X] Enumerate all `scripts/production/*` scripts, entry points, and their imports
+- [X] Grep for references to `scripts/production` in tasks/docs/tests/launch configs
+- [X] Confirm invariants and non-goals with issue #10/#15 context
 
 ### Phase 2: Execute Structural Changes [100%]
-- [x] Create target package layout under `src/lexile_corpus_tuner/pipeline_scripts/` with `__init__.py`
-- [x] `git mv` scripts into the new layout; convert relative imports to package imports
-- [x] Update VS Code launch/tasks and any docs referencing old paths
-- [x] Remove legacy `scripts/production` content (no shims retained)
-- [x] Clarify naming: `text_difficulty_pipeline.py` for the tuning pipeline; CLI entry via `lexile_corpus_tuner.cli`
+
+- [X] Create target package layout under `src/lexile_corpus_tuner/pipeline_scripts/` with `__init__.py`
+- [X] `git mv` scripts into the new layout; convert relative imports to package imports
+- [X] Update VS Code launch/tasks and any docs referencing old paths
+- [X] Remove legacy `scripts/production` content (no shims retained)
+- [X] Clarify naming: `text_difficulty_pipeline.py` for the tuning pipeline; CLI entry via `lexile_corpus_tuner.cli`
 
 ### Phase 3: Verification & Cleanup [90%]
-- [x] Run Ruff/Pyright/Pytest; fix import/path fallout
+
+- [X] Run Ruff/Pyright/Pytest; fix import/path fallout
 - [ ] Smoke CLI: corpus download/normalize/frequencies; calibration build-dataset/fit; analyze text (sanity run)
-- [x] Update initiative/task/docs references; final scan for `scripts/production` references
+- [X] Update initiative/task/docs references; final scan for `scripts/production` references
 
 ## Test Plan
 
@@ -48,4 +51,3 @@ Move the pipeline scripts from `scripts/production` into `src/lexile_corpus_tune
 ## Open Questions / Notes
 
 - `scripts/production` fully retired; callers must use package entry points.
-

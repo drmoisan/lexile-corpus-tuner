@@ -1,4 +1,4 @@
-# lexile-faithful-text-difficulty-pipeline — Initiative Overview
+# lexile-scoring-model-pipeline — Initiative Overview
 
 - Issue: #10
 - Owner: drmoisan
