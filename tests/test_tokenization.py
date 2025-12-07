@@ -1,4 +1,4 @@
-from lexile_corpus_tuner.tokenization import tokenize_words
+from lexile_corpus_tuner.corpus_tuning_pipeline.tokenization import tokenize_words
 
 
 def test_tokenize_words_returns_offsets():

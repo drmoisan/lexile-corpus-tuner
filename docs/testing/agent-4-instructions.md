@@ -8,7 +8,7 @@
 - `src/lexile_corpus_tuner/config.py` (84% → 95%+)
 - `src/lexile_corpus_tuner/corpus/cli.py` (68% → 90%+)
 - `src/lexile_corpus_tuner/analyzer/cli.py` (46% → 90%+)
-- `src/lexile_corpus_tuner/text_difficulty_pipeline.py` (0% → 90%+ if applicable)
+- `src/lexile_corpus_tuner/corpus_tuning_pipeline/text_difficulty_pipeline.py` (0% → 90%+ if applicable)
 
 **Test Files to Create/Extend:**
 - `tests/test_textutils.py` (NEW)

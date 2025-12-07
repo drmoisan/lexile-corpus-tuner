@@ -5,12 +5,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from .llm.openai_client import OpenAIRewriteClient, RewriteMetadata
+from lexile_corpus_tuner.llm.openai_client import OpenAIRewriteClient, RewriteMetadata
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from .models import ConstraintViolation
+    from lexile_corpus_tuner.models import ConstraintViolation
 
 logger = logging.getLogger(__name__)
 

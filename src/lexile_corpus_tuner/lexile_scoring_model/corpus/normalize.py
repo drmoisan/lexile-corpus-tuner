@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from lexile_corpus_tuner.textutils import iter_tokens, normalize_text
+from lexile_corpus_tuner.corpus_tuning_pipeline.textutils import (
+    iter_tokens,
+    normalize_text,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

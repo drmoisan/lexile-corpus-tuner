@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from .models import DocumentLexileStats, Window, WindowScore
+from lexile_corpus_tuner.models import DocumentLexileStats, Window, WindowScore
 
 if TYPE_CHECKING:
-    from .estimators import LexileEstimator
+    from lexile_corpus_tuner.estimators import LexileEstimator
 
 
 def score_windows(

@@ -6,8 +6,11 @@ import os
 from pathlib import Path
 
 from lexile_corpus_tuner.config import load_config
+from lexile_corpus_tuner.corpus_tuning_pipeline.rewriting import (
+    OpenAIRewriter,
+    RewriteRequest,
+)
 from lexile_corpus_tuner.llm import OpenAIRewriteClient
-from lexile_corpus_tuner.rewriting import OpenAIRewriter, RewriteRequest
 
 
 def main() -> None:

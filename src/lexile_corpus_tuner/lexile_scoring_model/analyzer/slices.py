@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from lexile_corpus_tuner.textutils import iter_tokens
+from lexile_corpus_tuner.corpus_tuning_pipeline.textutils import iter_tokens
 
 SENTENCE_END_RE = re.compile(r"[.?!;]")
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .models import Document, Token, Window
+from lexile_corpus_tuner.models import Document, Token, Window
 
 
 def create_windows(

@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from .constraints import find_violations, has_hard_window_violations
-from .models import (
+from lexile_corpus_tuner.models import (
     ConstraintViolation,
     Document,
     DocumentLexileStats,
@@ -12,14 +11,16 @@ from .models import (
     Window,
     WindowScore,
 )
+
+from .constraints import find_violations, has_hard_window_violations
 from .rewriting import Rewriter, RewriteRequest
 from .scoring import compute_document_stats, score_windows, smooth_window_lexiles
 from .tokenization import tokenize_words
 from .windowing import create_windows
 
 if TYPE_CHECKING:
-    from .config import LexileTunerConfig
-    from .estimators import LexileEstimator
+    from lexile_corpus_tuner.config import LexileTunerConfig
+    from lexile_corpus_tuner.estimators import LexileEstimator
 
 
 def process_document(

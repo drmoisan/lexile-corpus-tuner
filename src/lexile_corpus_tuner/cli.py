@@ -13,7 +13,13 @@ import typer
 import yaml
 
 from .config import LexileTunerConfig, OpenAISettings, load_config
-from .epub import EPUBParseError, extract_text_from_epub
+from .corpus_tuning_pipeline.epub import EPUBParseError, extract_text_from_epub
+from .corpus_tuning_pipeline.rewriting import (
+    NoOpRewriter,
+    OpenAIRewriter,
+    Rewriter,
+)
+from .corpus_tuning_pipeline.text_difficulty_pipeline import process_corpus
 from .estimators import build_estimator_from_config
 from .lexile_scoring_model.analyzer.cli import (
     analyze_group as analyzer_pipeline_group,
@@ -22,8 +28,6 @@ from .lexile_scoring_model.calibration.cli import calibration_group
 from .lexile_scoring_model.corpus.cli import corpus_group
 from .llm import OpenAIRewriteClient
 from .models import ConstraintViolation, Document, DocumentLexileStats
-from .rewriting import NoOpRewriter, OpenAIRewriter, Rewriter
-from .text_difficulty_pipeline import process_corpus
 
 app = typer.Typer(help="Lexile Corpus Tuner CLI.", no_args_is_help=True)
 

@@ -4,8 +4,11 @@ from typing import cast
 
 import pytest
 from lexile_corpus_tuner.config import OpenAISettings
+from lexile_corpus_tuner.corpus_tuning_pipeline.rewriting import (
+    OpenAIRewriter,
+    RewriteRequest,
+)
 from lexile_corpus_tuner.llm import openai_client as oa_client
-from lexile_corpus_tuner.rewriting import OpenAIRewriter, RewriteRequest
 from pytest import MonkeyPatch
 
 

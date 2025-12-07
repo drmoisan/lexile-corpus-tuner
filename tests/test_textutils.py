@@ -1,6 +1,9 @@
 """Tests for textutils module."""
 
-from lexile_corpus_tuner.textutils import iter_tokens, normalize_text
+from lexile_corpus_tuner.corpus_tuning_pipeline.textutils import (
+    iter_tokens,
+    normalize_text,
+)
 
 
 class TestNormalizeText:

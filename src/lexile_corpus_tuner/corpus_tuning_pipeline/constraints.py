@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .models import ConstraintViolation, DocumentLexileStats
+from lexile_corpus_tuner.models import ConstraintViolation, DocumentLexileStats
 
 if TYPE_CHECKING:
-    from .config import LexileTunerConfig
+    from lexile_corpus_tuner.config import LexileTunerConfig
 
 
 def find_violations(
