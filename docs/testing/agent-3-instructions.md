@@ -315,7 +315,7 @@ def mock_http_fetch(monkeypatch):
         return "Sample fetched text content."
     
     monkeypatch.setattr(
-        "lexile_corpus_tuner.calibration.cli._fetch_http_text",
+        "lexile_corpus_tuner.lexile_scoring_model.calibration.cli._fetch_http_text",
         fake_fetch
     )
 
@@ -498,3 +498,4 @@ If blocked or uncertain:
 5. Request guidance from coordinator
 
 **Remember: Quality over speed. No compromises on standards. Mock everything external.**
+

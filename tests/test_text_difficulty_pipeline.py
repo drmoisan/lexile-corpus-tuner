@@ -1,8 +1,14 @@
 from lexile_corpus_tuner.config import LexileTunerConfig
+from lexile_corpus_tuner.corpus_tuning_pipeline.rewriting import (
+    NoOpRewriter,
+    Rewriter,
+    RewriteRequest,
+)
+from lexile_corpus_tuner.corpus_tuning_pipeline.text_difficulty_pipeline import (
+    process_document,
+)
 from lexile_corpus_tuner.estimators.base import LexileEstimator
 from lexile_corpus_tuner.models import Document
-from lexile_corpus_tuner.pipeline import process_document
-from lexile_corpus_tuner.rewriting import NoOpRewriter, Rewriter, RewriteRequest
 
 
 class ThresholdEstimator(LexileEstimator):

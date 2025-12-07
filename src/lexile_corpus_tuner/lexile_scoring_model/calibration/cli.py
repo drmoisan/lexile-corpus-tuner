@@ -10,9 +10,11 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from lexile_corpus_tuner.analyzer.features import compute_document_features
-from lexile_corpus_tuner.analyzer.slices import build_slices
-from lexile_corpus_tuner.textutils import normalize_text
+from lexile_corpus_tuner.corpus_tuning_pipeline.textutils import normalize_text
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.features import (
+    compute_document_features,
+)
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.slices import build_slices
 
 from .featureset import make_regression_features
 from .model_store import save_model

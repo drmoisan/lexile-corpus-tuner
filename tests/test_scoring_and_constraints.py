@@ -1,12 +1,15 @@
 from lexile_corpus_tuner.config import LexileTunerConfig
-from lexile_corpus_tuner.constraints import find_violations, has_hard_window_violations
-from lexile_corpus_tuner.estimators.base import LexileEstimator
-from lexile_corpus_tuner.models import DocumentLexileStats, Window, WindowScore
-from lexile_corpus_tuner.scoring import (
+from lexile_corpus_tuner.corpus_tuning_pipeline.constraints import (
+    find_violations,
+    has_hard_window_violations,
+)
+from lexile_corpus_tuner.corpus_tuning_pipeline.scoring import (
     compute_document_stats,
     score_windows,
     smooth_window_lexiles,
 )
+from lexile_corpus_tuner.estimators.base import LexileEstimator
+from lexile_corpus_tuner.models import DocumentLexileStats, Window, WindowScore
 
 
 class ConstantEstimator(LexileEstimator):

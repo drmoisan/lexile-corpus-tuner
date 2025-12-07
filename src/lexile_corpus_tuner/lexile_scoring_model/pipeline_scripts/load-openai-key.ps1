@@ -8,10 +8,10 @@
     This keeps API keys out of tracked files while keeping the workflow quick to use.
 
 .EXAMPLE
-    ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+    ./src/lexile_corpus_tuner/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
 
 .EXAMPLE
-    ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key" -UsePasswordField -EnvVar "OPENAI_API_KEY"
+    ./src/lexile_corpus_tuner/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key" -UsePasswordField -EnvVar "OPENAI_API_KEY"
 #>
 [CmdletBinding()]
 param(

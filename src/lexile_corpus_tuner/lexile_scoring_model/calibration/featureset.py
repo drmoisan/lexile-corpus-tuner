@@ -5,7 +5,9 @@ import statistics
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lexile_corpus_tuner.analyzer.features import DocumentFeatures
+    from lexile_corpus_tuner.lexile_scoring_model.analyzer.features import (
+        DocumentFeatures,
+    )
 
 
 def make_regression_features(doc: DocumentFeatures) -> dict[str, float]:

@@ -4,8 +4,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lexile_corpus_tuner.calibration.featureset import make_regression_features
-from lexile_corpus_tuner.calibration.model_store import load_model_spec
+from lexile_corpus_tuner.lexile_scoring_model.calibration.featureset import (
+    make_regression_features,
+)
+from lexile_corpus_tuner.lexile_scoring_model.calibration.model_store import (
+    load_model_spec,
+)
 
 if TYPE_CHECKING:
     from .features import DocumentFeatures

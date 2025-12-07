@@ -5,8 +5,11 @@ lexile_corpus_tuner package exports convenience helpers for library consumers.
 from __future__ import annotations
 
 from .config import LexileTunerConfig, config_from_dict, config_from_yaml, load_config
+from .corpus_tuning_pipeline.text_difficulty_pipeline import (
+    process_corpus,
+    process_document,
+)
 from .estimators import build_estimator_from_config, create_estimator
-from .pipeline import process_corpus, process_document
 
 __all__ = [
     "LexileTunerConfig",

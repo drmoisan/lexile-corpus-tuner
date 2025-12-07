@@ -588,7 +588,8 @@ def interactive_explorer(parquet_path: Path) -> None:
     if not parquet_path.exists():
         print(f"File not found: {parquet_path}", file=sys.stderr)
         print(
-            "Please run 'scripts/production/build_gutenberg_id_list.py' first.",
+            "Please run 'python -m lexile_corpus_tuner.lexile_scoring_model."
+            "pipeline_scripts.build_gutenberg_id_list' first.",
             file=sys.stderr,
         )
         return

@@ -8,14 +8,14 @@ helper functions for computing Lexile-style features from text slices.
 from unittest.mock import patch
 
 import pytest
-from lexile_corpus_tuner.analyzer.features import (
+from lexile_corpus_tuner.frequency_loader import WordFrequency
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.features import (
     DocumentFeatures,
     SliceFeatures,
     _compute_unseen_floor,
     compute_document_features,
 )
-from lexile_corpus_tuner.analyzer.slices import Slice
-from lexile_corpus_tuner.frequency_loader import WordFrequency
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.slices import Slice
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestComputeDocumentFeatures:
     ):
         """Test computing features for a single slice with known tokens."""
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([simple_slice])
@@ -88,7 +88,7 @@ class TestComputeDocumentFeatures:
     ):
         """Test that slice features are correctly populated."""
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([simple_slice])
@@ -105,7 +105,7 @@ class TestComputeDocumentFeatures:
     ):
         """Test that mean log word frequency is correctly calculated."""
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([simple_slice])
@@ -131,7 +131,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([slice1, slice2])
@@ -160,7 +160,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([slice1, slice2])
@@ -171,7 +171,7 @@ class TestComputeDocumentFeatures:
     def test_empty_slices_list(self, sample_frequency_table: dict[str, WordFrequency]):
         """Test computing features with empty slices list."""
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([])
@@ -193,7 +193,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([sl])
@@ -215,7 +215,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([sl])
@@ -236,7 +236,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([sl])
@@ -259,7 +259,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([sl])
@@ -288,7 +288,7 @@ class TestComputeDocumentFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.features.load_frequency_table",
+            "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.load_frequency_table",
             return_value=sample_frequency_table,
         ):
             result = compute_document_features([slice1, slice2])

@@ -38,7 +38,7 @@ poetry run lexile-tuner analyze --input-path examples/example_corpus/pg2701-imag
 
 ```bash
 # Optional: regenerate Gutenberg IDs (strict English)
-poetry run python scripts/production/build_gutenberg_id_list.py
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list
 
 # Optional: copy examples/meta/oer_sources.example.json to data/meta/oer_sources.json and fill in OpenStax/CK-12 excerpts
 
@@ -46,7 +46,7 @@ poetry run python scripts/production/build_gutenberg_id_list.py
 poetry run text-difficulty-pipeline corpus download
 
 # 2) Convert Simple Wiki dump to JSONL articles
-poetry run python scripts/production/extract_simple_wiki_dump.py \
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump \
   --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
 
@@ -78,10 +78,10 @@ poetry run text-difficulty-pipeline analyze text path/to/doc.txt --json-output r
 
 ```bash
 # CLI
-poetry run python scripts/production/explore_gutenberg.py
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.explore_gutenberg
 
 # GUI
-poetry run python -m scripts.production.gutenberg_query_builder_ui
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 ```
 
 Features: structured queries (field/value, ranges, boolean), sortable results table (first 100 rows), save/load/export to CSV or Parquet, keyboard shortcuts, and drag-and-drop nested groups.
@@ -124,7 +124,7 @@ Features: structured queries (field/value, ranges, boolean), sortable results ta
 
 - **Lexile V2 (optional):** TensorFlow adapter for backwards compatibility (`estimator_name: lexile_v2`, artifacts under `examples/lexile_v2_artifacts/`).
 - **OpenAI rewriting (optional):** install `llm-openai`, set `rewrite_enabled: true`, and pass `--openai-*` flags as needed.
-- **Secret handling:** never commit keys. Load OpenAI keys from LastPass: `pwsh ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"`. Config supports direct values or env-var indirection.
+- **Secret handling:** never commit keys. Load OpenAI keys from LastPass: `pwsh ./src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"`. Config supports direct values or env-var indirection.
 
 ---
 
@@ -179,3 +179,11 @@ poetry run isort --check-only .
 7. Deprecate `lexile_v2` after calibrated analyzer fully replaces it.
 
 Contributions and issue reports are welcome!
+
+
+
+
+
+
+
+

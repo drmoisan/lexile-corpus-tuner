@@ -6,8 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner, Result
-from lexile_corpus_tuner.analyzer.cli import analyze_group
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.cli import analyze_group
 from pytest import MonkeyPatch
+
+ANALYZER_CLI_PATH = "lexile_corpus_tuner.lexile_scoring_model.analyzer.cli"
 
 
 class TestAnalyzerCLI:
@@ -26,19 +28,18 @@ class TestAnalyzerCLI:
         mock_estimate = MagicMock()
         mock_adjust = MagicMock()
 
+        monkeypatch.setattr(f"{ANALYZER_CLI_PATH}.build_slices", mock_build_slices)
         monkeypatch.setattr(
-            "lexile_corpus_tuner.analyzer.cli.build_slices", mock_build_slices
-        )
-        monkeypatch.setattr(
-            "lexile_corpus_tuner.analyzer.cli.compute_document_features",
+            f"{ANALYZER_CLI_PATH}.compute_document_features",
             mock_compute_features,
         )
         monkeypatch.setattr(
-            "lexile_corpus_tuner.analyzer.cli.estimate_lexile_from_features",
+            f"{ANALYZER_CLI_PATH}.estimate_lexile_from_features",
             mock_estimate,
         )
         monkeypatch.setattr(
-            "lexile_corpus_tuner.analyzer.cli.adjust_for_special_cases", mock_adjust
+            f"{ANALYZER_CLI_PATH}.adjust_for_special_cases",
+            mock_adjust,
         )
 
         # Setup default return values

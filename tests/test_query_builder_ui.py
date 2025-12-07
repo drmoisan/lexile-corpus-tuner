@@ -1,4 +1,4 @@
-"""Unit tests for scripts/production/gutenberg_query_builder_ui/ module.
+"""Unit tests for lexile_corpus_tuner pipeline_scripts Gutenberg query builder UI.
 
 Tests the UI query builder components and integration with the query engine.
 Focuses on core query building logic and edge cases that caused production bugs.
@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
-from scripts.production.explore_gutenberg import BooleanQueryEngine
-from scripts.production.gutenberg_query_core import (
-    QueryConstraintModel,
-    QueryGroupModel,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    explore_gutenberg as eg,
 )
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    gutenberg_query_core as gq_core,
+)
+
+BooleanQueryEngine = eg.BooleanQueryEngine
+QueryConstraintModel = gq_core.QueryConstraintModel
+QueryGroupModel = gq_core.QueryGroupModel
 
 
 def _tokenize(engine: BooleanQueryEngine, query: str) -> list[str]:

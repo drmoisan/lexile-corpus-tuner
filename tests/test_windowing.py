@@ -1,6 +1,6 @@
+from lexile_corpus_tuner.corpus_tuning_pipeline.tokenization import tokenize_words
+from lexile_corpus_tuner.corpus_tuning_pipeline.windowing import create_windows
 from lexile_corpus_tuner.models import Document
-from lexile_corpus_tuner.tokenization import tokenize_words
-from lexile_corpus_tuner.windowing import create_windows
 
 
 def test_create_windows_overlaps_correctly():

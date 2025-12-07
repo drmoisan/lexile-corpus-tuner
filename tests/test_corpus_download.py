@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
-from lexile_corpus_tuner.corpus import download
+from lexile_corpus_tuner.lexile_scoring_model.corpus import download
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -422,8 +422,10 @@ class TestDownloadGutenbergSubset:
         # Assert
         assert "No Gutenberg IDs found" in caplog.text
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
-    @patch("lexile_corpus_tuner.corpus.download._resolve_gutenberg_url")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.corpus.download._resolve_gutenberg_url"
+    )
     def test_downloads_new_files(
         self,
         mock_resolve: Mock,
@@ -452,8 +454,10 @@ class TestDownloadGutenbergSubset:
         assert mock_resolve.call_count == 2
         assert mock_download.call_count == 2
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
-    @patch("lexile_corpus_tuner.corpus.download._resolve_gutenberg_url")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.corpus.download._resolve_gutenberg_url"
+    )
     def test_warns_when_url_resolution_fails(
         self,
         mock_resolve: Mock,
@@ -485,8 +489,10 @@ class TestDownloadGutenbergSubset:
         mock_download.assert_not_called()
         assert "Unable to construct URL" in caplog.text
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
-    @patch("lexile_corpus_tuner.corpus.download._resolve_gutenberg_url")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.corpus.download._resolve_gutenberg_url"
+    )
     def test_continues_on_download_error(
         self,
         mock_resolve: Mock,
@@ -522,8 +528,10 @@ class TestDownloadGutenbergSubset:
         assert mock_download.call_count == 2
         assert "Failed to download Gutenberg 1" in caplog.text
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
-    @patch("lexile_corpus_tuner.corpus.download._resolve_gutenberg_url")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.corpus.download._resolve_gutenberg_url"
+    )
     def test_respects_limit_parameter(
         self,
         mock_resolve: Mock,
@@ -555,7 +563,7 @@ class TestDownloadGutenbergSubset:
 class TestDownloadSimpleWikiDump:
     """Tests for download_simple_wiki_dump function."""
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_downloads_from_provided_url(
         self, mock_download: Mock, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -577,7 +585,7 @@ class TestDownloadSimpleWikiDump:
         mock_download.assert_called_once()
         assert result == wiki_dir / "wiki_dump.xml.bz2"
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_uses_default_url_when_none_provided(
         self, mock_download: Mock, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -599,7 +607,7 @@ class TestDownloadSimpleWikiDump:
         call_url: str = mock_download.call_args[0][0]
         assert "wikimedia.org" in call_url
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_uses_environment_variable_url(
         self, mock_download: Mock, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -650,7 +658,7 @@ class TestDownloadSimpleWikiDump:
         assert "already exists" in caplog.text
         assert result == wiki_dir / "existing.xml.bz2"
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_handles_url_without_filename(
         self, mock_download: Mock, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -747,7 +755,7 @@ class TestDownloadOerSources:
         mock_download.assert_not_called()
         assert "No sources listed" in caplog.text
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_downloads_from_http_url(
         self, mock_download: Mock, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -919,7 +927,7 @@ class TestDownloadOerSources:
         mock_download.assert_not_called()
         assert "already downloaded" in caplog.text
 
-    @patch("lexile_corpus_tuner.corpus.download._download_file")
+    @patch("lexile_corpus_tuner.lexile_scoring_model.corpus.download._download_file")
     def test_continues_on_download_error(
         self,
         mock_download: Mock,

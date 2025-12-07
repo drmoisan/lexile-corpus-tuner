@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from .models import Token
+from lexile_corpus_tuner.models import Token
 
 TOKEN_PATTERN = re.compile(r"\w+(?:'\w+)?", re.UNICODE)
 

@@ -40,3 +40,10 @@ Use these sources to align scope, status, and acceptance criteria before startin
 
 - Architecture/behavior reference: see [README.md](../README.md).
 - Secrets: never commit keys; load OpenAI keys via `pwsh ./scripts/production/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"`.
+
+
+
+
+
+
+

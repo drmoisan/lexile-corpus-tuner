@@ -163,6 +163,46 @@
                 "panel": "new"
             }
         },
+        {
+            "label": "Collect Commit Context",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "detail": "Collects git diff and status information for commit message generation"
+        },
+        {
+            "label": "Collect Pull Request Context",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
+                "-Base",
+                "${input:PRBaseBranch}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "detail": "Collects git PR context comparing current branch to specified base branch"
+        },
             {
       "label": "GitHub: New Feature Issue",
       "type": "shell",
@@ -234,24 +274,52 @@
       },
       "detail": "Adds/updates a Feature Docs section in an issue with links to user-story/spec/plan."
     },
-        {
-            "label": "Feature: Create Active Folder",
-            "type": "shell",
-            "command": "pwsh",
-            "args": [
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/dev-tools/new-active-feature-folder.ps1",
-                "-FeatureName",
-                "${input:ActiveFeatureName}",
-                "-IssueNumber",
-                "${input:ActiveIssueNumber}"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
+    {
+      "label": "GitHub: Link Parent/Child Issues",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
+        "-ChildIssueNumber",
+        "${input:ChildIssueNumber}",
+        "-ParentIssueNumber",
+        "${input:ParentIssueNumber}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Adds child link to parent tracking issue and comments on the child with the parent link."
+    },
+    {
+      "label": "Feature: Create Active Folder",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/dev-tools/new-active-feature-folder.ps1",
+        "-FeatureName",
+        "${input:ActiveFeatureName}",
+        "-Type",
+        "${input:ActiveWorkType}",
+        "-IssueNumber",
+        "${input:ActiveIssueNumber}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [],
       "presentation": {
@@ -308,6 +376,12 @@
     ],
   "inputs": [
     {
+      "id": "PRBaseBranch",
+      "type": "promptString",
+      "description": "Base branch for PR comparison (e.g., development, main)",
+      "default": "development"
+    },
+    {
       "id": "PotentialShortName",
       "type": "promptString",
       "description": "Short name (kebab-case, e.g., notes-feature)",
@@ -320,16 +394,27 @@
             "default": "docs/features/potential/2025-12-01-new-feature.md"
     },
         {
-            "id": "ActiveFeatureName",
-            "type": "promptString",
-            "description": "Feature folder name (kebab/underscore-case, e.g., notes_feature)",
-            "default": "new_feature"
-        },
-        {
-            "id": "ActiveIssueNumber",
-            "type": "promptString",
-            "description": "Issue number (optional, e.g., 14)",
-            "default": "auto"
+      "id": "ActiveFeatureName",
+      "type": "promptString",
+      "description": "Feature folder name (kebab/underscore-case, e.g., notes_feature)",
+      "default": "new_feature"
+    },
+    {
+      "id": "ActiveWorkType",
+      "type": "pickString",
+      "description": "Template type",
+      "options": [
+        "feature",
+        "refactor",
+        "epic"
+      ],
+      "default": "feature"
+    },
+    {
+      "id": "ActiveIssueNumber",
+      "type": "promptString",
+      "description": "Issue number (optional, e.g., 14)",
+      "default": "auto"
         },
         {
             "id": "LinkIssueNumber",
@@ -342,6 +427,18 @@
             "type": "promptString",
             "description": "Feature folder name (e.g., new_feature)",
             "default": "new_feature"
+        },
+    {
+      "id": "ChildIssueNumber",
+      "type": "promptString",
+      "description": "Child issue number to link (e.g., 15)",
+      "default": ""
+    },
+    {
+      "id": "ParentIssueNumber",
+      "type": "promptString",
+      "description": "Parent tracking issue number (e.g., 10)",
+      "default": "10"
         }
     ]
 }

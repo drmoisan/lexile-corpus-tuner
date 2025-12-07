@@ -1,12 +1,14 @@
-"""Unit tests for scripts/production/gutenberg_query_core.py."""
+"""Unit tests for lexile_corpus_tuner/pipeline_scripts/gutenberg_query_core.py."""
 
 from __future__ import annotations
 
-from scripts.production.gutenberg_query_core import (
-    QueryConstraintModel,
-    QueryGroupModel,
-    SavedQuery,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    gutenberg_query_core as gq_core,
 )
+
+QueryConstraintModel = gq_core.QueryConstraintModel
+QueryGroupModel = gq_core.QueryGroupModel
+SavedQuery = gq_core.SavedQuery
 
 
 def test_constraint_contains() -> None:

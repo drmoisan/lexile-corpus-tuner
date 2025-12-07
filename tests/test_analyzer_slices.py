@@ -5,7 +5,7 @@ This module tests the split_into_sentences and build_slices functions
 which handle text segmentation for Lexile analysis.
 """
 
-from lexile_corpus_tuner.analyzer.slices import (
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.slices import (
     Slice,
     build_slices,
     split_into_sentences,
