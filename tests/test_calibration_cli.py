@@ -14,6 +14,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner, Result
 
+CALIB_CLI_PATH = "lexile_corpus_tuner.lexile_scoring_model.calibration.cli"
+
 
 class TestCalibrationGroup:
     """Tests for calibration CLI command group."""
@@ -25,14 +27,18 @@ class TestCalibrationGroup:
 
     def test_calibration_group_exists(self, runner: CliRunner) -> None:
         """Test that calibration group command exists."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(calibration_group, ["--help"])
         assert result.exit_code == 0
 
     def test_calibration_group_has_subcommands(self, runner: CliRunner) -> None:
         """Test that calibration group has expected subcommands."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(calibration_group, ["--help"])
         assert "fetch-texts" in result.output
@@ -62,7 +68,9 @@ class TestFetchTexts:
 
     def test_fetch_texts_requires_catalog_option(self, runner: CliRunner) -> None:
         """Test that fetch-texts requires --catalog option."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(calibration_group, ["fetch-texts"])
         assert result.exit_code != 0
@@ -72,7 +80,9 @@ class TestFetchTexts:
         self, runner: CliRunner, sample_catalog: Path
     ) -> None:
         """Test that fetch-texts requires --texts-root option."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -84,7 +94,9 @@ class TestFetchTexts:
         self, runner: CliRunner, sample_catalog: Path, tmp_path: Path
     ) -> None:
         """Test that fetch-texts creates the texts directory."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         texts_dir = tmp_path / "texts"
 
@@ -114,7 +126,9 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -146,7 +160,9 @@ class TestFetchTexts:
             "existing content", encoding="utf-8"
         )
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -174,11 +190,11 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
-        with patch(
-            "lexile_corpus_tuner.calibration.cli._fetch_http_text"
-        ) as mock_fetch:
+        with patch(f"{CALIB_CLI_PATH}._fetch_http_text") as mock_fetch:
             mock_fetch.return_value = None  # Function writes to file, returns None
 
             # Make fetch_http_text create the file
@@ -214,11 +230,11 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
-        with patch(
-            "lexile_corpus_tuner.calibration.cli._fetch_gutenberg_text"
-        ) as mock_fetch:
+        with patch(f"{CALIB_CLI_PATH}._fetch_gutenberg_text") as mock_fetch:
 
             def write_text_file(ebook_id: str, dest: Path) -> None:
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -252,7 +268,9 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -280,11 +298,11 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
-        with patch(
-            "lexile_corpus_tuner.calibration.cli._fetch_http_text"
-        ) as mock_fetch:
+        with patch(f"{CALIB_CLI_PATH}._fetch_http_text") as mock_fetch:
             mock_fetch.side_effect = RuntimeError("Network error")
 
             result: Result = runner.invoke(
@@ -313,7 +331,9 @@ class TestFetchTexts:
         )
         texts_dir = tmp_path / "texts"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -340,7 +360,9 @@ class TestBuildDataset:
 
     def test_build_dataset_requires_catalog_option(self, runner: CliRunner) -> None:
         """Test that build-dataset requires --catalog option."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(calibration_group, ["build-dataset"])
         assert result.exit_code != 0
@@ -352,7 +374,9 @@ class TestBuildDataset:
         catalog = tmp_path / "catalog.csv"
         catalog.write_text("text_id,lexile_official\n", encoding="utf-8")
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -369,7 +393,9 @@ class TestBuildDataset:
         texts_dir = tmp_path / "texts"
         texts_dir.mkdir()
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -403,17 +429,15 @@ class TestBuildDataset:
         )
         output = tmp_path / "dataset.parquet"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         # Mock the feature computation to speed up tests
         with (
-            patch("lexile_corpus_tuner.calibration.cli.build_slices") as mock_slices,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.compute_document_features"
-            ) as mock_features,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.make_regression_features"
-            ) as mock_regression,
+            patch(f"{CALIB_CLI_PATH}.build_slices") as mock_slices,
+            patch(f"{CALIB_CLI_PATH}.compute_document_features") as mock_features,
+            patch(f"{CALIB_CLI_PATH}.make_regression_features") as mock_regression,
         ):
             mock_slices.return_value = []
             mock_doc_features = MagicMock()
@@ -457,16 +481,14 @@ class TestBuildDataset:
         )
         output = tmp_path / "dataset.csv"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         with (
-            patch("lexile_corpus_tuner.calibration.cli.build_slices") as mock_slices,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.compute_document_features"
-            ) as mock_features,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.make_regression_features"
-            ) as mock_regression,
+            patch(f"{CALIB_CLI_PATH}.build_slices") as mock_slices,
+            patch(f"{CALIB_CLI_PATH}.compute_document_features") as mock_features,
+            patch(f"{CALIB_CLI_PATH}.make_regression_features") as mock_regression,
         ):
             mock_slices.return_value = []
             mock_doc_features = MagicMock()
@@ -512,16 +534,14 @@ class TestBuildDataset:
         )
         output = tmp_path / "dataset.parquet"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         with (
-            patch("lexile_corpus_tuner.calibration.cli.build_slices") as mock_slices,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.compute_document_features"
-            ) as mock_features,
-            patch(
-                "lexile_corpus_tuner.calibration.cli.make_regression_features"
-            ) as mock_regression,
+            patch(f"{CALIB_CLI_PATH}.build_slices") as mock_slices,
+            patch(f"{CALIB_CLI_PATH}.compute_document_features") as mock_features,
+            patch(f"{CALIB_CLI_PATH}.make_regression_features") as mock_regression,
         ):
             mock_slices.return_value = []
             mock_doc_features = MagicMock()
@@ -561,7 +581,9 @@ class TestBuildDataset:
         texts_dir.mkdir()
         output = tmp_path / "dataset.parquet"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -597,7 +619,9 @@ class TestBuildDataset:
         )
         output = tmp_path / "dataset.parquet"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -626,7 +650,9 @@ class TestBuildDataset:
         texts_dir.mkdir()
         output = tmp_path / "dataset.parquet"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(
             calibration_group,
@@ -655,7 +681,9 @@ class TestFit:
 
     def test_fit_requires_dataset_argument(self, runner: CliRunner) -> None:
         """Test that fit requires dataset argument."""
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         result: Result = runner.invoke(calibration_group, ["fit"])
         assert result.exit_code != 0
@@ -675,13 +703,13 @@ class TestFit:
         df.to_parquet(dataset_path, index=False)  # type: ignore[reportUnknownMemberType]
         output_path = tmp_path / "model.json"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         with (
-            patch(
-                "lexile_corpus_tuner.calibration.cli.train_regression_model"
-            ) as mock_train,
-            patch("lexile_corpus_tuner.calibration.cli.save_model") as mock_save,
+            patch(f"{CALIB_CLI_PATH}.train_regression_model") as mock_train,
+            patch(f"{CALIB_CLI_PATH}.save_model") as mock_save,
         ):
             mock_model = MagicMock()
             mock_train.return_value = (
@@ -714,13 +742,13 @@ class TestFit:
         df.to_csv(dataset_path, index=False)  # type: ignore[reportUnknownMemberType]
         output_path = tmp_path / "model.json"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         with (
-            patch(
-                "lexile_corpus_tuner.calibration.cli.train_regression_model"
-            ) as mock_train,
-            patch("lexile_corpus_tuner.calibration.cli.save_model"),
+            patch(f"{CALIB_CLI_PATH}.train_regression_model") as mock_train,
+            patch(f"{CALIB_CLI_PATH}.save_model"),
         ):
             mock_model = MagicMock()
             mock_train.return_value = (
@@ -750,13 +778,13 @@ class TestFit:
         df.to_parquet(dataset_path, index=False)  # type: ignore[reportUnknownMemberType]
         output_path = tmp_path / "model.json"
 
-        from lexile_corpus_tuner.calibration.cli import calibration_group
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
+            calibration_group,
+        )
 
         with (
-            patch(
-                "lexile_corpus_tuner.calibration.cli.train_regression_model"
-            ) as mock_train,
-            patch("lexile_corpus_tuner.calibration.cli.save_model"),
+            patch(f"{CALIB_CLI_PATH}.train_regression_model") as mock_train,
+            patch(f"{CALIB_CLI_PATH}.save_model"),
         ):
             mock_model = MagicMock()
             mock_train.return_value = (
@@ -788,7 +816,7 @@ class TestReadCatalog:
             encoding="utf-8",
         )
 
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _read_catalog,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -805,7 +833,7 @@ class TestReadCatalog:
         catalog = tmp_path / "catalog.csv"
         catalog.write_text("text_id,lexile_official\n", encoding="utf-8")
 
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _read_catalog,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -821,7 +849,7 @@ class TestReadCatalog:
             encoding="utf-8",
         )
 
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _read_catalog,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -835,7 +863,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_simple_number(self) -> None:
         """Test parsing simple numeric lexile value."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -844,7 +872,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_with_l_suffix(self) -> None:
         """Test parsing lexile value with L suffix."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -853,7 +881,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_with_lowercase_l(self) -> None:
         """Test parsing lexile value with lowercase l suffix."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -862,7 +890,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_with_whitespace(self) -> None:
         """Test parsing lexile value with whitespace."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -871,7 +899,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_br_prefix(self) -> None:
         """Test parsing BR (beginning reader) lexile value."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -880,7 +908,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_br_only(self) -> None:
         """Test parsing BR prefix without number."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -889,7 +917,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_none_input(self) -> None:
         """Test parsing None input."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -898,7 +926,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_empty_string(self) -> None:
         """Test parsing empty string."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -907,7 +935,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_whitespace_only(self) -> None:
         """Test parsing whitespace-only string."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -916,7 +944,7 @@ class TestParseLexileValue:
 
     def test_parse_lexile_value_invalid_string(self) -> None:
         """Test parsing invalid string."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _parse_lexile_value,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -929,13 +957,13 @@ class TestFetchGutenbergText:
 
     def test_fetch_gutenberg_text_success(self, tmp_path: Path) -> None:
         """Test successful Gutenberg text fetch."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_gutenberg_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "ebook.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.text = "Gutenberg text content"
@@ -948,13 +976,13 @@ class TestFetchGutenbergText:
 
     def test_fetch_gutenberg_text_tries_multiple_urls(self, tmp_path: Path) -> None:
         """Test that Gutenberg fetch tries multiple URL patterns."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_gutenberg_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "ebook.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             # First URL fails, second succeeds
             mock_fail = MagicMock()
             mock_fail.status_code = 404
@@ -972,13 +1000,13 @@ class TestFetchGutenbergText:
 
     def test_fetch_gutenberg_text_all_urls_fail(self, tmp_path: Path) -> None:
         """Test that RuntimeError is raised when all URLs fail."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_gutenberg_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "ebook.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_fail = MagicMock()
             mock_fail.status_code = 404
             mock_get.return_value = mock_fail
@@ -988,13 +1016,13 @@ class TestFetchGutenbergText:
 
     def test_fetch_gutenberg_text_creates_parent_dirs(self, tmp_path: Path) -> None:
         """Test that parent directories are created."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_gutenberg_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "nested" / "dir" / "ebook.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.text = "Text content"
@@ -1010,13 +1038,13 @@ class TestFetchHttpText:
 
     def test_fetch_http_text_success(self, tmp_path: Path) -> None:
         """Test successful HTTP text fetch."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_http_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "text.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.text = "Plain text content"
             mock_response.raise_for_status = MagicMock()
@@ -1029,7 +1057,7 @@ class TestFetchHttpText:
 
     def test_fetch_http_text_empty_url_raises_error(self, tmp_path: Path) -> None:
         """Test that empty URL raises ValueError."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_http_text,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -1040,13 +1068,13 @@ class TestFetchHttpText:
 
     def test_fetch_http_text_strips_html(self, tmp_path: Path) -> None:
         """Test that HTML content is stripped."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_http_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "text.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.text = "<html><body><p>Paragraph text</p></body></html>"
             mock_response.raise_for_status = MagicMock()
@@ -1060,13 +1088,13 @@ class TestFetchHttpText:
 
     def test_fetch_http_text_creates_parent_dirs(self, tmp_path: Path) -> None:
         """Test that parent directories are created."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _fetch_http_text,  # pyright: ignore[reportPrivateUsage]
         )
 
         dest = tmp_path / "nested" / "dir" / "text.txt"
 
-        with patch("lexile_corpus_tuner.calibration.cli.requests.get") as mock_get:
+        with patch(f"{CALIB_CLI_PATH}.requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.text = "Text content"
             mock_response.raise_for_status = MagicMock()
@@ -1082,7 +1110,7 @@ class TestStripHtml:
 
     def test_strip_html_basic(self) -> None:
         """Test basic HTML stripping."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _strip_html,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -1094,7 +1122,7 @@ class TestStripHtml:
 
     def test_strip_html_with_nested_tags(self) -> None:
         """Test stripping nested HTML tags."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _strip_html,  # pyright: ignore[reportPrivateUsage]
         )
 
@@ -1106,7 +1134,7 @@ class TestStripHtml:
 
     def test_strip_html_preserves_text_content(self) -> None:
         """Test that text content is preserved."""
-        from lexile_corpus_tuner.calibration.cli import (
+        from lexile_corpus_tuner.lexile_scoring_model.calibration.cli import (
             _strip_html,  # pyright: ignore[reportPrivateUsage]
         )
 

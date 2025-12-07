@@ -11,7 +11,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from lexile_corpus_tuner.corpus import frequencies
+from lexile_corpus_tuner.lexile_scoring_model.corpus import frequencies
 
 if TYPE_CHECKING:
     from pathlib import Path

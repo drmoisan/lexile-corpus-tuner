@@ -4,7 +4,9 @@ This module tests the adjust_for_special_cases function which applies
 Lexile-style adjustments for picture books and emergent nonfiction.
 """
 
-from lexile_corpus_tuner.analyzer.adjustments import adjust_for_special_cases
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.adjustments import (
+    adjust_for_special_cases,
+)
 
 
 class TestAdjustForSpecialCases:

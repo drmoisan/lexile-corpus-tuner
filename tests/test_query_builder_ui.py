@@ -8,11 +8,16 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-from lexile_corpus_tuner.pipeline_scripts.explore_gutenberg import BooleanQueryEngine
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
-    QueryConstraintModel,
-    QueryGroupModel,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    explore_gutenberg as eg,
 )
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    gutenberg_query_core as gq_core,
+)
+
+BooleanQueryEngine = eg.BooleanQueryEngine
+QueryConstraintModel = gq_core.QueryConstraintModel
+QueryGroupModel = gq_core.QueryGroupModel
 
 
 def _tokenize(engine: BooleanQueryEngine, query: str) -> list[str]:
@@ -443,5 +448,3 @@ class TestIntegrationWithQueryEngine:
         assert _dataframe_len(result) == 3  # Books A, B, and D
         titles = _column_to_set(result, "title")
         assert titles == {"Book A", "Book B", "Book D"}
-
-

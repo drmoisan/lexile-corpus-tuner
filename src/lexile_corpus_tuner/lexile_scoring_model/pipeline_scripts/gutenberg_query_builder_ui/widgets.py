@@ -9,11 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Any
 
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
-    QueryConstraintModel,
-    QueryGroupModel,
-)
-
+from ..gutenberg_query_core import QueryConstraintModel, QueryGroupModel  # noqa: TID252
 from .constants import (
     BOOLEAN_OPERATORS,
     FIELD_TYPES,

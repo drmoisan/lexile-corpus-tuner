@@ -11,12 +11,14 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest
-from lexile_corpus_tuner.pipeline_scripts.explore_gutenberg import (
-    BooleanQueryEngine,
-    QueryHistory,
-    get_canonical_sets,
-    save_canonical_sets,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    explore_gutenberg as eg,
 )
+
+BooleanQueryEngine = eg.BooleanQueryEngine
+QueryHistory = eg.QueryHistory
+get_canonical_sets = eg.get_canonical_sets
+save_canonical_sets = eg.save_canonical_sets
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -643,5 +645,3 @@ class TestQueryHistory:
         history = QueryHistory()
 
         assert history.history_file.name == ".gutenberg_query_history.json"
-
-

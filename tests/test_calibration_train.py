@@ -10,7 +10,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 import pytest
-from lexile_corpus_tuner.calibration.train import (
+from lexile_corpus_tuner.lexile_scoring_model.calibration.train import (
     FEATURE_COLS,
     TARGET_COL,
     compute_metrics,

@@ -122,7 +122,7 @@ The UI follows Model-View-Controller (MVC) architecture with clear separation be
 - Example: `young-adult-fiction-popular.json`
 
 **No CLI Flags or Environment Variables**
-- Launched via: `python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui`
+- Launched via: `python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui`
 - No command-line arguments or configuration files
 
 ### Outputs
@@ -148,21 +148,21 @@ The UI follows Model-View-Controller (MVC) architecture with clear separation be
 
 ```bash
 # Launch GUI
-poetry run python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 
 # Or with explicit Python path
-python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui
+python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 ```
 
 ### Programmatic API
 
 ```python
 # Import and launch
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui import main
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui import main
 main()
 
 # Use data models programmatically
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui import (
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui import (
     QueryConstraintModel,
     QueryGroupModel,
     SavedQuery,
@@ -310,6 +310,7 @@ Export to CSV/Parquet
 - [x] Module structure refactored for maintainability:
   - [x] 6 files: `__init__.py`, `__main__.py`, `constants.py`, `tk_helpers.py`, `widgets.py`, `app.py`
   - [x] Type suppressions isolated to `tk_helpers.py`
-  - [x] Executable via `python -m lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui`
+  - [x] Executable via `python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui`
+
 
 

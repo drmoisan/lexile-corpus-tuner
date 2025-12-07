@@ -10,14 +10,11 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING
 
-from lexile_corpus_tuner.pipeline_scripts.explore_gutenberg import (
+from ..explore_gutenberg import (  # noqa: TID252
     BooleanQueryEngine,
     get_canonical_sets,
 )
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
-    QueryGroupModel,
-    SavedQuery,
-)
+from ..gutenberg_query_core import QueryGroupModel, SavedQuery  # noqa: TID252
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -309,8 +306,8 @@ class QueryBuilderApp:
                 messagebox.showerror(
                     "Data Not Found",
                     f"Gutenberg data not found at {PARQUET_PATH}.\n"
-                    "Please run python -m lexile_corpus_tuner.pipeline_scripts."
-                    "build_gutenberg_id_list first.",
+                    "Please run python -m lexile_corpus_tuner.lexile_scoring_model."
+                    "pipeline_scripts.build_gutenberg_id_list first.",
                 )
                 self.status_bar.config(text="Error: Data file not found")
                 return

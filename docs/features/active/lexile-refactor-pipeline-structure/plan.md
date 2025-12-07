@@ -26,6 +26,7 @@ Move the pipeline scripts from `scripts/production` into `src/lexile_corpus_tune
 - [x] `git mv` scripts into the new layout; convert relative imports to package imports
 - [x] Update VS Code launch/tasks and any docs referencing old paths
 - [x] Remove legacy `scripts/production` content (no shims retained)
+- [x] Clarify naming: `text_difficulty_pipeline.py` for the tuning pipeline; CLI entry via `lexile_corpus_tuner.cli`
 
 ### Phase 3: Verification & Cleanup [90%]
 - [x] Run Ruff/Pyright/Pytest; fix import/path fallout

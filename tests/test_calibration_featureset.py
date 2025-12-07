@@ -8,8 +8,13 @@ DocumentFeatures into a feature dictionary for regression.
 import math
 
 import pytest
-from lexile_corpus_tuner.analyzer.features import DocumentFeatures, SliceFeatures
-from lexile_corpus_tuner.calibration.featureset import make_regression_features
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.features import (
+    DocumentFeatures,
+    SliceFeatures,
+)
+from lexile_corpus_tuner.lexile_scoring_model.calibration.featureset import (
+    make_regression_features,
+)
 
 
 @pytest.fixture

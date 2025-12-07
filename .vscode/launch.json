@@ -19,7 +19,7 @@
             "name": "PowerShell: Load OpenAI Key",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_scripts/load-openai-key.ps1",
+            "script": "${workspaceFolder}/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1",
             "cwd": "${workspaceFolder}",
             "args": [
                 "-ItemName",
@@ -78,7 +78,7 @@
             "name": "Step 0.1 - Build Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "module": "lexile_corpus_tuner.pipeline_scripts.build_gutenberg_id_list",
+            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -89,7 +89,7 @@
             "name": "Step 0.2 - Curate Gutenberg ID List",
             "type": "debugpy",
             "request": "launch",
-            "module": "lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui",
+            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -100,7 +100,7 @@
             "name": "Step 1 - Corpus Download",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -112,7 +112,7 @@
             "name": "Step 2 - Extract Simple Wiki",
             "type": "debugpy",
             "request": "launch",
-            "module": "lexile_corpus_tuner.pipeline_scripts.extract_simple_wiki_dump",
+            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -124,7 +124,7 @@
             "name": "Step 3 - Corpus Normalize",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -137,7 +137,7 @@
             "name": "Step 4 - Corpus Frequencies",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -149,7 +149,7 @@
             "name": "Step 5 - Calibration Fetch Texts",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -163,7 +163,7 @@
             "name": "Step 6 - Calibration Build Dataset",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -178,7 +178,7 @@
             "name": "Step 7 - Calibration Fit",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/lexile_corpus_tuner/pipeline_entry.py",
+            "module": "lexile_corpus_tuner.cli",
             "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "cwd": "${workspaceFolder}",
             "args": [
@@ -190,3 +190,5 @@
         }
     ]
 }
+
+

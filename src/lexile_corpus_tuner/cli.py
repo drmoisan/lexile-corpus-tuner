@@ -12,16 +12,18 @@ import click
 import typer
 import yaml
 
-from .analyzer.cli import analyze_group as analyzer_pipeline_group
-from .calibration.cli import calibration_group
 from .config import LexileTunerConfig, OpenAISettings, load_config
-from .corpus.cli import corpus_group
 from .epub import EPUBParseError, extract_text_from_epub
 from .estimators import build_estimator_from_config
+from .lexile_scoring_model.analyzer.cli import (
+    analyze_group as analyzer_pipeline_group,
+)
+from .lexile_scoring_model.calibration.cli import calibration_group
+from .lexile_scoring_model.corpus.cli import corpus_group
 from .llm import OpenAIRewriteClient
 from .models import ConstraintViolation, Document, DocumentLexileStats
-from .pipeline import process_corpus
 from .rewriting import NoOpRewriter, OpenAIRewriter, Rewriter
+from .text_difficulty_pipeline import process_corpus
 
 app = typer.Typer(help="Lexile Corpus Tuner CLI.", no_args_is_help=True)
 
@@ -529,6 +531,7 @@ def _load_openai_key_from_script(env_name: str) -> str | None:
     """
     script_path = (
         Path(__file__).resolve().parent
+        / "lexile_scoring_model"
         / "pipeline_scripts"
         / "load-openai-key.ps1"
     )

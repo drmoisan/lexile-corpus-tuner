@@ -4,8 +4,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner, Result
-from lexile_corpus_tuner.corpus.cli import corpus_group
+from lexile_corpus_tuner.lexile_scoring_model.corpus.cli import corpus_group
 from pytest import MonkeyPatch
+
+CORPUS_CLI_PATH = "lexile_corpus_tuner.lexile_scoring_model.corpus"
 
 
 class TestCorpusCLI:
@@ -23,19 +25,17 @@ class TestCorpusCLI:
         mock_download_wiki = MagicMock()
         mock_download_oer = MagicMock()
 
+        monkeypatch.setattr(f"{CORPUS_CLI_PATH}.download.ensure_dirs", mock_ensure_dirs)
         monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.download.ensure_dirs", mock_ensure_dirs
-        )
-        monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.download.download_gutenberg_subset",
+            f"{CORPUS_CLI_PATH}.download.download_gutenberg_subset",
             mock_download_gutenberg,
         )
         monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.download.download_simple_wiki_dump",
+            f"{CORPUS_CLI_PATH}.download.download_simple_wiki_dump",
             mock_download_wiki,
         )
         monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.download.download_oer_sources",
+            f"{CORPUS_CLI_PATH}.download.download_oer_sources",
             mock_download_oer,
         )
 
@@ -53,7 +53,7 @@ class TestCorpusCLI:
         """Test corpus normalize command."""
         mock_normalize = MagicMock()
         monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.normalize.normalize_all_sources",
+            f"{CORPUS_CLI_PATH}.normalize.normalize_all_sources",
             mock_normalize,
         )
 
@@ -68,7 +68,7 @@ class TestCorpusCLI:
         """Test corpus frequencies command."""
         mock_compute = MagicMock()
         monkeypatch.setattr(
-            "lexile_corpus_tuner.corpus.frequencies.compute_global_frequencies",
+            f"{CORPUS_CLI_PATH}.frequencies.compute_global_frequencies",
             mock_compute,
         )
 

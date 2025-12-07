@@ -8,7 +8,7 @@
 - `src/lexile_corpus_tuner/config.py` (84% → 95%+)
 - `src/lexile_corpus_tuner/corpus/cli.py` (68% → 90%+)
 - `src/lexile_corpus_tuner/analyzer/cli.py` (46% → 90%+)
-- `src/lexile_corpus_tuner/pipeline_entry.py` (0% → 90%+ if applicable)
+- `src/lexile_corpus_tuner/text_difficulty_pipeline.py` (0% → 90%+ if applicable)
 
 **Test Files to Create/Extend:**
 - `tests/test_textutils.py` (NEW)
@@ -307,7 +307,7 @@ def mock_corpus_operations(monkeypatch):
         pass  # No-op
     
     monkeypatch.setattr(
-        "lexile_corpus_tuner.corpus.download.download_gutenberg_subset",
+        "lexile_corpus_tuner.lexile_scoring_model.corpus.download.download_gutenberg_subset",
         fake_download
     )
     # Mock other operations
@@ -360,11 +360,11 @@ def mock_analyzer(monkeypatch):
         return 350.0  # Mock Lexile
     
     monkeypatch.setattr(
-        "lexile_corpus_tuner.analyzer.features.compute_document_features",
+        "lexile_corpus_tuner.lexile_scoring_model.analyzer.features.compute_document_features",
         fake_compute_features
     )
     monkeypatch.setattr(
-        "lexile_corpus_tuner.analyzer.model.estimate_lexile_from_features",
+        "lexile_corpus_tuner.lexile_scoring_model.analyzer.model.estimate_lexile_from_features",
         fake_estimate
     )
 ```
@@ -530,3 +530,5 @@ If blocked or uncertain:
 5. Request guidance from coordinator
 
 **Remember: You're completing the foundation. Other agents depend on you. Prioritize accordingly.**
+
+

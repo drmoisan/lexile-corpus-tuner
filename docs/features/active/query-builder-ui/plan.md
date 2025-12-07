@@ -104,7 +104,7 @@ Key technical decisions:
 - [x] Pass Black/Ruff/Pyright checks
 
 ### Phase 7: Query Execution & Results Display [100%] ✓
-- [x] Import `BooleanQueryEngine` from `lexile_corpus_tuner.pipeline_scripts.explore_gutenberg`
+- [x] Import `BooleanQueryEngine` from `lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.explore_gutenberg`
 - [x] Initialize engine with parquet path in `QueryBuilderApp.__init__()`
 - [x] Implement `_run_query()` method
   - [x] Generate query string from root group
@@ -199,7 +199,7 @@ Key technical decisions:
 - [x] Pass Pytest with no failures
 
 ### Phase 12: Module Refactoring [100%] ✓
-- [x] Create `lexile_corpus_tuner.pipeline_scripts.gutenberg_query_builder_ui` package directory
+- [x] Create `lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui` package directory
 - [x] Create `constants.py` with field types, operators, config (40 lines)
 - [x] Create `tk_helpers.py` with third-party wrappers and type ignores (180 lines)
   - [x] Tkinter wrappers: `tk_listbox_*`, `tk_canvas_*`, `tk_treeview_*`, `tk_panedwindow_*`
@@ -213,7 +213,7 @@ Key technical decisions:
   - [x] Re-export all public classes and functions
   - [x] Provide `main()` entry point
 - [x] Create `__main__.py` for module execution (15 lines)
-- [x] Update imports to absolute paths (`lexile_corpus_tuner.pipeline_scripts.explore_gutenberg`)
+- [x] Update imports to absolute paths (`lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.explore_gutenberg`)
 - [x] Move runtime-unused imports to `TYPE_CHECKING` blocks (tkinter, pandas)
 - [x] Verify all 466 tests still pass (no behavioral changes)
 - [x] Pass Black/Ruff/Pyright checks (0 errors, 0 warnings)
@@ -361,6 +361,7 @@ Key technical decisions:
 - Batch query execution (run multiple saved queries)
 - Result visualization (charts, histograms)
 - Advanced filters (regex, date ranges, custom fields)
+
 
 
 

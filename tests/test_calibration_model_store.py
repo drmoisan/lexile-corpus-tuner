@@ -12,7 +12,10 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from lexile_corpus_tuner.calibration.model_store import load_model_spec, save_model
+from lexile_corpus_tuner.lexile_scoring_model.calibration.model_store import (
+    load_model_spec,
+    save_model,
+)
 
 
 class TestSaveModel:

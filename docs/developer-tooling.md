@@ -158,7 +158,7 @@ pwsh scripts/dev-tools/fix-all.ps1
 
 ```powershell
 # Load from LastPass
-pwsh src/lexile_corpus_tuner/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
+pwsh src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1 -ItemName "Lexile OpenAI Key"
 
 # Options:
 # -UsePasswordField    # Pull from password field instead of note

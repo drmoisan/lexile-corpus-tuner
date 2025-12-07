@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from lexile_corpus_tuner.pipeline_scripts.gutenberg_query_core import (
-    QueryConstraintModel,
-    QueryGroupModel,
-    SavedQuery,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    gutenberg_query_core as gq_core,
 )
+
+QueryConstraintModel = gq_core.QueryConstraintModel
+QueryGroupModel = gq_core.QueryGroupModel
+SavedQuery = gq_core.SavedQuery
 
 
 def test_constraint_contains() -> None:
@@ -57,5 +59,3 @@ def test_saved_query_round_trip() -> None:
     loaded_group = SavedQuery.from_json(saved.to_json()).to_query_group()
 
     assert loaded_group.to_query_string() == group.to_query_string()
-
-

@@ -12,11 +12,13 @@ from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, patch
 
-from lexile_corpus_tuner.pipeline_scripts.extract_simple_wiki_dump import (
-    NAMESPACE,
-    iter_articles,
-    open_dump,
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+    extract_simple_wiki_dump as eswd,
 )
+
+NAMESPACE = eswd.NAMESPACE
+iter_articles = eswd.iter_articles
+open_dump = eswd.open_dump
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -322,7 +324,9 @@ class TestIterArticles:
 class TestMainIntegration:
     """Integration tests for the main function."""
 
-    @patch("lexile_corpus_tuner.pipeline_scripts.extract_simple_wiki_dump.open_dump")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump.open_dump"
+    )
     @patch("pathlib.Path.open", new_callable=MagicMock)
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.exists", return_value=True)
@@ -366,7 +370,9 @@ class TestMainIntegration:
         mock_path_open.return_value.__enter__.return_value = mock_output_file
 
         # Import and call main with mocked argv
-        from lexile_corpus_tuner.pipeline_scripts import extract_simple_wiki_dump
+        from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+            extract_simple_wiki_dump,
+        )
 
         sys.argv = [
             "extract_simple_wiki_dump.py",
@@ -388,7 +394,9 @@ class TestMainIntegration:
         assert article["title"] == "Test Article"
         assert "integration" in article["text"]
 
-    @patch("lexile_corpus_tuner.pipeline_scripts.extract_simple_wiki_dump.open_dump")
+    @patch(
+        "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump.open_dump"
+    )
     @patch("pathlib.Path.open", new_callable=MagicMock)
     @patch("pathlib.Path.mkdir")
     @patch("pathlib.Path.exists", return_value=True)
@@ -446,7 +454,9 @@ class TestMainIntegration:
         mock_output_file.write.side_effect = capture_write
         mock_path_open.return_value.__enter__.return_value = mock_output_file
 
-        from lexile_corpus_tuner.pipeline_scripts import extract_simple_wiki_dump
+        from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
+            extract_simple_wiki_dump,
+        )
 
         sys.argv = [
             "extract_simple_wiki_dump.py",
@@ -464,5 +474,3 @@ class TestMainIntegration:
         # Each one produces JSON plus newline (two writes per article).
         json_lines: list[str] = [c for c in written_content if c and c != "\n"]
         assert len(json_lines) == 2
-
-

@@ -11,12 +11,17 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lexile_corpus_tuner.analyzer.features import DocumentFeatures, SliceFeatures
-from lexile_corpus_tuner.analyzer.model import (
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.features import (
+    DocumentFeatures,
+    SliceFeatures,
+)
+from lexile_corpus_tuner.lexile_scoring_model.analyzer.model import (
     MODEL_PATH,
     _load_model,
     estimate_lexile_from_features,
 )
+
+ANALYZER_MODEL_PATH = "lexile_corpus_tuner.lexile_scoring_model.analyzer.model"
 
 
 @pytest.fixture
@@ -71,9 +76,9 @@ class TestLoadModel:
 
         with (
             patch.object(Path, "exists", return_value=True),
-            patch("lexile_corpus_tuner.analyzer.model.MODEL_PATH", model_file),
+            patch(f"{ANALYZER_MODEL_PATH}.MODEL_PATH", model_file),
             patch(
-                "lexile_corpus_tuner.analyzer.model.load_model_spec",
+                f"{ANALYZER_MODEL_PATH}.load_model_spec",
                 return_value=sample_model_spec,
             ),
         ):
@@ -100,7 +105,7 @@ class TestLoadModel:
 
         with (
             patch.object(Path, "exists", return_value=True),
-            patch("lexile_corpus_tuner.analyzer.model.load_model_spec", mock_load),
+            patch(f"{ANALYZER_MODEL_PATH}.load_model_spec", mock_load),
         ):
             _load_model.cache_clear()
             # Call twice
@@ -121,7 +126,7 @@ class TestEstimateLexileFromFeatures:
     ):
         """Test basic Lexile estimation with known coefficients."""
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=sample_model_spec,
         ):
             result = estimate_lexile_from_features(sample_document_features)
@@ -159,7 +164,7 @@ class TestEstimateLexileFromFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=simple_spec,
         ):
             result = estimate_lexile_from_features(features)
@@ -178,7 +183,7 @@ class TestEstimateLexileFromFeatures:
         }
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=spec,
         ):
             result = estimate_lexile_from_features(sample_document_features)
@@ -196,7 +201,7 @@ class TestEstimateLexileFromFeatures:
         }
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=spec,
         ):
             result = estimate_lexile_from_features(sample_document_features)
@@ -216,7 +221,7 @@ class TestEstimateLexileFromFeatures:
         }
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=spec,
         ):
             with pytest.raises(ValueError) as exc_info:
@@ -235,7 +240,7 @@ class TestEstimateLexileFromFeatures:
         }
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=spec,
         ):
             result = estimate_lexile_from_features(sample_document_features)
@@ -250,7 +255,7 @@ class TestEstimateLexileFromFeatures:
     ):
         """Test that estimation always returns a float."""
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=sample_model_spec,
         ):
             result = estimate_lexile_from_features(sample_document_features)
@@ -274,7 +279,7 @@ class TestEstimateLexileFromFeatures:
         )
 
         with patch(
-            "lexile_corpus_tuner.analyzer.model._load_model",
+            f"{ANALYZER_MODEL_PATH}._load_model",
             return_value=spec,
         ):
             result = estimate_lexile_from_features(features)

@@ -10,7 +10,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
-from lexile_corpus_tuner.corpus import normalize
+from lexile_corpus_tuner.lexile_scoring_model.corpus import normalize
 
 if TYPE_CHECKING:
     from pathlib import Path

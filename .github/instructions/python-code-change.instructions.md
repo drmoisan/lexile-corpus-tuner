@@ -198,3 +198,9 @@ The general policy defines overall dependency rules; this section notes Python-s
   - There is no reasonable standard-library or existing-dependency alternative, and
   - The library is well-maintained and widely used.
 - When wrapping third-party libraries, hide them behind small, typed adapter functions or classes so the rest of the codebase depends on your interfaces, not the raw third-party APIs.
+
+
+
+
+
+
