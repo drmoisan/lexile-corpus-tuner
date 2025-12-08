@@ -249,3 +249,140 @@ def test_show_about(ui_modules: Any, app_factory: Callable[..., Any]) -> None:
     app_instance = app_factory()
     app_instance._show_about()
     ui_modules.messagebox.showinfo.assert_called_once()
+
+
+def test_load_canonical_sets_no_df(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    app_instance.df = None
+    app_instance.subjects = {"keep"}
+    app_instance.bookshelves = {"stay"}
+
+    app_instance._load_canonical_sets()
+
+    assert app_instance.subjects == {"keep"}
+    assert app_instance.bookshelves == {"stay"}
+
+
+def test_initialize_root_group_replaces_existing(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    previous_widget = MagicMock()
+    app_instance.root_group_widget = previous_widget
+
+    app_instance._initialize_root_group()
+
+    previous_widget.destroy.assert_called_once()
+    assert app_instance.root_group_widget is not None
+    assert app_instance.current_query.logic in {"AND", "OR"}
+
+
+def test_update_query_from_root_no_widget(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    app_instance.root_group_widget = None
+    current = app_instance.current_query
+
+    app_instance._update_query_from_root()
+
+    assert app_instance.current_query is current
+
+
+def test_display_results_empty(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    empty_df = DummyDataFrame([])
+
+    app_instance._display_results(empty_df, "query")
+
+    assert app_instance.results_label.kwargs.get("text", "").startswith("Results: 0")
+    assert app_instance.results_tree.rows == []
+
+
+def test_update_query_display_formats_long_query(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    long_query = "title:alpha AND authors:beta OR subjects:gamma " * 3
+    app_instance.current_query = MagicMock(
+        to_query_string=MagicMock(return_value=long_query)
+    )
+
+    app_instance._update_query_display()
+
+    assert "\nAND" in app_instance.query_text.contents
+
+
+def test_on_closing_accepts(
+    ui_modules: Any, app_factory: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app_instance = app_factory()
+    monkeypatch.setattr(
+        ui_modules.app.messagebox,
+        "askokcancel",
+        MagicMock(return_value=True),
+        raising=False,
+    )
+
+    app_instance._on_closing()
+
+    assert app_instance.root.destroyed is True
+
+
+def test_save_query_to_file_error(
+    ui_modules: Any, app_factory: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app_instance = app_factory()
+    failing_saved_query = MagicMock(side_effect=RuntimeError("fail"))
+    monkeypatch.setattr(
+        ui_modules.app, "SavedQuery", MagicMock(from_query_group=failing_saved_query)
+    )
+    ui_modules.messagebox.showerror.reset_mock()
+
+    app_instance._save_query_to_file(Path("out.json"))
+
+    ui_modules.messagebox.showerror.assert_called_once()
+
+
+def test_save_query_uses_existing_file(
+    ui_modules: Any, app_factory: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app_instance = app_factory()
+    existing_path = Path("existing.json")
+    app_instance.current_file = existing_path
+    save_mock = MagicMock()
+    monkeypatch.setattr(app_instance, "_save_query_to_file", save_mock)
+
+    app_instance._save_query()
+
+    save_mock.assert_called_once_with(existing_path)
+
+
+def test_export_results_empty_df(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    app_instance.last_results = DummyDataFrame([])
+    ui_modules.messagebox.showwarning.reset_mock()
+
+    app_instance._export_results()
+
+    ui_modules.messagebox.showwarning.assert_called_once()
+
+
+def test_copy_query_to_clipboard_nonempty(
+    ui_modules: Any, app_factory: Callable[..., Any]
+) -> None:
+    app_instance = app_factory()
+    app_instance.current_query = MagicMock(
+        to_query_string=MagicMock(return_value="copy-me")
+    )
+
+    app_instance._copy_query_to_clipboard()
+
+    assert app_instance.root.clipboard == ["copy-me"]
+    assert app_instance.status_bar.kwargs.get("text") == "Query copied to clipboard"

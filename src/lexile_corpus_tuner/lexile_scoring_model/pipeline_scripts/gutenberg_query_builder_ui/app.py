@@ -553,7 +553,7 @@ class QueryBuilderApp:
 
         # Insert rows
         for _, row_any in display_df.iterrows():
-            row = cast(Any, row_any)
+            row = cast("Any", row_any)
             values: list[str] = []
             for col in available_columns:
                 try:
