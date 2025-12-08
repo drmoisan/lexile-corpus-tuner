@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from ..explore_gutenberg import (  # noqa: TID252
     BooleanQueryEngine,
@@ -516,13 +516,9 @@ class QueryBuilderApp:
         """
         # Update results label
         count = len(results)
+        query_display = f"{query_str[:100]}..." if len(query_str) > 100 else query_str
         self.results_label.config(
-            text=(
-                f"Results: {count} books matching query\n"
-                f"Query: {query_str[:100]}..."
-                if len(query_str) > 100
-                else query_str
-            )
+            text=f"Results: {count} books matching query\nQuery: {query_display}"
         )
 
         # Clear existing tree
@@ -556,20 +552,20 @@ class QueryBuilderApp:
                 self.results_tree.column(col, width=200, anchor=tk.W)
 
         # Insert rows
-        for _, row in display_df.iterrows():
+        for _, row_any in display_df.iterrows():
+            row = cast("Any", row_any)
             values: list[str] = []
             for col in available_columns:
-                # Access Series element directly without wrapper
-                val = row[col]  # type: ignore[index]
-                # Convert to string, using empty string for missing values
                 try:
+                    val = row[col]
+                    # Convert to string, using empty string for missing values
                     values.append(
                         ""
                         if (
                             val is None
                             or (isinstance(val, float) and pandas_is_na(val))
                         )
-                        else str(val)  # type: ignore[arg-type]
+                        else str(val)
                     )
                 except Exception:
                     values.append("")
@@ -577,14 +573,12 @@ class QueryBuilderApp:
 
         # Show warning if results truncated
         if count > 100:
-            self.results_label.config(
-                text=(
-                    f"Results: {count} books found (showing first 100)\n"
-                    f"Query: {query_str[:80]}..."
-                    if len(query_str) > 80
-                    else query_str
-                )
+            query_display = f"{query_str[:80]}..." if len(query_str) > 80 else query_str
+            truncated_text = (
+                f"Results: {count} books found (showing first 100)\n"
+                f"Query: {query_display}"
             )
+            self.results_label.config(text=truncated_text)
 
     def _update_query_display(self) -> None:
         """Update the query string display with real-time formatting."""

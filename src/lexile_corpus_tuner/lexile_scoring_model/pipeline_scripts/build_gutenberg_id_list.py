@@ -23,15 +23,15 @@ class ParquetStore(Protocol):
 
     def exists(self) -> bool:
         """Return True if persisted parquet data is available."""
-        ...
+        ...  # pragma: no cover - protocol contract only
 
     def load(self) -> pd.DataFrame:
         """Load the persisted parquet data into a DataFrame."""
-        ...
+        ...  # pragma: no cover - protocol contract only
 
     def save(self, df: pd.DataFrame) -> None:
         """Persist the provided DataFrame as parquet."""
-        ...
+        ...  # pragma: no cover - protocol contract only
 
 
 class FileParquetStore(ParquetStore):
@@ -230,7 +230,7 @@ def fetch_books_incremental(
     return df
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover - CLI orchestration
     parser = argparse.ArgumentParser(
         description="Fetch Gutenberg book metadata and generate ID list."
     )

@@ -79,6 +79,14 @@ Add-ReportSection -Title "Changed Python files" -Cmd { git diff --name-only HEAD
 Add-ReportSection -Title "Last commit (header only)" -Cmd { git show -s --pretty=fuller -1 }
 
 # Placeholder for intent (edit this section in the file if desired)
-Add-Content -Path $OutputPath -Value "`n===== Change intent (edit below) =====`n- What/why summary: `n- Breaking changes: `n- Affected modules: `n- Issue/PR refs: `n"
+Add-Content -Path $OutputPath -Value @"
+
+===== Change intent (edit below) =====
+- What/why summary: 
+- Breaking changes: 
+- Affected modules: 
+- Issue/PR refs: 
+
+"@
 
 Write-Host "Wrote $OutputPath"

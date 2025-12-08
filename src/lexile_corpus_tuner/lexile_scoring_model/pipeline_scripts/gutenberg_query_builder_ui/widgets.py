@@ -519,9 +519,7 @@ class QueryGroupWidget(ttk.Frame):
 
         # Logic selector (AND/OR)
         self.logic_var = tk.StringVar(value=self.model.logic)
-        self.logic_var.trace_add(
-            "write", lambda *args: self._on_logic_change()  # type: ignore[misc]
-        )
+        self.logic_var.trace_add("write", self._on_logic_trace)
 
         ttk.Label(header_frame, text="Logic:").pack(side=tk.LEFT, padx=(0, 5))
         ttk.Radiobutton(
@@ -591,12 +589,16 @@ class QueryGroupWidget(ttk.Frame):
         Returns:
             The created QueryConstraintWidget
         """
+
+        def handle_delete(widget_to_delete: QueryConstraintWidget) -> None:
+            self._delete_child(widget_to_delete)
+
         widget = QueryConstraintWidget(
             parent=self.children_frame,
             model=model,
             subjects=self.subjects,
             bookshelves=self.bookshelves,
-            on_delete=lambda w=None: self._delete_child(widget),  # type: ignore[misc]
+            on_delete=handle_delete,
             on_change=self.on_change,
         )
         widget.pack(fill=tk.X, pady=2)
@@ -689,6 +691,10 @@ class QueryGroupWidget(ttk.Frame):
         """Handle logic selector change."""
         self.model.logic = self.logic_var.get()
         self.on_change()
+
+    def _on_logic_trace(self, *args: Any) -> None:
+        """Trace handler that delegates to logic change callback."""
+        self._on_logic_change()
 
     def get_model(self) -> QueryGroupModel:
         """Get the current QueryGroupModel from widget state.

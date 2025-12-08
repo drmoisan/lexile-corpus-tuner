@@ -29,7 +29,7 @@ Read each policy document **thoroughly** before starting work. Implement them **
 
 - Current backlog and priorities: [/docs/features/backlog.md](../docs/features/backlog.md)
 - Active initiatives: `/docs/features/active/` 
-  (e.g., [lexile-faithful-text-difficulty-pipeline/initiative.md](../docs/features/active/lexile-faithful-text-difficulty-pipeline/initiative.md))
+  (e.g., [lexile-scoring-model/initiative.md](../docs/features/active/lexile-scoring-model/initiative.md))
 - Idea parking lot: [/docs/features/ideas/ideas.md](../docs/features/ideas/ideas.md)
 
 Use these sources to align scope, status, and acceptance criteria before starting changes.
