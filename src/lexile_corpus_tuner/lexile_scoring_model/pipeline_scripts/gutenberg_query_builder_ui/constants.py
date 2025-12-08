@@ -11,12 +11,9 @@ from pathlib import Path
 WINDOW_TITLE = "Gutenberg Query Builder"
 WINDOW_SIZE = "1400x900"
 
-# Data path (relative to repository root: three levels up from this file)
+# Data path (relative to repository root)
 PARQUET_PATH = (
-    Path(__file__).parent.parent.parent.parent
-    / "data"
-    / "meta"
-    / "gutenberg_books.parquet"
+    Path(__file__).resolve().parents[5] / "data" / "meta" / "gutenberg_books.parquet"
 )
 
 # Field metadata: maps field names to their types
