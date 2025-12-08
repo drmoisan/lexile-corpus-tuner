@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -56,21 +59,15 @@ def _pandas_split_explode(series: pd.Series, delimiter: str) -> Any:  # type: ig
     Returns:
         Exploded series
     """
-    return series.str.split(delimiter).explode()  # type: ignore[no-any-return]
-
-
-def _pandas_series_is_empty(series: pd.Series) -> bool:
-    """Check if series is empty.
-
-    Isolated pandas operation: pandas-stubs incomplete for empty property.
-
-    Args:
-        series: pandas Series to check
-
-    Returns:
-        True if empty, False otherwise
-    """
-    return series.empty  # type: ignore[no-any-return]
+    exploded_values: list[str] = []
+    raw_items: list[Any] = list(series)
+    for value in raw_items:
+        if value is None:
+            continue
+        if isinstance(value, float) and math.isnan(value):
+            continue
+        exploded_values.extend(str(value).split(delimiter))
+    return pd.Series(exploded_values)
 
 
 def _pandas_strip_unique(series: pd.Series) -> Any:  # type: ignore[misc]
@@ -159,7 +156,7 @@ def _pandas_exact_match(series: pd.Series, term: str) -> Any:  # type: ignore[mi
     return series.astype(str).str.lower() == term.lower()  # type: ignore[no-any-return,union-attr]
 
 
-def _pandas_filter_by_mask(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:  # type: ignore[type-arg]
+def _pandas_filter_by_mask(df: pd.DataFrame, mask: pd.Series[Any]) -> pd.DataFrame:  # type: ignore[type-arg]
     """Filter DataFrame by boolean mask.
 
     Isolated pandas operation: pandas-stubs incomplete for indexing.
@@ -171,7 +168,20 @@ def _pandas_filter_by_mask(df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:  
     Returns:
         Filtered DataFrame
     """
-    return df[mask]  # type: ignore[no-any-return]
+    bool_flags: list[bool] = []
+    for flag_value in mask:
+        flag: Any = flag_value
+        if flag is None:
+            bool_flags.append(False)
+            continue
+        if isinstance(flag, float) and flag != flag:
+            bool_flags.append(False)
+            continue
+        bool_flags.append(bool(flag))  # pyright: ignore[reportUnknownArgumentType]
+    rows = [df.iloc[i].to_dict() for i, keep in enumerate(bool_flags) if keep]
+    if not rows:
+        return df.iloc[0:0]  # type: ignore[no-any-return]
+    return pd.DataFrame(rows)  # type: ignore[no-any-return]
 
 
 def _pandas_read_parquet(path: Path) -> pd.DataFrame:  # type: ignore[type-arg]
@@ -225,7 +235,11 @@ def _pandas_to_string(df: pd.DataFrame, columns: list[str], max_rows: int = 10) 
     Returns:
         String representation
     """
-    return df[columns].head(max_rows).to_string(index=False)  # type: ignore[no-any-return,call-overload]
+    try:
+        subset = df[columns] if columns else df
+    except Exception:
+        subset = df
+    return subset.head(max_rows).to_string(index=False)  # type: ignore[no-any-return,call-overload]
 
 
 # =============================================================================
@@ -248,20 +262,19 @@ def get_canonical_sets(df: pd.DataFrame) -> tuple[set[str], set[str]]:  # type: 
         if column not in df.columns:
             return set()
 
-        # Convert to string, split by semicolon, explode to rows
-        series = _pandas_string_series(_pandas_get_column(df, column))
-        exploded = _pandas_split_explode(series, ";")
+        raw_values: pd.Series = _pandas_get_column(df, column)
+        raw_list: list[Any] = list(raw_values)
+        unique_items: set[str] = set()
 
-        if _pandas_series_is_empty(exploded):
-            return set()
-
-        # Strip whitespace and get unique values
-        unique_items = set(_pandas_strip_unique(exploded))
-
-        # Clean up artifacts
-        unique_items.discard("")
-        unique_items.discard("nan")
-        unique_items.discard("None")
+        for value in raw_list:
+            if value is None:
+                continue
+            if isinstance(value, float) and math.isnan(value):
+                continue
+            for item in str(value).split(";"):
+                cleaned = item.strip()
+                if cleaned and cleaned.lower() not in {"nan", "none"}:
+                    unique_items.add(cleaned)
 
         return unique_items
 
@@ -432,9 +445,10 @@ class BooleanQueryEngine:
             # check if search term matches any delimited value
             if field in ("subjects", "bookshelves"):
                 # Split on semicolon, strip whitespace, and check for exact match
-                def has_exact_item(cell_value: Any) -> bool:
-                    # pandas isna check has incomplete stubs
-                    if pd.isna(cell_value):  # type: ignore[reportUnknownMemberType]
+                def has_exact_item(cell_value: object) -> bool:
+                    if cell_value is None:
+                        return False
+                    if isinstance(cell_value, float) and math.isnan(cell_value):
                         return False
                     items = [item.strip() for item in str(cell_value).split(";")]
                     return any(item.lower() == search_term.lower() for item in items)
@@ -544,6 +558,14 @@ class BooleanQueryEngine:
             return pd.DataFrame()
 
         final_mask = stack[0]
+        if isinstance(final_mask, pd.Series):
+            typed_mask: pd.Series = final_mask
+            cleaned_mask = typed_mask.fillna(
+                False
+            )  # pyright: ignore[reportUnknownMemberType]
+            final_mask = cleaned_mask.astype(
+                bool
+            )  # pyright: ignore[reportUnknownMemberType]
         return _pandas_filter_by_mask(self.df, final_mask)
 
 
@@ -583,7 +605,7 @@ class QueryHistory:
         return self.queries[-n:]
 
 
-def interactive_explorer(parquet_path: Path) -> None:
+def interactive_explorer(parquet_path: Path) -> None:  # pragma: no cover
     """Run interactive explorer loop for Gutenberg metadata."""
     if not parquet_path.exists():
         print(f"File not found: {parquet_path}", file=sys.stderr)
