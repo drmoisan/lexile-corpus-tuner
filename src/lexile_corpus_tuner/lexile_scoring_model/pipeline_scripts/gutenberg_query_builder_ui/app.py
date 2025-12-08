@@ -516,13 +516,9 @@ class QueryBuilderApp:
         """
         # Update results label
         count = len(results)
+        query_display = f"{query_str[:100]}..." if len(query_str) > 100 else query_str
         self.results_label.config(
-            text=(
-                f"Results: {count} books matching query\n"
-                f"Query: {query_str[:100]}..."
-                if len(query_str) > 100
-                else query_str
-            )
+            text=f"Results: {count} books matching query\nQuery: {query_display}"
         )
 
         # Clear existing tree
@@ -559,10 +555,10 @@ class QueryBuilderApp:
         for _, row in display_df.iterrows():
             values: list[str] = []
             for col in available_columns:
-                # Access Series element directly without wrapper
-                val = row[col]  # type: ignore[index]
-                # Convert to string, using empty string for missing values
                 try:
+                    # Access Series element directly without wrapper
+                    val = row[col]  # type: ignore[index]
+                    # Convert to string, using empty string for missing values
                     values.append(
                         ""
                         if (
@@ -577,13 +573,9 @@ class QueryBuilderApp:
 
         # Show warning if results truncated
         if count > 100:
+            query_display = f"{query_str[:80]}..." if len(query_str) > 80 else query_str
             self.results_label.config(
-                text=(
-                    f"Results: {count} books found (showing first 100)\n"
-                    f"Query: {query_str[:80]}..."
-                    if len(query_str) > 80
-                    else query_str
-                )
+                text=f"Results: {count} books found (showing first 100)\nQuery: {query_display}"
             )
 
     def _update_query_display(self) -> None:
