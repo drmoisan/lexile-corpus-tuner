@@ -199,9 +199,9 @@ function Invoke-PoshQCTest {
     $config = New-PesterConfiguration -Hashtable $settings
 
     # Resolve paths relative to repo root and honor exclusions.
-    if ($config.Run.Path) {
+    if ($config.Run.Path.Value) {
         $config.Run.Path = @(
-            $config.Run.Path |
+            $config.Run.Path.Value |
                 ForEach-Object { Join-Path $Root $_ } |
                     Where-Object { $ExcludeDirs -notcontains (Split-Path -Path $_ -Leaf) }
         )
@@ -209,24 +209,51 @@ function Invoke-PoshQCTest {
 
     if ($ExcludeDirs) {
         $excludedPaths = @($ExcludeDirs | ForEach-Object { Join-Path $Root $_ })
-        if ($config.Run.ExcludePath) {
-            $config.Run.ExcludePath = @($config.Run.ExcludePath | ForEach-Object { Join-Path $Root $_ }) + $excludedPaths
-        } else {
-            $config.Run.ExcludePath = $excludedPaths
-        }
+        $existingExclude = if ($config.Run.ExcludePath.Value) { @($config.Run.ExcludePath.Value | ForEach-Object { Join-Path $Root $_ }) } else { @() }
+        $config.Run.ExcludePath = $existingExclude + $excludedPaths
     }
 
     # Ensure result directory exists if configured
-    if ($config.TestResult.Enabled -and $config.TestResult.OutputPath) {
-        $resultDir = Split-Path -Parent $config.TestResult.OutputPath
+    if ($config.TestResult.Enabled.Value -and $config.TestResult.OutputPath.Value) {
+        $resultPath = $config.TestResult.OutputPath.Value
+        $resultDir = Split-Path -Parent $resultPath
         if (-not [string]::IsNullOrWhiteSpace($resultDir)) {
             New-Item -ItemType Directory -Path (Join-Path $Root $resultDir) -Force | Out-Null
         }
-        $config.TestResult.OutputPath = Join-Path $Root $config.TestResult.OutputPath
+        $config.TestResult.OutputPath = if ([IO.Path]::IsPathRooted($resultPath)) {
+            $resultPath
+        } else {
+            Join-Path $Root $resultPath
+        }
+    }
+
+    if ($config.CodeCoverage -and $config.CodeCoverage.Enabled.Value) {
+        if ($config.CodeCoverage.Path.Value) {
+            $resolvedCoveragePaths = @(
+                $config.CodeCoverage.Path.Value |
+                    ForEach-Object {
+                        if ([IO.Path]::IsPathRooted($_)) { $_ } else { Join-Path $Root $_ }
+                    }
+            )
+            $config.CodeCoverage.Path = $resolvedCoveragePaths
+        }
+
+        if ($config.CodeCoverage.OutputPath.Value) {
+            $coveragePath = $config.CodeCoverage.OutputPath.Value
+            $coverageDir = Split-Path -Parent $coveragePath
+            if (-not [string]::IsNullOrWhiteSpace($coverageDir)) {
+                New-Item -ItemType Directory -Path (Join-Path $Root $coverageDir) -Force | Out-Null
+            }
+            $config.CodeCoverage.OutputPath = if ([IO.Path]::IsPathRooted($coveragePath)) {
+                $coveragePath
+            } else {
+                Join-Path $Root $coveragePath
+            }
+        }
     }
 
     $testFiles = @()
-    foreach ($path in $config.Run.Path) {
+    foreach ($path in $config.Run.Path.Value) {
         if (-not (Test-Path $path)) { continue }
         $testFiles += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 -File | Where-Object {
             $parts = $_.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)

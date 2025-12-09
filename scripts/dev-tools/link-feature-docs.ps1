@@ -54,9 +54,10 @@ function Set-OrAppendSection {
         return $Content
     }
     $pattern = "(?ms)^" + [regex]::Escape($SectionHeading) + "\s*\r?\n.*?(?=^\#\#\s+|\z)"
-    $regex = New-Object System.Text.RegularExpressions.Regex(
+    $regexOptions = [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::Singleline
+    $regex = New-Object -TypeName System.Text.RegularExpressions.Regex -ArgumentList @(
         $pattern,
-        [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::Singleline
+        $regexOptions
     )
     if ($regex.IsMatch($Content)) {
         return $regex.Replace($Content, $Replacement.TrimEnd())

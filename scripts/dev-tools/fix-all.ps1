@@ -45,11 +45,21 @@ function Invoke-Command-WithStatus {
     )
 
     Write-Step $StepName
-    $output = & $CommandParts 2>&1
-    $exitCode = $LASTEXITCODE
+    if (-not $CommandParts -or $CommandParts.Count -eq 0) {
+        throw "CommandParts cannot be empty."
+    }
+
+    $command = $CommandParts[0]
+    $commandArguments = @()
+    if ($CommandParts.Count -gt 1) {
+        $commandArguments = $CommandParts[1..($CommandParts.Count - 1)]
+    }
+
+    $output = & $command @commandArguments 2>&1
+    $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
 
     if ($output) {
-        $output | Write-Output
+        $output | Out-Host
     }
 
     return $exitCode
