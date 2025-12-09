@@ -32,23 +32,14 @@
             "problemMatcher": []
         },
         {
-            "label": "Run cloc (Bash)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "${workspaceFolder}/scripts/dev-tools/run-cloc.sh"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "Black: format",
+            "label": "QC: 1 Black: format",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "black", "."],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "build",
@@ -56,14 +47,14 @@
             }
         },
         {
-            "label": "Ruff: lint",
+            "label": "QC: 2 Ruff: lint",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "ruff", "check"],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "test",
@@ -71,14 +62,14 @@
             }
         },
         {
-            "label": "Ruff: fix",
+            "label": "QC: 2 Ruff: fix",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "ruff", "check", "--fix"],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "build",
@@ -86,14 +77,14 @@
             }
         },
         {
-            "label": "Pyright: type-check",
+            "label": "QC: 3 Pyright: type-check",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "pyright"],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "test",
@@ -101,14 +92,14 @@
             }
         },
         {
-            "label": "Pytest: run tests",
+            "label": "QC: 4 Pytest: run tests",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "pytest"],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "test",
@@ -116,14 +107,14 @@
             }
         },
         {
-            "label": "Pytest: run tests with coverage",
+            "label": "QC: 4 Pytest: run tests with coverage",
             "type": "shell",
             "command": "poetry",
             "args": ["run", "pytest", "--cov=src/lexile_corpus_tuner", "--cov-report=term-missing"],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "group": {
                 "kind": "test",
@@ -131,22 +122,121 @@
             }
         },
         {
-            "label": "Run All Checks",
+            "label": "PoshQC: 1 format",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "& { Import-Module '${workspaceFolder}/scripts/powershell/PoshQC'; Invoke-PoshQCFormat -Root '${workspaceFolder}' }"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "Formats PowerShell files using Invoke-Formatter and repo PSScriptAnalyzer settings."
+        },
+        {
+            "label": "PoshQC: 2 analyze",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "& { Import-Module '${workspaceFolder}/scripts/powershell/PoshQC'; Invoke-PoshQCAnalyze -Root '${workspaceFolder}' }"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "Runs PSScriptAnalyzer with strict settings and fails on any findings."
+        },
+        {
+            "label": "PoshQC: 2b autofix (PSSA -Fix)",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "& { Import-Module '${workspaceFolder}/scripts/powershell/PoshQC'; $files = Get-ChildItem -Path '${workspaceFolder}' -Recurse -Include *.ps1, *.psm1 -File; if ($files) { foreach ($f in $files) { Invoke-ScriptAnalyzer -Path $f.FullName -Settings '${workspaceFolder}/scripts/powershell/PoshQC/settings/pssa.settings.psd1' -Severity Error,Warning,Information -Fix } } else { Write-Host 'No PowerShell files found under workspace.' } }"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "Runs PSScriptAnalyzer with -Fix to auto-apply supported fixes for PowerShell files."
+        },
+        {
+            "label": "PoshQC: 4 test (Pester)",
+            "type": "shell",
+            "command": "pwsh",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "& { Import-Module '${workspaceFolder}/scripts/powershell/PoshQC'; Invoke-PoshQCTest -Root '${workspaceFolder}' }"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "detail": "Runs Pester with repo configuration and JUnit output."
+        },
+        {
+            "label": "QC: 5 Run All Checks",
             "dependsOn": [
-                "Black: format",
-                "Ruff: lint",
-                "Pyright: type-check",
-                "Pytest: run tests"
+                "QC: Black: format",
+                "QC: Ruff: lint",
+                "QC: Pyright: type-check",
+                "QC: Pytest: run tests with coverage",
+                "PoshQC: 1 format",
+                "PoshQC: 2 analyze",
+                "PoshQC: 4 test (Pester)"
             ],
             "dependsOrder": "sequence",
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
+            },
+            "group": {
+              "kind": "build",
+              "isDefault": false
             }
         },
         {
-            "label": "Fix All",
+            "label": "QC: 0 Fix All",
             "type": "shell",
             "command": "pwsh",
             "args": [
@@ -160,11 +250,15 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
+            },
+            "group": {
+              "kind": "build",
+              "isDefault": true
             }
         },
         {
-            "label": "Collect Commit Context",
+            "label": "Git: Collect Commit Context",
             "type": "shell",
             "command": "pwsh",
             "args": [
@@ -178,12 +272,12 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "detail": "Collects git diff and status information for commit message generation"
         },
         {
-            "label": "Collect Pull Request Context",
+            "label": "Git: Collect Pull Request Context",
             "type": "shell",
             "command": "pwsh",
             "args": [
@@ -199,12 +293,12 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "shared"
             },
             "detail": "Collects git PR context comparing current branch to specified base branch"
         },
             {
-      "label": "GitHub: New Feature Issue",
+      "label": "Dev: New GitHub Feature Issue (manual)",
       "type": "shell",
       "command": "gh",
       "args": [
@@ -225,7 +319,7 @@
       "detail": "Opens browser with .github/ISSUE_TEMPLATE/feature-request.md via gh (requires gh CLI auth)."
     },
     {
-      "label": "GitHub: Feature Issue from Potential",
+      "label": "Dev: 2 Promote Potential to GitHub Issue",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -236,7 +330,9 @@
         "-File",
         "${workspaceFolder}/scripts/dev-tools/potential-to-issue.ps1",
         "-PotentialPath",
-        "${input:PotentialFilePath}"
+        "${input:PotentialFilePath}",
+        "-PromotionType",
+        "${input:PotentialPromotionType}"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -249,7 +345,7 @@
       "detail": "Creates a feature issue from a potential file using gh issue create (non-interactive)."
     },
     {
-      "label": "GitHub: Link Feature Docs",
+      "label": "Dev: 5 Link Feature Docs to GitHub",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -275,7 +371,7 @@
       "detail": "Adds/updates a Feature Docs section in an issue with links to user-story/spec/plan."
     },
     {
-      "label": "GitHub: Link Parent/Child Issues",
+      "label": "Dev: 4 Link GitHub Parent/Child Issues",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -301,7 +397,7 @@
       "detail": "Adds child link to parent tracking issue and comments on the child with the parent link."
     },
     {
-      "label": "Feature: Create Active Folder",
+      "label": "Dev: 3 Create Active Folder",
       "type": "shell",
       "command": "pwsh",
       "args": [
@@ -329,7 +425,7 @@
       "detail": "Copies docs/features/templates/feature into docs/features/active/<name> and opens the files."
     },
     {
-      "label": "GitHub: New Bug Issue",
+      "label": "Dev: New GitHub Bug Issue",
       "type": "shell",
       "command": "gh",
       "args": [
@@ -349,8 +445,54 @@
       },
       "detail": "Opens browser with .github/ISSUE_TEMPLATE/bug-report.md via gh (requires gh CLI auth)."
     },
+    {
+      "label": "Dev: Install PowerShell Tooling",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& { Import-Module '${workspaceFolder}/scripts/powershell/PoshQC'; Install-PoshQCTools }"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Installs PSScriptAnalyzer and Pester (CurrentUser scope) for repo tasks."
+    },
+    {
+      "label": "Dev: 1A New Potential Bug",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/dev-tools/new-potential-bug-entry.ps1",
+        "-ShortName",
+        "${input:PotentialBugShortName}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "detail": "Creates a dated potential bug file from the automation template for later promotion."
+    },
         {
-            "label": "Feature: New Potential Entry",
+            "label": "Dev: 1 New Potential Entry",
             "type": "shell",
             "command": "pwsh",
             "args": [
@@ -387,11 +529,29 @@
       "description": "Short name (kebab-case, e.g., notes-feature)",
       "default": "notes-feature"
     },
+    {
+      "id": "PotentialBugShortName",
+      "type": "promptString",
+      "description": "Short name (kebab-case, e.g., api-timeout-bug)",
+      "default": "api-timeout-bug"
+    },
         {
-            "id": "PotentialFilePath",
-            "type": "promptString",
-            "description": "Path to potential feature file",
-            "default": "docs/features/potential/2025-12-01-new-feature.md"
+      "id": "PotentialFilePath",
+      "type": "promptString",
+      "description": "Path to potential feature file",
+      "default": "docs/features/potential/2025-12-01-new-feature.md"
+    },
+    {
+      "id": "PotentialPromotionType",
+      "type": "pickString",
+      "description": "Promotion type / label to apply",
+      "options": [
+        "epic",
+        "feature",
+        "refactor",
+        "bug"
+      ],
+      "default": "feature"
     },
         {
       "id": "ActiveFeatureName",

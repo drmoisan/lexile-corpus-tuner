@@ -81,6 +81,14 @@ poetry run ruff check --fix
 - `Ruff: lint` - Check for issues
 - `Ruff: fix` - Auto-fix issues
 
+### PowerShell: Formatter (Invoke-Formatter) + Linting (PSScriptAnalyzer)
+
+- **Configuration**: `scripts/powershell/PoshQC/settings/pssa.settings.psd1`
+- **Install tools (once)**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/install-powershell-tools.ps1`
+- **Format**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+- **Lint**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+- **VS Code tasks**: `QC: PowerShell: format`, `QC: PowerShell: analyze`
+
 ### Type Checking: Pyright
 
 - **Configuration**: `pyrightconfig.json`
@@ -116,6 +124,12 @@ poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=term-missing
 
 - `Pytest: run tests` - Run all tests (default test task)
 - `Pytest: run tests with coverage` - Run with coverage report
+
+### PowerShell Testing: Pester
+
+- **Configuration**: `scripts/powershell/PoshQC/settings/pester.runsettings.psd1`
+- **Run tests**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+- **VS Code task**: `QC: PowerShell: test (Pester)`
 
 ## Integrated Workflows
 

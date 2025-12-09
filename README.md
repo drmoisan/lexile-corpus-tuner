@@ -134,14 +134,18 @@ lexile-tuner rewrite --input-path <...> --output-path <out> [--config ...] \
 
 ## Development & CI
 
-- Tooling: Black (88), Ruff, Pyright (strict), Pytest. See `docs/developer-tooling.md`.
-- CI: matrix for Python 3.10–3.13 plus security/build/docs checks (`docs/ci-documentation.md`).
-- Policies: `.github/instructions/general-code-change.instructions.md`, `.github/instructions/python-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, `.github/instructions/python-unit-test.instructions.md`.
+- Tooling: Black (88), Ruff, Pyright (strict), Pytest. PowerShell: PSScriptAnalyzer (strict) + Invoke-Formatter + Pester. See `docs/developer-tooling.md`.
+- CI: matrix for Python 3.10-3.13 plus security/build/docs checks (`docs/ci-documentation.md`).
+- Policies: `.github/instructions/general-code-change.instructions.md`, `.github/instructions/python-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, `.github/instructions/python-unit-test.instructions.md`, `.github/instructions/powershell-code-change.instructions.md`, `.github/instructions/powershell-unit-test.instructions.md`.
 - Common commands:
   - `poetry run black .`
   - `poetry run ruff check`
   - `poetry run pyright`
   - `poetry run pytest`
+  - PowerShell install (once): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/install-powershell-tools.ps1`
+  - PowerShell format: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+  - PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+  - PowerShell tests (Pester): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
 
 ## Examples
 
