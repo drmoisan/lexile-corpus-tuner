@@ -312,3 +312,31 @@ Describe "load-openai-key.ps1" {
         $setCalls[0].Value | Should -Be "secret-value"
     }
 }
+
+Describe "Convert-PoshQCCoverageToRelative" {
+    It "strips repo root prefix from coverage content" {
+        $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
+        Import-Module -Name $modulePath -Force
+
+        $repoRoot = 'D:\repos\lexile-corpus-tuner'
+        $coverageContent = '<file path="D:\repos\lexile-corpus-tuner\scripts\demo.ps1" />'
+
+        $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
+
+        $result | Should -Match 'scripts\\demo.ps1'
+        $result | Should -Not -Match ([regex]::Escape($repoRoot))
+    }
+
+    It "strips repo root prefix when coverage uses forward slashes" {
+        $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
+        Import-Module -Name $modulePath -Force
+
+        $repoRoot = 'D:\repos\lexile-corpus-tuner'
+        $coverageContent = '<file path="D:/repos/lexile-corpus-tuner/scripts/demo.ps1" />'
+
+        $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
+
+        $result | Should -Match 'scripts/demo.ps1'
+        $result | Should -Not -Match ([regex]::Escape($repoRoot))
+    }
+}

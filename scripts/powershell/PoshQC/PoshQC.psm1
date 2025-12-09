@@ -138,6 +138,7 @@ function Invoke-PoshQCAnalyze {
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs
     )
 
+
     $ErrorActionPreference = 'Stop'
 
     if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
@@ -172,6 +173,73 @@ function Invoke-PoshQCAnalyze {
 
 <#
 .SYNOPSIS
+Creates a Koverage-friendly copy of coverage output with relative paths.
+.DESCRIPTION
+Converts Pester CoverageGutters XML by stripping the repository root prefix so tools like Coverage Gutters and Koverage can map files correctly. Accepts file paths or raw XML content and can optionally return the modified content without writing a file.
+#>
+function Convert-PoshQCCoverageToRelative {
+    [CmdletBinding()]
+    param(
+        [Parameter()][string] $InputPath,
+        [Parameter()][string] $OutputPath,
+        [Parameter()][string] $RepoRoot = (Get-Location).Path,
+        [Parameter()][string] $InputContent,
+        [switch] $PassThru
+    )
+
+    $ErrorActionPreference = 'Stop'
+
+    if (-not $InputPath -and -not $InputContent) {
+        throw 'Either InputPath or InputContent must be provided.'
+    }
+
+    $resolvedRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+
+    $resolvedInputPath = $null
+    if ($InputPath) {
+        $resolvedInputPath = if ([IO.Path]::IsPathRooted($InputPath)) { $InputPath } else { Join-Path $resolvedRoot $InputPath }
+        if (-not (Test-Path $resolvedInputPath)) {
+            Write-Information "Coverage file not found; skipping Koverage output: $resolvedInputPath" -InformationAction Continue
+            return
+        }
+
+        if (-not $InputContent) {
+            $InputContent = Get-Content -Path $resolvedInputPath -Raw
+        }
+    }
+
+    $repoRootClean = [IO.Path]::TrimEndingDirectorySeparator($resolvedRoot)
+    # Normalize to forward slashes for consistent regex matching across platforms
+    $repoRootNormalized = $repoRootClean -replace '\\', '/'
+    $escapedRoot = [regex]::Escape($repoRootNormalized)
+    # Replace forward slashes with character class that matches both separators
+    $flexiblePattern = $escapedRoot -replace '/', '[\\/]'
+    # Match both forward and backslashes after the path
+    $escapedPrefixPattern = "$flexiblePattern[\\/]"
+    $fixedContent = $InputContent -replace $escapedPrefixPattern, ''
+
+    if ($PassThru) {
+        return $fixedContent
+    }
+
+    if (-not $OutputPath) {
+        $coverageDir = if ($resolvedInputPath) { Split-Path -Parent $resolvedInputPath } else { $resolvedRoot }
+        $coverageBase = if ($resolvedInputPath) { [IO.Path]::GetFileNameWithoutExtension($resolvedInputPath) } else { 'powershell-coverage' }
+        $OutputPath = Join-Path $coverageDir "$coverageBase.koverage.xml"
+    }
+
+    $resolvedOutputPath = if ([IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path $resolvedRoot $OutputPath }
+    $outputDir = Split-Path -Parent $resolvedOutputPath
+    if ($outputDir -and -not (Test-Path $outputDir)) {
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+    }
+
+    Set-Content -Path $resolvedOutputPath -Value $fixedContent -Encoding UTF8
+    Write-Information "Wrote Koverage coverage copy: $resolvedOutputPath" -InformationAction Continue
+}
+
+<#
+.SYNOPSIS
 Runs Pester using the repo configuration.
 .DESCRIPTION
 Builds a Pester configuration from the runsettings file, expands relative paths under the root, and executes tests.
@@ -181,7 +249,9 @@ function Invoke-PoshQCTest {
     param(
         [string] $Root = (Get-Location).Path,
         [string] $SettingsPath = $script:PesterSettings,
-        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs
+        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
+        [string] $KoverageOutputPath,
+        [switch] $DisableKoverageCopy
     )
 
     $ErrorActionPreference = 'Stop'
@@ -227,7 +297,16 @@ function Invoke-PoshQCTest {
         }
     }
 
-    if ($config.CodeCoverage -and $config.CodeCoverage.Enabled.Value) {
+    $coverageEnabled = $false
+    if ($config.CodeCoverage) {
+        if ($config.CodeCoverage.Enabled -is [bool]) {
+            $coverageEnabled = $config.CodeCoverage.Enabled
+        } elseif ($config.CodeCoverage.Enabled -and $config.CodeCoverage.Enabled.Value) {
+            $coverageEnabled = [bool]$config.CodeCoverage.Enabled.Value
+        }
+    }
+
+    if ($coverageEnabled -and $config.CodeCoverage) {
         if ($config.CodeCoverage.Path.Value) {
             $resolvedCoveragePaths = @(
                 $config.CodeCoverage.Path.Value |
@@ -252,6 +331,15 @@ function Invoke-PoshQCTest {
         }
     }
 
+    $coverageOutputPath = $null
+    if ($config.CodeCoverage) {
+        if ($config.CodeCoverage.OutputPath -is [string]) {
+            $coverageOutputPath = $config.CodeCoverage.OutputPath
+        } elseif ($config.CodeCoverage.OutputPath -and $config.CodeCoverage.OutputPath.Value) {
+            $coverageOutputPath = $config.CodeCoverage.OutputPath.Value
+        }
+    }
+
     $testFiles = @()
     foreach ($path in $config.Run.Path.Value) {
         if (-not (Test-Path $path)) { continue }
@@ -270,6 +358,24 @@ function Invoke-PoshQCTest {
     }
 
     Invoke-Pester -Configuration $config
+
+    $shouldEmitKoverageCopy = -not $DisableKoverageCopy
+    if ($shouldEmitKoverageCopy -and $coverageEnabled -and $coverageOutputPath) {
+        $derivedKoveragePath = $null
+        if ($coverageOutputPath) {
+            $coverageBaseName = [IO.Path]::GetFileNameWithoutExtension($coverageOutputPath)
+            $coverageParent = Split-Path -Parent $coverageOutputPath
+            $derivedKoveragePath = Join-Path $coverageParent "$coverageBaseName.koverage.xml"
+        }
+
+        $effectiveKoveragePath = if ($PSBoundParameters.ContainsKey('KoverageOutputPath') -and -not [string]::IsNullOrWhiteSpace($KoverageOutputPath)) {
+            $KoverageOutputPath
+        } else {
+            $derivedKoveragePath
+        }
+
+        Convert-PoshQCCoverageToRelative -InputPath $coverageOutputPath -OutputPath $effectiveKoveragePath -RepoRoot $Root
+    }
 }
 
 Set-Alias -Name Install-PoshQCTools -Value Install-PoshQCTool
@@ -278,5 +384,6 @@ Export-ModuleMember -Function @(
     'Install-PoshQCTool',
     'Invoke-PoshQCFormat',
     'Invoke-PoshQCAnalyze',
-    'Invoke-PoshQCTest'
+    'Invoke-PoshQCTest',
+    'Convert-PoshQCCoverageToRelative'
 ) -Alias @('Install-PoshQCTools')
