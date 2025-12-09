@@ -30,18 +30,28 @@ function Get-PoshQCFileList {
     return $result
 }
 
-function Install-PoshQCTools {
+<#
+.SYNOPSIS
+Installs PoshQC dependencies (PSScriptAnalyzer and Pester).
+.DESCRIPTION
+Ensures PSGallery is trusted and installs required module versions in the CurrentUser scope.
+#>
+function Install-PoshQCTool {
     [CmdletBinding()]
     param()
 
     $ErrorActionPreference = 'Stop'
 
     # Ensure TLS 1.2 for downloads
-    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    } catch {
+        Write-Verbose ("Unable to enforce TLS 1.2 for module install: {0}" -f $_.Exception.Message)
+    }
 
     $gallery = Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue
     if (-not $gallery) {
-        Write-Host "PSGallery not found; registering."
+        Write-Information "PSGallery not found; registering." -InformationAction Continue
         Register-PSRepository -Default -InstallationPolicy Trusted
     } elseif ($gallery.InstallationPolicy -ne 'Trusted') {
         try {
@@ -59,19 +69,25 @@ function Install-PoshQCTools {
     foreach ($module in $requiredModules) {
         $installed = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
         if ($installed) {
-            Write-Host "$($module.Name) $($installed.Version) already present."
+            Write-Information "$($module.Name) $($installed.Version) already present." -InformationAction Continue
             continue
         }
-        Write-Host "Installing $($module.Name) $($module.Version) (CurrentUser scope)..."
+        Write-Information "Installing $($module.Name) $($module.Version) (CurrentUser scope)..." -InformationAction Continue
         Install-Module -Name $module.Name -RequiredVersion $module.Version -Scope CurrentUser -AllowClobber -Force
         $post = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
         if (-not $post) {
             throw "Failed to install $($module.Name) $($module.Version)."
         }
-        Write-Host "$($module.Name) $($module.Version) installed."
+        Write-Information "$($module.Name) $($module.Version) installed." -InformationAction Continue
     }
 }
 
+<#
+.SYNOPSIS
+Formats PowerShell files with repo PSScriptAnalyzer settings.
+.DESCRIPTION
+Runs Invoke-Formatter on all PowerShell scripts under the root, excluding configured directories.
+#>
 function Invoke-PoshQCFormat {
     [CmdletBinding()]
     param(
@@ -83,7 +99,7 @@ function Invoke-PoshQCFormat {
     $ErrorActionPreference = 'Stop'
 
     if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTools first."
+        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
     }
     Import-Module PSScriptAnalyzer -ErrorAction Stop
 
@@ -93,7 +109,7 @@ function Invoke-PoshQCFormat {
 
     $files = Get-PoshQCFileList -Root $Root -ExcludeDirs $ExcludeDirs
     if (-not $files) {
-        Write-Host "No PowerShell files found under $Root"
+        Write-Information "No PowerShell files found under $Root" -InformationAction Continue
         return
     }
 
@@ -103,11 +119,17 @@ function Invoke-PoshQCFormat {
         $formatted = Invoke-Formatter -ScriptDefinition $normalized -Settings $SettingsPath
         if ($formatted -ne $normalized) {
             Set-Content -Path $file.FullName -Value $formatted -Encoding UTF8
-            Write-Host "Formatted: $($file.FullName)"
+            Write-Information "Formatted: $($file.FullName)" -InformationAction Continue
         }
     }
 }
 
+<#
+.SYNOPSIS
+Runs PSScriptAnalyzer with repo settings.
+.DESCRIPTION
+Analyzes PowerShell scripts under the root and throws if any findings are present.
+#>
 function Invoke-PoshQCAnalyze {
     [CmdletBinding()]
     param(
@@ -119,7 +141,7 @@ function Invoke-PoshQCAnalyze {
     $ErrorActionPreference = 'Stop'
 
     if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTools first."
+        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
     }
     Import-Module PSScriptAnalyzer -ErrorAction Stop
 
@@ -129,7 +151,7 @@ function Invoke-PoshQCAnalyze {
 
     $files = Get-PoshQCFileList -Root $Root -ExcludeDirs $ExcludeDirs | Where-Object { $_.Extension -in '.ps1', '.psm1' }
     if (-not $files) {
-        Write-Host "No PowerShell files found under $Root"
+        Write-Information "No PowerShell files found under $Root" -InformationAction Continue
         return
     }
 
@@ -145,9 +167,15 @@ function Invoke-PoshQCAnalyze {
         $results | Format-Table -AutoSize
         throw "PSScriptAnalyzer reported $($results.Count) issue(s)."
     }
-    Write-Host "PSScriptAnalyzer passed: no findings under $Root"
+    Write-Information "PSScriptAnalyzer passed: no findings under $Root" -InformationAction Continue
 }
 
+<#
+.SYNOPSIS
+Runs Pester using the repo configuration.
+.DESCRIPTION
+Builds a Pester configuration from the runsettings file, expands relative paths under the root, and executes tests.
+#>
 function Invoke-PoshQCTest {
     [CmdletBinding()]
     param(
@@ -159,7 +187,7 @@ function Invoke-PoshQCTest {
     $ErrorActionPreference = 'Stop'
 
     if (-not (Get-Module -ListAvailable -Name Pester)) {
-        throw "Pester is not installed. Run Install-PoshQCTools first."
+        throw "Pester is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
     }
     Import-Module Pester -ErrorAction Stop
 
@@ -172,7 +200,20 @@ function Invoke-PoshQCTest {
 
     # Resolve paths relative to repo root and honor exclusions.
     if ($config.Run.Path) {
-        $config.Run.Path = @($config.Run.Path | ForEach-Object { Join-Path $Root $_ })
+        $config.Run.Path = @(
+            $config.Run.Path |
+                ForEach-Object { Join-Path $Root $_ } |
+                    Where-Object { $ExcludeDirs -notcontains (Split-Path -Path $_ -Leaf) }
+        )
+    }
+
+    if ($ExcludeDirs) {
+        $excludedPaths = @($ExcludeDirs | ForEach-Object { Join-Path $Root $_ })
+        if ($config.Run.ExcludePath) {
+            $config.Run.ExcludePath = @($config.Run.ExcludePath | ForEach-Object { Join-Path $Root $_ }) + $excludedPaths
+        } else {
+            $config.Run.ExcludePath = $excludedPaths
+        }
     }
 
     # Ensure result directory exists if configured
@@ -184,12 +225,31 @@ function Invoke-PoshQCTest {
         $config.TestResult.OutputPath = Join-Path $Root $config.TestResult.OutputPath
     }
 
+    $testFiles = @()
+    foreach ($path in $config.Run.Path) {
+        if (-not (Test-Path $path)) { continue }
+        $testFiles += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 -File | Where-Object {
+            $parts = $_.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
+            foreach ($dir in $ExcludeDirs) {
+                if ($parts -contains $dir) { return $false }
+            }
+            return $true
+        }
+    }
+
+    if (-not $testFiles) {
+        Write-Information "No Pester test files found under configured paths for root $Root" -InformationAction Continue
+        return
+    }
+
     Invoke-Pester -Configuration $config
 }
 
+Set-Alias -Name Install-PoshQCTools -Value Install-PoshQCTool
+
 Export-ModuleMember -Function @(
-    'Install-PoshQCTools',
+    'Install-PoshQCTool',
     'Invoke-PoshQCFormat',
     'Invoke-PoshQCAnalyze',
     'Invoke-PoshQCTest'
-)
+) -Alias @('Install-PoshQCTools')

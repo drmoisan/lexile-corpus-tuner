@@ -24,13 +24,13 @@ Need a reusable, repo-agnostic PowerShell quality-control layer (formatter, lint
 - Scenario: Contributor adds a new PowerShell script
   - Trigger: new automation script added.
   - Steps: run `PoshQC: 1 format`, `PoshQC: 2 analyze`, optional `PoshQC: 2b autofix`, then `PoshQC: 4 test (Pester)`.
-  - Obstacles: missing tooling (fixed by `Install-PoshQCTools`), analyzer findings (must be resolved).
+- Obstacles: missing tooling (fixed by `Install-PoshQCTool` / alias `Install-PoshQCTools`), analyzer findings (must be resolved).
   - Outcome: script passes formatter/analyzer/tests with enforced compatibility for 5.1/7.5+.
 
 
 ## Acceptance Criteria
 
-- [x] PoshQC module provides `Install-PoshQCTools`, `Invoke-PoshQCFormat`, `Invoke-PoshQCAnalyze`, `Invoke-PoshQCTest` with strict settings.
+- [x] PoshQC module provides `Install-PoshQCTool` (alias `Install-PoshQCTools`), `Invoke-PoshQCFormat`, `Invoke-PoshQCAnalyze`, `Invoke-PoshQCTest` with strict settings.
 - [x] VS Code tasks call PoshQC commands directly (no shims) for format, analyze, autofix, and Pester test.
 - [x] Analyzer runs non-interactively and exits non-zero on any findings; autofix task applies available fixes.
 - [x] Pester config uses repo-relative paths and writes JUnit output under artifacts.

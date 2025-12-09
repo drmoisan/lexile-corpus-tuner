@@ -21,7 +21,7 @@ Need a reusable, repo-agnostic PowerShell quality-control layer (formatter, lint
 
 - Inputs: PowerShell files under repo root; PoshQC settings at `scripts/powershell/PoshQC/settings/*.psd1`.
 - CLI surface via tasks/commands:
-  - `Install-PoshQCTools` (imports PSGallery modules PSScriptAnalyzer 1.22.0, Pester 5.6.1, CurrentUser scope).
+  - `Install-PoshQCTool` (alias `Install-PoshQCTools`) imports PSGallery modules PSScriptAnalyzer 1.22.0 and Pester 5.6.1 in CurrentUser scope.
   - `Invoke-PoshQCFormat` (Invoke-Formatter with settings).
   - `Invoke-PoshQCAnalyze` (PSScriptAnalyzer, strict, non-zero on findings).
   - `Invoke-PoshQCTest` (Pester with repo config).
@@ -36,7 +36,7 @@ Need a reusable, repo-agnostic PowerShell quality-control layer (formatter, lint
 Examples:
 
 - Install tools:  
-  `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Install-PoshQCTools"`
+  `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Install-PoshQCTool"`
 - Format:  
   `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCFormat -Root ."`
 - Analyze:  

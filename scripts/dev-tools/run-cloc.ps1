@@ -7,10 +7,11 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
 }
 
 $root = Resolve-Path $Path
-$toolsDir = Join-Path $PSScriptRoot ".." "tools"
-$clocExe = Join-Path $toolsDir "cloc.exe"
-$clocScript = Join-Path $toolsDir "cloc"
-$args = @("--vcs=git", "--quiet", "--exclude-dir=tools", $root)
+$toolsRoot = Join-Path -Path $PSScriptRoot -ChildPath ".."
+$toolsDir = Join-Path -Path $toolsRoot -ChildPath "tools"
+$clocExe = Join-Path -Path $toolsDir -ChildPath "cloc.exe"
+$clocScript = Join-Path -Path $toolsDir -ChildPath "cloc"
+$clocArgs = @("--vcs=git", "--quiet", "--exclude-dir=tools", $root)
 
 $onWindows = if ($PSVersionTable.PSVersion.Major -ge 6) {
     $IsWindows
@@ -19,14 +20,14 @@ $onWindows = if ($PSVersionTable.PSVersion.Major -ge 6) {
 }
 
 if ($onWindows -and (Test-Path $clocExe)) {
-    & $clocExe @args
+    & $clocExe @clocArgs
 }
 elseif (Test-Path $clocScript) {
     $perl = Get-Command perl -ErrorAction SilentlyContinue
     if (-not $perl) {
         throw "Perl is required to run the bundled cloc script."
     }
-    & $perl.Path $clocScript @args
+    & $perl.Path $clocScript @clocArgs
 }
 else {
     throw "Bundled cloc binary not found."

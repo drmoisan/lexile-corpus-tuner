@@ -7,24 +7,29 @@ param(
     [string] $FeatureName
 )
 
-function Stop-ScriptWithError($msg) {
-    Write-Host $msg
+function Write-ScriptError {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Message
+    )
+    Write-Error -Message $Message
     exit 1
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Stop-ScriptWithError "gh CLI not found on PATH. Install gh and authenticate first."
+    Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
 }
 
 $issueJson = & gh issue view $IssueNumber --json body
 if ($LASTEXITCODE -ne 0 -or -not $issueJson) {
-    Stop-ScriptWithError "Unable to fetch issue #$IssueNumber. Check the number and gh auth."
+    Write-ScriptError "Unable to fetch issue #$IssueNumber. Check the number and gh auth."
 }
 
 $issue = $issueJson | ConvertFrom-Json
 $body = $issue.body
 if ([string]::IsNullOrWhiteSpace($body)) {
-    Stop-ScriptWithError "Issue #$IssueNumber has an empty body; aborting to avoid overwriting content."
+    Write-ScriptError "Issue #$IssueNumber has an empty body; aborting to avoid overwriting content."
 }
 
 # Normalize feature name to both underscore and hyphen variants for paths
@@ -38,11 +43,16 @@ $docsBlock = @"
 "@
 
 function Set-OrAppendSection {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    [OutputType([string])]
     param(
         [string] $Content,
         [string] $SectionHeading,
         [string] $Replacement
     )
+    if (-not $PSCmdlet.ShouldProcess($SectionHeading, 'Update section content')) {
+        return $Content
+    }
     $pattern = "(?ms)^" + [regex]::Escape($SectionHeading) + "\s*\r?\n.*?(?=^\#\#\s+|\z)"
     $regex = New-Object System.Text.RegularExpressions.Regex(
         $pattern,
@@ -67,7 +77,7 @@ $exit = $LASTEXITCODE
 Remove-Item $tmp -ErrorAction SilentlyContinue
 
 if ($exit -eq 0) {
-    Write-Host "Updated issue #$IssueNumber with Feature Docs links."
+    Write-Output "Updated issue #$IssueNumber with Feature Docs links."
 } else {
-    Stop-ScriptWithError "Failed to update issue #$IssueNumber."
+    Write-ScriptError "Failed to update issue #$IssueNumber."
 }

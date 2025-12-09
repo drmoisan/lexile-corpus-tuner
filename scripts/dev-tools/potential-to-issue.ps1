@@ -5,8 +5,13 @@ param(
     [string] $PotentialPath
 )
 
-function Stop-ScriptWithError($msg) {
-    Write-Host $msg
+function Write-ScriptError {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Message
+    )
+    Write-Error -Message $Message
     exit 1
 }
 
@@ -16,16 +21,16 @@ $resolved = $null
 try {
     $resolved = (Resolve-Path $PotentialPath -ErrorAction Stop).Path
 } catch {
-    Stop-ScriptWithError "Potential file not found: $PotentialPath"
+    Write-ScriptError "Potential file not found: $PotentialPath"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Stop-ScriptWithError "gh CLI not found on PATH. Install gh and authenticate first."
+    Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
 }
 
 $content = Get-Content -Raw -Path $resolved
 if ([string]::IsNullOrWhiteSpace($content)) {
-    Stop-ScriptWithError "Potential file is empty: $resolved"
+    Write-ScriptError "Potential file is empty: $resolved"
 }
 
 $headingMatch = [regex]::Match(
@@ -97,17 +102,17 @@ From: $relativePath
 $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
 Set-Content -Path $tmp -Value $body -Encoding UTF8
 
-Write-Host "Creating issue: $issueTitle"
+Write-Output "Creating issue: $issueTitle"
 $result = & gh issue create --title "$issueTitle" --body-file "$tmp" --label "enhancement"
 $exit = $LASTEXITCODE
 
 if ($exit -ne 0) {
-    Write-Host $result
+    Write-Error $result
     Remove-Item $tmp -ErrorAction SilentlyContinue
     exit $exit
 }
 
-Write-Host $result
+Write-Output $result
 
 $issueUrl = $null
 $issueNumber = $null
@@ -120,7 +125,7 @@ if ($urlMatch.Matches.Count -gt 0) {
 
 $issueData = $null
 if ($issueNumber) {
-    $json = & gh issue view $issueNumber --json number,title,url,author,updatedAt
+    $json = & gh issue view $issueNumber --json number, title, url, author, updatedAt
     if ($LASTEXITCODE -eq 0 -and $json) {
         $issueData = $json | ConvertFrom-Json
     }
@@ -142,7 +147,17 @@ if ($issueNumber -and $issueUrl) {
         if ($lines[$i] -match '^\s*##\s+') { $metaEnd = $i; break }
     }
 
-    function Set-LineValue([System.Collections.Generic.List[string]] $arr, [string] $label, [string] $value, [ref] $metaEndRef) {
+    function Set-LineValue {
+        [CmdletBinding(SupportsShouldProcess = $true)]
+        param(
+            [System.Collections.Generic.List[string]] $arr,
+            [string] $label,
+            [string] $value,
+            [ref] $metaEndRef
+        )
+        if (-not $PSCmdlet.ShouldProcess($label, 'Update line value')) {
+            return
+        }
         $pattern = "^- $($label):"
         $found = $false
         for ($j = 0; $j -lt $arr.Count; $j++) {
@@ -169,7 +184,7 @@ if ($issueNumber -and $issueUrl) {
     Set-LineValue -arr $lines -label 'Status' -value $promotedValue -metaEndRef $metaEndRef
 
     Set-Content -Path $resolved -Value $lines -Encoding UTF8
-    Write-Host "Updated potential file with issue metadata: $resolved"
+    Write-Output "Updated potential file with issue metadata: $resolved"
 }
 
 $promotedDir = Join-Path $workspace 'docs/features/potential/promoted'
@@ -178,7 +193,9 @@ if (-not (Test-Path $promotedDir)) {
 }
 $destPath = Join-Path $promotedDir (Split-Path $resolved -Leaf)
 Move-Item -Path $resolved -Destination $destPath -Force
-Write-Host "Moved potential file to promoted folder: $destPath"
+Write-Output "Moved potential file to promoted folder: $destPath"
 
 Remove-Item $tmp -ErrorAction SilentlyContinue
 exit $exit
+
+

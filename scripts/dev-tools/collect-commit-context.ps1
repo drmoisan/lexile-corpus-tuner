@@ -1,6 +1,6 @@
 # PowerShell
 param(
-  [string]$Output = "artifacts/commit_context.txt"
+    [string]$Output = "artifacts/commit_context.txt"
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,32 +15,32 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 }
 $enc = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = $enc
-[Console]::InputEncoding  = $enc
-$OutputEncoding           = $enc
-$PSDefaultParameterValues['Out-File:Encoding']     = 'utf8'
-$PSDefaultParameterValues['Set-Content:Encoding']  = 'utf8'
-$PSDefaultParameterValues['Add-Content:Encoding']  = 'utf8'
-$PSDefaultParameterValues['Export-Csv:Encoding']   = 'utf8'
+[Console]::InputEncoding = $enc
+$OutputEncoding = $enc
+$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Add-Content:Encoding'] = 'utf8'
+$PSDefaultParameterValues['Export-Csv:Encoding'] = 'utf8'
 
 function Add-ReportSection {
-  param(
-    [string]$Title,
-    [ScriptBlock]$Cmd,
-    [switch]$AllowFail
-  )
-  Add-Content -Path $script:ReportOutput -Value "`n===== $Title =====`n"
-  try {
-    if ($Cmd) {
-      $result = & $Cmd | Out-String
-      Add-Content -Path $script:ReportOutput -Value $result.TrimEnd()
+    param(
+        [string]$Title,
+        [ScriptBlock]$Cmd,
+        [switch]$AllowFail
+    )
+    Add-Content -Path $script:ReportOutput -Value "`n===== $Title =====`n"
+    try {
+        if ($Cmd) {
+            $result = & $Cmd | Out-String
+            Add-Content -Path $script:ReportOutput -Value $result.TrimEnd()
+        }
+    } catch {
+        if ($AllowFail) {
+            Add-Content -Path $script:ReportOutput -Value "[n/a]"
+        } else {
+            throw
+        }
     }
-  } catch {
-    if ($AllowFail) {
-      Add-Content -Path $script:ReportOutput -Value "[n/a]"
-    } else {
-      throw
-    }
-  }
 }
 
 # Ensure we are inside a Git repo and move to root
@@ -53,7 +53,7 @@ $OutputPath = Join-Path -Path $root -ChildPath $Output
 $script:ReportOutput = $OutputPath
 $OutputDir = Split-Path -Parent $OutputPath
 if (-not (Test-Path $OutputDir)) {
-  New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
 # Fresh output
@@ -82,11 +82,12 @@ Add-ReportSection -Title "Last commit (header only)" -Cmd { git show -s --pretty
 Add-Content -Path $OutputPath -Value @"
 
 ===== Change intent (edit below) =====
-- What/why summary: 
-- Breaking changes: 
-- Affected modules: 
-- Issue/PR refs: 
+- What/why summary:
+- Breaking changes:
+- Affected modules:
+- Issue/PR refs:
 
 "@
 
-Write-Host "Wrote $OutputPath"
+Write-Output "Wrote $OutputPath"
+

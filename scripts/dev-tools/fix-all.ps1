@@ -24,39 +24,40 @@ $ErrorActionPreference = "Stop"
 
 function Write-Step {
     param([string]$Message)
-    Write-Host "`n==> $Message" -ForegroundColor Cyan
+    Write-Output ""
+    Write-Output "==> $Message"
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "✓ $Message" -ForegroundColor Green
+    Write-Output "[OK] $Message"
 }
 
 function Write-Failure {
     param([string]$Message)
-    Write-Host "✗ $Message" -ForegroundColor Red
+    Write-Error $Message
 }
 
 function Invoke-Command-WithStatus {
     param(
-        [string]$Command,
+        [string[]]$CommandParts,
         [string]$StepName
     )
-    
+
     Write-Step $StepName
-    $output = Invoke-Expression $Command 2>&1
+    $output = & $CommandParts 2>&1
     $exitCode = $LASTEXITCODE
-    
+
     if ($output) {
-        Write-Host $output
+        $output | Write-Output
     }
-    
+
     return $exitCode
 }
 
 # Step 1: Run Black formatting
 Write-Step "Step 1: Running Black formatting..."
-$exitCode = Invoke-Command-WithStatus "poetry run black ." "Black: format"
+$exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'black', '.') -StepName "Black: format"
 if ($exitCode -ne 0) {
     Write-Failure "Black formatting failed. Please review errors above."
     exit 1
@@ -70,18 +71,18 @@ $ruffSuccess = $false
 
 while ($ruffAttempt -lt $MaxRuffRetries) {
     $ruffAttempt++
-    Write-Host "Ruff attempt $ruffAttempt of $MaxRuffRetries..." -ForegroundColor Yellow
-    
-    $exitCode = Invoke-Command-WithStatus "poetry run ruff check --fix" "Ruff: fix"
-    
+    Write-Output "Ruff attempt $ruffAttempt of $MaxRuffRetries..."
+
+    $exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'ruff', 'check', '--fix') -StepName "Ruff: fix"
+
     if ($exitCode -eq 0) {
         $ruffSuccess = $true
         Write-Success "Ruff linting passed"
         break
     }
-    
+
     if ($ruffAttempt -lt $MaxRuffRetries) {
-        Write-Host "Ruff found issues. Retrying..." -ForegroundColor Yellow
+        Write-Output "Ruff found issues. Retrying..."
     }
 }
 
@@ -92,7 +93,7 @@ if (-not $ruffSuccess) {
 
 # Step 3: Re-run Black and Ruff to ensure consistency
 Write-Step "Step 3: Re-running Black to ensure consistency..."
-$exitCode = Invoke-Command-WithStatus "poetry run black ." "Black: format (verify)"
+$exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'black', '.') -StepName "Black: format (verify)"
 if ($exitCode -ne 0) {
     Write-Failure "Black formatting failed on verification pass."
     exit 1
@@ -100,7 +101,7 @@ if ($exitCode -ne 0) {
 Write-Success "Black formatting verified"
 
 Write-Step "Step 4: Re-running Ruff to verify fixes..."
-$exitCode = Invoke-Command-WithStatus "poetry run ruff check" "Ruff: lint (verify)"
+$exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'ruff', 'check') -StepName "Ruff: lint (verify)"
 if ($exitCode -ne 0) {
     Write-Failure "Ruff linting still has issues after fixes. Please review errors above."
     exit 1
@@ -109,7 +110,7 @@ Write-Success "Ruff linting verified"
 
 # Step 5: Run Pyright type checking
 Write-Step "Step 5: Running Pyright type checking..."
-$exitCode = Invoke-Command-WithStatus "poetry run pyright" "Pyright: type-check"
+$exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'pyright') -StepName "Pyright: type-check"
 if ($exitCode -ne 0) {
     Write-Failure "Pyright type checking failed. Please review errors above."
     exit 1
@@ -118,7 +119,7 @@ Write-Success "Pyright type checking passed"
 
 # Step 6: Run Pytest with coverage
 Write-Step "Step 6: Running Pytest with coverage..."
-$exitCode = Invoke-Command-WithStatus "poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=term-missing" "Pytest: test with coverage"
+$exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'pytest', '--cov=src/lexile_corpus_tuner', '--cov-report=term-missing') -StepName "Pytest: test with coverage"
 if ($exitCode -ne 0) {
     Write-Failure "Pytest failed. Please review errors above."
     exit 1
@@ -126,18 +127,17 @@ if ($exitCode -ne 0) {
 Write-Success "Pytest passed"
 
 # All checks passed
-Write-Host "`n" -NoNewline
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "✓ ALL CHECKS PASSED" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  • Black formatting: " -NoNewline
-Write-Host "PASS" -ForegroundColor Green
-Write-Host "  • Ruff linting: " -NoNewline
-Write-Host "PASS" -ForegroundColor Green
-Write-Host "  • Pyright type checking: " -NoNewline
-Write-Host "PASS" -ForegroundColor Green
-Write-Host "  • Pytest with coverage: " -NoNewline
-Write-Host "PASS" -ForegroundColor Green
-Write-Host "========================================`n" -ForegroundColor Green
+Write-Output ""
+Write-Output "========================================"
+Write-Output "ALL CHECKS PASSED"
+Write-Output "========================================"
+Write-Output "  Black formatting: PASS"
+Write-Output "  Ruff linting: PASS"
+Write-Output "  Pyright type checking: PASS"
+Write-Output "  Pytest with coverage: PASS"
+Write-Output "========================================"
 
 exit 0
+
+
+

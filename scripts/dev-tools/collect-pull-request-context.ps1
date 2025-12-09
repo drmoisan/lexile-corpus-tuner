@@ -27,7 +27,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
 
 function Invoke-Git {
     param(
-        [Parameter(Mandatory=$true)][string[]]$Args,
+        [Parameter(Mandatory = $true)][string[]]$Args,
         [switch]$AllowNonZeroExit
     )
     $output = & git @Args 2>&1
@@ -53,7 +53,7 @@ function Resolve-Repo {
     Push-Location $Root
     try {
         if (-not (Test-Path ".git")) {
-            $top = (Invoke-Git @('rev-parse','--show-toplevel')).Out
+            $top = (Invoke-Git @('rev-parse', '--show-toplevel')).Out
             if (-not $top) { throw "Not a git repo: $Root" }
             Pop-Location
             Push-Location $top
@@ -70,9 +70,9 @@ function Get-ItemCount { param($x) if ($null -eq $x) { 0 } else { @($x).Count } 
 
 
 function Select-DefaultBase {
-    $candidates = @('origin/main','origin/master','main','master','origin/develop','develop')
+    $candidates = @('origin/main', 'origin/master', 'main', 'master', 'origin/develop', 'develop')
     foreach ($ref in $candidates) {
-        $res = Invoke-Git -Args @('rev-parse','--verify','--quiet',$ref) -AllowNonZeroExit
+        $res = Invoke-Git -Args @('rev-parse', '--verify', '--quiet', $ref) -AllowNonZeroExit
         if ($res.Code -eq 0 -and $res.Out) { return $ref }
     }
     return $null
@@ -81,23 +81,23 @@ function Select-DefaultBase {
 function Get-Branch {
     param([string]$Ref)
     if ([string]::IsNullOrWhiteSpace($Ref)) {
-        return (Invoke-Git -Args @('rev-parse','--abbrev-ref','HEAD')).Out
+        return (Invoke-Git -Args @('rev-parse', '--abbrev-ref', 'HEAD')).Out
     }
     return $Ref
 }
 
 function Get-RemoteSummary {
-@"
+    @"
 $(Write-Section "Repository remotes")
 $((Invoke-Git -Args @('remote','-v')).Out)
 "@
 }
 
-function Get-BranchMetadata {
-    $current = (Invoke-Git -Args @('rev-parse','--abbrev-ref','HEAD')).Out
-    $upstream = (Invoke-Git -Args @('rev-parse','--abbrev-ref','--symbolic-full-name','@{u}') -AllowNonZeroExit).Out
+function Get-BranchInfo {
+    $current = (Invoke-Git -Args @('rev-parse', '--abbrev-ref', 'HEAD')).Out
+    $upstream = (Invoke-Git -Args @('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}') -AllowNonZeroExit).Out
     $upDisplay = if (-not [string]::IsNullOrWhiteSpace($upstream)) { $upstream } else { '(none)' }
-@"
+    @"
 $(Write-Section "Current branch")
 $current
 
@@ -108,13 +108,13 @@ $upDisplay
 
 function Get-RepoStatus {
     param([switch]$NoUntracked)
-    $short = (Invoke-Git -Args @('status','-sb')).Out
+    $short = (Invoke-Git -Args @('status', '-sb')).Out
     $untracked = $null
     if (-not $NoUntracked) {
-        $untracked = (Invoke-Git -Args @('ls-files','--others','--exclude-standard')).Out
+        $untracked = (Invoke-Git -Args @('ls-files', '--others', '--exclude-standard')).Out
     }
     $unDisplay = if (-not [string]::IsNullOrWhiteSpace($untracked)) { $untracked } else { "(none)" }
-@"
+    @"
 $(Write-Section "Status (short)")
 $short
 
@@ -123,12 +123,12 @@ $unDisplay
 "@
 }
 
-function Get-WorkingTreeDiffDetails {
-    $stagedNameStatus = (Invoke-Git -Args @('diff','--cached','--name-status') -AllowNonZeroExit).Out
-    $stagedDiff       = (Invoke-Git -Args @('diff','--cached') -AllowNonZeroExit).Out
-    $unstagedNameStat = (Invoke-Git -Args @('diff','--name-status') -AllowNonZeroExit).Out
-    $unstagedDiff     = (Invoke-Git -Args @('diff') -AllowNonZeroExit).Out
-@"
+function Get-WorkingTreeDiffSummary {
+    $stagedNameStatus = (Invoke-Git -Args @('diff', '--cached', '--name-status') -AllowNonZeroExit).Out
+    $stagedDiff = (Invoke-Git -Args @('diff', '--cached') -AllowNonZeroExit).Out
+    $unstagedNameStat = (Invoke-Git -Args @('diff', '--name-status') -AllowNonZeroExit).Out
+    $unstagedDiff = (Invoke-Git -Args @('diff') -AllowNonZeroExit).Out
+    @"
 $(Write-Section "Staged files (name-status)")
 $($stagedNameStatus)
 
@@ -193,7 +193,7 @@ function Get-ExtensionSummary {
     return ($lines -join "`n")
 }
 
-function Get-IssueReferences {
+function Get-IssueReference {
     param([string]$Text)
     $set = New-Object System.Collections.Generic.HashSet[string]
     if ($Text) {
@@ -205,7 +205,7 @@ function Get-IssueReferences {
 
 function Get-ConventionalCommitSummary {
     param([string]$SubjectsText)
-    $counts = [ordered]@{ feat=0; fix=0; refactor=0; perf=0; docs=0; test=0; chore=0; build=0; ci=0; style=0; other=0 }
+    $counts = [ordered]@{ feat = 0; fix = 0; refactor = 0; perf = 0; docs = 0; test = 0; chore = 0; build = 0; ci = 0; style = 0; other = 0 }
     foreach ($line in ($SubjectsText -split "`n")) {
         if (-not [string]::IsNullOrWhiteSpace($line)) {
             if ($line -match '^\s*(feat|fix|refactor|perf|docs|test|chore|build|ci|style)(\(|!|:)\b') {
@@ -224,33 +224,33 @@ function Get-ConventionalCommitSummary {
 function Get-PRContext {
     param([string]$BaseRef, [string]$HeadRef)
 
-    $base = (Invoke-Git -Args @('rev-parse','--verify',$BaseRef)).Out
-    $head = (Invoke-Git -Args @('rev-parse','--verify',$HeadRef)).Out
-    $mergeBase = (Invoke-Git -Args @('merge-base',$base,$head)).Out
+    $base = (Invoke-Git -Args @('rev-parse', '--verify', $BaseRef)).Out
+    $head = (Invoke-Git -Args @('rev-parse', '--verify', $HeadRef)).Out
+    $mergeBase = (Invoke-Git -Args @('merge-base', $base, $head)).Out
     $range = "$mergeBase..$head"
 
-    $oneline = (Invoke-Git -Args @('log','--date=short','--pretty=format:%h %ad %an %s',$range)).Out
-    $subjects = (Invoke-Git -Args @('log','--pretty=%s',$range)).Out
-    $authors  = (Invoke-Git -Args @('log','--format=%an <%ae>',$range)).Out -split "`n" | Where-Object { $_ -and $_.Trim() } | Sort-Object -Unique
-    $nameStatus = (Invoke-Git -Args @('diff','--name-status',$mergeBase,$head)).Out
-    $numstat    = (Invoke-Git -Args @('diff','--numstat',$mergeBase,$head)).Out
-    $shortstat  = (Invoke-Git -Args @('diff','--shortstat',$mergeBase,$head)).Out
-    $stat       = (Invoke-Git -Args @('diff','--stat',$mergeBase,$head)).Out
+    $oneline = (Invoke-Git -Args @('log', '--date=short', '--pretty=format:%h %ad %an %s', $range)).Out
+    $subjects = (Invoke-Git -Args @('log', '--pretty=%s', $range)).Out
+    $authors = (Invoke-Git -Args @('log', '--format=%an <%ae>', $range)).Out -split "`n" | Where-Object { $_ -and $_.Trim() } | Sort-Object -Unique
+    $nameStatus = (Invoke-Git -Args @('diff', '--name-status', $mergeBase, $head)).Out
+    $numstat = (Invoke-Git -Args @('diff', '--numstat', $mergeBase, $head)).Out
+    $shortstat = (Invoke-Git -Args @('diff', '--shortstat', $mergeBase, $head)).Out
+    $stat = (Invoke-Git -Args @('diff', '--stat', $mergeBase, $head)).Out
 
     $num = ConvertFrom-Numstat -NumstatText $numstat
     $extSummary = Get-ExtensionSummary -Files $num.Files
-    $issues = Get-IssueReferences -Text ($oneline + "`n" + $subjects)
+    $issues = Get-IssueReference -Text ($oneline + "`n" + $subjects)
     $typeSummary = Get-ConventionalCommitSummary -SubjectsText $subjects
 
-    $onelineDisplay  = if (-not [string]::IsNullOrWhiteSpace($oneline)) { $oneline } else { "(none)" }
-    $authorsDisplay  = if ((Get-ItemCount $authors) -gt 0) { (@($authors) -join "`n") } else { "(none)" }
+    $onelineDisplay = if (-not [string]::IsNullOrWhiteSpace($oneline)) { $oneline } else { "(none)" }
+    $authorsDisplay = if ((Get-ItemCount $authors) -gt 0) { (@($authors) -join "`n") } else { "(none)" }
     $nameStatDisplay = if (-not [string]::IsNullOrWhiteSpace($nameStatus)) { $nameStatus } else { "(none)" }
-    $shortDisplay    = if (-not [string]::IsNullOrWhiteSpace($shortstat)) { $shortstat } else { "(none)" }
-    $extDisplay      = if (-not [string]::IsNullOrWhiteSpace($extSummary)) { $extSummary } else { "(none)" }
-    $issuesDisplay   = if ((Get-ItemCount $issues) -gt 0) { (@($issues) -join ", ") } else { "(none)" }
-    $statDisplay     = if (-not [string]::IsNullOrWhiteSpace($stat)) { $stat } else { "(none)" }
+    $shortDisplay = if (-not [string]::IsNullOrWhiteSpace($shortstat)) { $shortstat } else { "(none)" }
+    $extDisplay = if (-not [string]::IsNullOrWhiteSpace($extSummary)) { $extSummary } else { "(none)" }
+    $issuesDisplay = if ((Get-ItemCount $issues) -gt 0) { (@($issues) -join ", ") } else { "(none)" }
+    $statDisplay = if (-not [string]::IsNullOrWhiteSpace($stat)) { $stat } else { "(none)" }
 
-@"
+    @"
 $(Write-Section "PR Comparison")
 Base: $BaseRef
 Head: $HeadRef
@@ -305,10 +305,10 @@ $timestamp
 
 "@
 
-$remotes   = Get-RemoteSummary
-$branchMet = Get-BranchMetadata
-$status    = Get-RepoStatus -NoUntracked:$NoUntracked
-$wtDiff    = Get-WorkingTreeDiffDetails
+$remotes = Get-RemoteSummary
+$branchMet = Get-BranchInfo
+$status = Get-RepoStatus -NoUntracked:$NoUntracked
+$wtDiff = Get-WorkingTreeDiffSummary
 
 $pr = ""
 $baseRef = $Base
@@ -339,4 +339,5 @@ if ($Append) {
     $header + $outText | Out-File -FilePath $OutPath -Encoding UTF8
 }
 
-Write-Host "Wrote context to: $OutPath"
+Write-Output "Wrote context to: $OutPath"
+

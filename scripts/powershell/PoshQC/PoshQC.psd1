@@ -13,14 +13,14 @@
         @{ ModuleName = 'Pester'; ModuleVersion = '5.6.1' }
     )
     FunctionsToExport    = @(
-        'Install-PoshQCTools',
+        'Install-PoshQCTool',
         'Invoke-PoshQCFormat',
         'Invoke-PoshQCAnalyze',
         'Invoke-PoshQCTest'
     )
     CmdletsToExport      = @()
     VariablesToExport    = @()
-    AliasesToExport      = @()
+    AliasesToExport      = @('Install-PoshQCTools')
     PrivateData          = @{}
 }
 
