@@ -16,6 +16,19 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "PowerShell: Promote Potential -> Issue (bug)",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/scripts/dev-tools/potential-to-issue.ps1",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "-PotentialPath",
+                "docs/features/potential/2025-12-08-lexile-v2-adapter-python-3-10.md",
+                "-PromotionType",
+                "bug"
+            ]
+        },
+        {
             "name": "PowerShell: Load OpenAI Key",
             "type": "PowerShell",
             "request": "launch",

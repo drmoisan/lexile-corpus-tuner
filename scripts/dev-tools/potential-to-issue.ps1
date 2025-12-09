@@ -2,7 +2,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string] $PotentialPath
+    [string] $PotentialPath,
+    [ValidateSet('epic', 'feature', 'refactor', 'bug')]
+    [string] $PromotionType = 'feature'
 )
 
 function Stop-ScriptWithError($msg) {
@@ -42,7 +44,15 @@ if ($headingMatch.Success) {
 if (-not $featureName) {
     $featureName = (Split-Path $resolved -Leaf) -replace '\.md$', ''
 }
-$issueTitle = "Feature: $featureName"
+$titlePrefix = switch ($PromotionType) {
+    'epic' { 'Epic' }
+    'feature' { 'Feature' }
+    'refactor' { 'Refactor' }
+    'bug' { 'Bug' }
+    default { 'Feature' }
+}
+
+$issueTitle = "${titlePrefix}: $featureName"
 $featurePath = ($featureName -replace '\s+', '_') -replace '[^A-Za-z0-9_-]', ''
 
 function Get-Section([string] $name) {
@@ -97,8 +107,8 @@ From: $relativePath
 $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
 Set-Content -Path $tmp -Value $body -Encoding UTF8
 
-Write-Host "Creating issue: $issueTitle"
-$result = & gh issue create --title "$issueTitle" --body-file "$tmp" --label "enhancement"
+Write-Host "Creating issue: $issueTitle (label: $PromotionType)"
+$result = & gh issue create --title "$issueTitle" --body-file "$tmp" --label "$PromotionType"
 $exit = $LASTEXITCODE
 
 if ($exit -ne 0) {
