@@ -1,9 +1,8 @@
 ---
-applyTo: "**/*.ps1"
+applyTo: "**/*.ps1,**/*.psm1,**/*.psd1,**/*.ps1xml"   
 name: powershell-unit-test-policy
 description: "PowerShell-specific unit test rules, layered on top of the general unit test policy"
 ---
-
 # PowerShell Unit Test Policy
 
 This policy **extends** `general-unit-test.instructions.md` and applies to all PowerShell tests in this repo.
@@ -29,15 +28,39 @@ If there is any conflict between these documents, halt and notify the user.
 
 ## 2. Test Style and Structure (PowerShell)
 
-- Name test files `*.Tests.ps1`.
-- Organize tests with `Describe`/`Context`/`It`. One behavior per `It`.
-- Prefer explicit Arrange/Act/Assert blocks; keep assertions specific and actionable.
-- Avoid relying on global state; set up and tear down inside the test scope.
-- Mock external calls only as needed to satisfy isolation and determinism; prefer real code paths for pure helpers.
+- **Focused unit tests**
+
+  - Write focused tests that exercise a single function, method, or behavior.
+  - Prefer testing behavior directly over testing implementation details.
+
+- **Mocking**
+
+  - Use mocking sparingly. Prefer real code paths and pure functions where possible.
+  - Only introduce mocks/stubs when needed to satisfy isolation, determinism and “avoid external dependencies” requirements (e.g., external services, heavy resources).
+
+- **Organization**
+
+  - Organize tests into folders in a way that mirrors the code under test (e.g., `tests/scripts/dev-tools/ScriptName.Tests.ps1` for `scripts/dev-tools/ScriptName.ps1`).
 
 ---
 
-## 3. Running the Toolchain (PowerShell Tests)
+## 3. Naming and Readability (Python)
+
+- **Naming conventions**
+
+  - Name test files `*.Tests.ps1`.
+  - Organize tests with `Describe`/`Context`/`It`. One behavior per `It`.
+  - Group related tests logically within the same file or test class.
+
+- **Docstrings and comments**
+
+  - Where the intent is not obvious from the `Describe`/`Context`/`It` alone, include a short docstring or comment summarizing:
+    - The scenario being tested.
+    - The expected outcome.
+
+---
+
+## 4. Running the Toolchain (PowerShell Tests)
 
 - When running the "After Making Changes" toolchain, the **testing step** for PowerShell must use:
   - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."`
