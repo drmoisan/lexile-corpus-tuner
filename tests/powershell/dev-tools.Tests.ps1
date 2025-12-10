@@ -138,29 +138,139 @@ Describe "fix-all.ps1 helpers" {
 }
 
 Describe "link-feature-docs.ps1 helpers" {
-    It "replaces existing section content" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\link-feature-docs.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-OrAppendSection")
-        $content = @"
+    BeforeAll {
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\link-feature-docs.ps1"
+    }
+
+    Context "Set-OrAppendSection function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Set-OrAppendSection")
+        }
+
+        It "replaces existing section content" {
+            $content = @"
 ## Intro
 hello
 
 ## Feature Docs
 old body
 "@
-        $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew body"
-        $updated | Should -Match "new body"
-        $updated | Should -Not -Match "old body"
-    }
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew body"
+            $updated | Should -Match "new body"
+            $updated | Should -Not -Match "old body"
+        }
 
-    It "appends new section when missing" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\link-feature-docs.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-OrAppendSection")
-        $content = "## Intro`nhello"
-        $replacement = "## Feature Docs`ncontent"
-        $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement $replacement
-        $pattern = ([regex]::Escape($replacement.TrimEnd())) -replace "\\n", "\r?\n"
-        $updated | Should -Match $pattern
+        It "appends new section when missing" {
+            $content = "## Intro`nhello"
+            $replacement = "## Feature Docs`ncontent"
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement $replacement
+            $pattern = ([regex]::Escape($replacement.TrimEnd())) -replace "\\n", "\r?\n"
+            $updated | Should -Match $pattern
+        }
+
+        It "handles empty content by returning replacement" {
+            $updated = Set-OrAppendSection -Content "" -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`ncontent"
+            $updated | Should -Match "## Feature Docs"
+            $updated | Should -Match "content"
+        }
+
+        It "handles whitespace-only content by returning replacement" {
+            $updated = Set-OrAppendSection -Content "   `n  `n  " -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`ncontent"
+            $updated | Should -Match "## Feature Docs"
+            $updated | Should -Match "content"
+        }
+
+        It "replaces section at start of content" {
+            $content = @"
+## Feature Docs
+old content
+
+## Next Section
+other
+"@
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew"
+            $updated | Should -Match "new"
+            $updated | Should -Not -Match "old content"
+            $updated | Should -Match "## Next Section"
+        }
+
+        It "replaces section in middle of content" {
+            $content = @"
+## First
+first content
+
+## Feature Docs
+old content
+
+## Last
+last content
+"@
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew"
+            $updated | Should -Match "## First"
+            $updated | Should -Match "new"
+            $updated | Should -Not -Match "old content"
+            $updated | Should -Match "## Last"
+        }
+
+        It "replaces section at end of content" {
+            $content = @"
+## First
+first content
+
+## Feature Docs
+old content
+"@
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew"
+            $updated | Should -Match "## First"
+            $updated | Should -Match "new"
+            $updated | Should -Not -Match "old content"
+        }
+
+        It "trims trailing whitespace from replacement" {
+            $content = "## Intro`nhello"
+            $replacement = "## Feature Docs`ncontent   `n`n`n"
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement $replacement
+            $updated | Should -Not -Match "content\s+$"
+        }
+
+        It "supports ShouldProcess and returns original content when WhatIf" {
+            $content = @"
+## Intro
+hello
+
+## Feature Docs
+old body
+"@
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew body" -WhatIf
+            $updated | Should -Be $content
+        }
+
+        It "handles sections with special regex characters" {
+            $content = @"
+## Test (Special)
+old content
+
+## Next
+other
+"@
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Test (Special)" -Replacement "## Test (Special)`nnew"
+            $updated | Should -Match "new"
+            $updated | Should -Not -Match "old content"
+        }
+
+        It "handles content with CRLF line endings" {
+            $content = "## Intro`r`nhello`r`n`r`n## Feature Docs`r`nold body"
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`r`nnew body"
+            $updated | Should -Match "new body"
+            $updated | Should -Not -Match "old body"
+        }
+
+        It "handles content with Unix line endings" {
+            $content = "## Intro`nhello`n`n## Feature Docs`nold body"
+            $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew body"
+            $updated | Should -Match "new body"
+            $updated | Should -Not -Match "old body"
+        }
     }
 }
 
