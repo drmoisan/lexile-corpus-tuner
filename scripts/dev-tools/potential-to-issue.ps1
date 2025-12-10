@@ -15,6 +15,52 @@ function Write-ScriptError {
     exit 1
 }
 
+function Get-FeatureName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Content,
+        [Parameter(Mandatory = $true)]
+        [string] $FilePath
+    )
+    $headingMatch = [regex]::Match(
+        $Content,
+        '^\s*#\s+(.+)$',
+        [System.Text.RegularExpressions.RegexOptions]::Multiline
+    )
+    $featureName = $null
+    if ($headingMatch.Success) {
+        $featureName = $headingMatch.Groups[1].Value.Trim()
+        $featureName = $featureName -replace '\(Potential\)', ''
+        $featureName = $featureName.Trim()
+    }
+    if (-not $featureName) {
+        $featureName = (Split-Path $FilePath -Leaf) -replace '\.md$', ''
+    }
+    return $featureName
+}
+
+function Get-FeaturePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $FeatureName
+    )
+    return ($FeatureName -replace '\s+', '_') -replace '[^A-Za-z0-9_-]', ''
+}
+
+function Get-Section([string] $name) {
+    $escaped = [regex]::Escape($name)
+    $pattern = "^##\s+$escaped\s*\r?\n(.*?)(?=^##\s+|\z)"
+    $m = [regex]::Match(
+        $content,
+        $pattern,
+        [System.Text.RegularExpressions.RegexOptions]::Singleline -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
+    )
+    if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    return ''
+}
+
 $workspace = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
 $resolved = $null
@@ -33,34 +79,9 @@ if ([string]::IsNullOrWhiteSpace($content)) {
     Write-ScriptError "Potential file is empty: $resolved"
 }
 
-$headingMatch = [regex]::Match(
-    $content,
-    '^\s*#\s+(.+)$',
-    [System.Text.RegularExpressions.RegexOptions]::Multiline
-)
-$featureName = $null
-if ($headingMatch.Success) {
-    $featureName = $headingMatch.Groups[1].Value.Trim()
-    $featureName = $featureName -replace '\(Potential\)', ''
-    $featureName = $featureName.Trim()
-}
-if (-not $featureName) {
-    $featureName = (Split-Path $resolved -Leaf) -replace '\.md$', ''
-}
+$featureName = Get-FeatureName -Content $content -FilePath $resolved
 $issueTitle = "Feature: $featureName"
-$featurePath = ($featureName -replace '\s+', '_') -replace '[^A-Za-z0-9_-]', ''
-
-function Get-Section([string] $name) {
-    $escaped = [regex]::Escape($name)
-    $pattern = "^##\s+$escaped\s*\r?\n(.*?)(?=^##\s+|\z)"
-    $m = [regex]::Match(
-        $content,
-        $pattern,
-        [System.Text.RegularExpressions.RegexOptions]::Singleline -bor [System.Text.RegularExpressions.RegexOptions]::Multiline
-    )
-    if ($m.Success) { return $m.Groups[1].Value.Trim() }
-    return ''
-}
+$featurePath = Get-FeaturePath -FeatureName $featureName
 
 $problem = Get-Section 'Problem / Why'
 $behavior = Get-Section 'Proposed Behavior'
