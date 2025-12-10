@@ -33,31 +33,196 @@ function global:Import-ScriptFunction {
 }
 
 Describe "collect-commit-context.ps1" {
-    BeforeEach {
-        $script:ReportOutput = "mock-output.txt"
-        $script:captured = New-Object System.Collections.Generic.List[string]
-        Mock -CommandName Add-Content -MockWith {
-            param($Path, $Value)
-            $null = $Path
-            $script:captured.Add($Value)
+    Context "Add-ReportSection function" {
+        BeforeEach {
+            $script:ReportOutput = "mock-output.txt"
+            $script:captured = New-Object System.Collections.Generic.List[string]
+            Mock -CommandName Add-Content -MockWith {
+                param($Path, $Value)
+                $null = $Path
+                $script:captured.Add($Value)
+            }
+        }
+
+        It "writes section headers and content" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" }
+
+            $script:captured.Count | Should -Be 2
+            $script:captured[0] | Should -Match "===== Test Section ====="
+            $script:captured[1] | Should -Match "line1`nline2"
+        }
+
+        It "writes placeholder when allowed to fail" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail
+            $script:captured[1] | Should -Match "\[n/a\]"
+        }
+
+        It "throws error when not allowed to fail" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            { Add-ReportSection -Title "MustSucceed" -Cmd { throw "error" } } | Should -Throw
+        }
+
+        It "trims trailing whitespace from command output" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "Trimmed" -Cmd { "content   `n  " }
+
+            $script:captured[1] | Should -Be "content"
+        }
+
+        It "handles empty command output" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "Empty" -Cmd { "" }
+
+            $script:captured.Count | Should -Be 2
+            $script:captured[0] | Should -Match "===== Empty ====="
+        }
+
+        It "handles null command parameter" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "NoCmd" -Cmd $null
+
+            $script:captured.Count | Should -Be 1
+            $script:captured[0] | Should -Match "===== NoCmd ====="
+        }
+
+        It "writes multiple sections to same output" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "First" -Cmd { "content1" }
+            Add-ReportSection -Title "Second" -Cmd { "content2" }
+
+            $script:captured.Count | Should -Be 4
+            $script:captured[0] | Should -Match "===== First ====="
+            $script:captured[2] | Should -Match "===== Second ====="
+        }
+
+        It "handles multiline output correctly" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            $multiline = "line1`nline2`nline3"
+            Add-ReportSection -Title "MultiLine" -Cmd { $multiline }
+
+            $script:captured[1] | Should -Be $multiline
+        }
+
+        It "handles scriptblock that returns objects" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "Objects" -Cmd { [PSCustomObject]@{ Name = "test"; Value = 42 } }
+
+            $script:captured.Count | Should -Be 2
+            $script:captured[1] | Should -Match "test"
+        }
+
+        It "handles command with no output" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            Add-ReportSection -Title "NoOutput" -Cmd { $null }
+
+            $script:captured.Count | Should -Be 2
+            $script:captured[1] | Should -Be ""
+        }
+
+        It "preserves line breaks in multiline content" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
+            $content = @"
+line1
+line2
+line3
+"@
+            Add-ReportSection -Title "Lines" -Cmd { $content }
+
+            $script:captured[1] | Should -Match "line1"
+            $script:captured[1] | Should -Match "line2"
+            $script:captured[1] | Should -Match "line3"
         }
     }
 
-    It "writes section headers and content" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" }
+    Context "Script integration" {
+        BeforeAll {
+            $script:originalLocation = Get-Location
+            $script:testRoot = Join-Path $TestDrive "git-repo"
+            New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
+            Set-Location $script:testRoot
 
-        $script:captured.Count | Should -Be 2
-        $script:captured[0] | Should -Match "===== Test Section ====="
-        $script:captured[1] | Should -Match "line1`nline2"
-    }
+            git init 2>&1 | Out-Null
+            git config user.email "test@example.com" 2>&1 | Out-Null
+            git config user.name "Test User" 2>&1 | Out-Null
 
-    It "writes placeholder when allowed to fail" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail
-        $script:captured[1] | Should -Match "\[n/a\]"
+            "initial content" | Set-Content -Path "test.txt"
+            git add test.txt 2>&1 | Out-Null
+            git commit -m "Initial commit" 2>&1 | Out-Null
+        }
+
+        AfterAll {
+            Set-Location $script:originalLocation
+        }
+
+        It "creates output file in git repository" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            $outputFile = "test-output.txt"
+
+            & $scriptPath -Output $outputFile
+
+            $fullPath = Join-Path $script:testRoot $outputFile
+            Test-Path $fullPath | Should -Be $true
+        }
+
+        It "output file contains expected sections" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            $outputFile = "sections-test.txt"
+
+            & $scriptPath -Output $outputFile
+
+            $content = Get-Content -Path (Join-Path $script:testRoot $outputFile) -Raw
+            $content | Should -Match "Please generate a commit message"
+            $content | Should -Match "===== Repository remotes ====="
+            $content | Should -Match "===== Current branch ====="
+            $content | Should -Match "===== Change intent"
+        }
+
+        It "creates output directory if it does not exist" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            $outputFile = "newdir/subdir/output.txt"
+
+            & $scriptPath -Output $outputFile
+
+            $fullPath = Join-Path $script:testRoot $outputFile
+            Test-Path $fullPath | Should -Be $true
+            Test-Path (Split-Path $fullPath -Parent) | Should -Be $true
+        }
+
+        It "overwrites existing output file" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            $outputFile = "overwrite-test.txt"
+            $fullPath = Join-Path $script:testRoot $outputFile
+
+            "old content" | Set-Content -Path $fullPath
+            & $scriptPath -Output $outputFile
+
+            $content = Get-Content -Path $fullPath -Raw
+            $content | Should -Not -Match "old content"
+            $content | Should -Match "Please generate a commit message"
+        }
+
+        It "outputs confirmation message with file path" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
+            $outputFile = "confirm-msg-test.txt"
+
+            $output = & $scriptPath -Output $outputFile 2>$null | Out-String
+
+            $output | Should -Match "Wrote"
+            $output | Should -Match $outputFile
+        }
     }
 }
 
