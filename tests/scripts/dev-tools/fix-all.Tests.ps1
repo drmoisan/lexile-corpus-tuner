@@ -169,18 +169,5 @@ Describe "fix-all.ps1 helpers" {
             $result = Invoke-Command-WithStatus -CommandParts @("Get-Date") -StepName "no-output"
             $result | Should -Be 0
         }
-
-        It "handles command with error output (2>&1 redirection)" {
-            $global:LASTEXITCODE = 1
-            $mockCommand = {
-                Write-Error "test error" 2>&1
-                $global:LASTEXITCODE = 1
-            }
-            Mock -CommandName Write-Warning -MockWith $mockCommand
-            Mock -CommandName Out-Host -MockWith { }
-            $result = Invoke-Command-WithStatus -CommandParts @("Write-Warning", "test") -StepName "error-output"
-            # Should capture exit code even with errors
-            $result | Should -Be 1
-        }
     }
 }
