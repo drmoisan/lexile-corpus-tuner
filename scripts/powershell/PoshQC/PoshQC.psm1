@@ -158,10 +158,17 @@ function Invoke-PoshQCAnalyze {
 
     $results = @()
     foreach ($file in $files) {
-        $results += Invoke-ScriptAnalyzer `
-            -Path $file.FullName `
-            -Settings $SettingsPath `
-            -Severity Error, Warning, Information
+        try {
+            $results += Invoke-ScriptAnalyzer `
+                -Path $file.FullName `
+                -Settings $SettingsPath `
+                -Severity Error, Warning, Information `
+                -ErrorAction Stop
+        } catch {
+            $errorType = $_.Exception.GetType().FullName
+            $errorMessage = $_.Exception.Message
+            throw "Invoke-ScriptAnalyzer failed for $($file.FullName) ($errorType): $errorMessage"
+        }
     }
 
     if ($results.Count -gt 0) {

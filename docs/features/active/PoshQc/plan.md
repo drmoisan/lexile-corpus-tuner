@@ -31,6 +31,34 @@
 - [ ] Optional: document submodule/vendor guidance for reuse across repos.
 - [ ] Add PoshQC format/analyze/test checks to CI so PowerShell changes are gated.
 
+## Detailed Action Plan (tracked tasks)
+
+### CI integration and gating
+- [ ] Add PoshQC format/analyze/test jobs to `.github/workflows/ci.yml`, failing on any findings and emitting Pester JUnit under `artifacts/pester/pester-junit.xml`.
+- [ ] Ensure CI installs tooling via `Install-PoshQCTools` on PS 7.5+; decide and document PS 5.1 matrix inclusion.
+
+### PSSA hygiene and baseline readiness
+- [ ] Run `Invoke-PoshQCAnalyze` repo-wide; fix all findings (e.g., Write-Host, ShouldProcess, validation attributes, trailing whitespace).
+- [ ] Re-run formatter + analyzer to confirm clean baseline before adding/expanding tests.
+
+### Compatibility validation
+- [ ] Smoke PoshQC format/analyze/test on PS 5.1 and capture results/gaps.
+- [ ] Smoke PoshQC format/analyze/test on PS 7.5+ and capture results/gaps.
+- [ ] Add notes for any version-specific shims required.
+
+### Pester coverage uplift (target ≥90% for PoshQC; raise repo ≥80%)
+- [ ] Add Pester tests for PoshQC entry points:
+	- [ ] `Invoke-PoshQCFormat` happy-path (formats sample file, no unintended edits).
+	- [ ] `Invoke-PoshQCAnalyze` failure path (intentional violation triggers non-zero), success path (clean file passes).
+	- [ ] `Invoke-PoshQCTest` runs configured Pester settings and writes JUnit to `artifacts/pester/pester-junit.xml`.
+	- [ ] `Install-PoshQCTools` handles already-installed/no-op scenarios without errors.
+- [ ] Add deterministic coverage for key dev-tool scripts where feasible (no temp files, no external calls), using mocks/fakes to stay isolated.
+- [ ] Iterate until Pester coverage shows ≥90% for new/changed PowerShell modules and overall repo coverage trends toward ≥80%.
+
+### Documentation and plan alignment
+- [ ] Update this plan as tasks complete or scope changes; note CI matrix decisions and compatibility findings.
+- [ ] Document any required shims or guidance discovered during compatibility and coverage work.
+
 ## Test Plan
 
 - Unit: add Pester tests for PoshQC functions (formatter/analyzer/test invocations, settings resolution, per-file analyzer -Fix).
