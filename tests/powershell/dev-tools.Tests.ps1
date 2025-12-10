@@ -142,6 +142,41 @@ Describe "link-feature-docs.ps1 helpers" {
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\link-feature-docs.ps1"
     }
 
+    Context "Build-FeatureDocsBlock function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Build-FeatureDocsBlock")
+        }
+
+        It "creates docs block with feature name in paths" {
+            $block = Build-FeatureDocsBlock -FeatureName "my-feature"
+            $block | Should -Match "## Feature Docs"
+            $block | Should -Match "docs/features/active/my-feature/user-story.md"
+            $block | Should -Match "docs/features/active/my-feature/spec.md"
+            $block | Should -Match "docs/features/active/my-feature/plan.md"
+        }
+
+        It "handles feature names with underscores" {
+            $block = Build-FeatureDocsBlock -FeatureName "my_feature_name"
+            $block | Should -Match "docs/features/active/my_feature_name/user-story.md"
+            $block | Should -Match "docs/features/active/my_feature_name/spec.md"
+            $block | Should -Match "docs/features/active/my_feature_name/plan.md"
+        }
+
+        It "handles feature names with hyphens" {
+            $block = Build-FeatureDocsBlock -FeatureName "my-feature-name"
+            $block | Should -Match "docs/features/active/my-feature-name/user-story.md"
+            $block | Should -Match "docs/features/active/my-feature-name/spec.md"
+            $block | Should -Match "docs/features/active/my-feature-name/plan.md"
+        }
+
+        It "creates properly formatted markdown links" {
+            $block = Build-FeatureDocsBlock -FeatureName "test"
+            $block | Should -Match "\[User Story\]\(docs/features/active/test/user-story.md\)"
+            $block | Should -Match "\[Spec\]\(docs/features/active/test/spec.md\)"
+            $block | Should -Match "\[Plan\]\(docs/features/active/test/plan.md\)"
+        }
+    }
+
     Context "Set-OrAppendSection function" {
         BeforeEach {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Set-OrAppendSection")

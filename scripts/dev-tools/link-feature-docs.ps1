@@ -35,12 +35,23 @@ if ([string]::IsNullOrWhiteSpace($body)) {
 # Normalize feature name to both underscore and hyphen variants for paths
 $featurePath = $FeatureName
 
-$docsBlock = @"
+function Build-FeatureDocsBlock {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $FeatureName
+    )
+
+    return @"
 ## Feature Docs
-- [User Story](docs/features/active/$featurePath/user-story.md)
-- [Spec](docs/features/active/$featurePath/spec.md)
-- [Plan](docs/features/active/$featurePath/plan.md)
+- [User Story](docs/features/active/$FeatureName/user-story.md)
+- [Spec](docs/features/active/$FeatureName/spec.md)
+- [Plan](docs/features/active/$FeatureName/plan.md)
 "@
+}
+
+$docsBlock = Build-FeatureDocsBlock -FeatureName $featurePath
 
 function Set-OrAppendSection {
     [CmdletBinding(SupportsShouldProcess = $true)]
