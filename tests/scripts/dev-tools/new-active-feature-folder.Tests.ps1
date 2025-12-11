@@ -8,7 +8,6 @@ function global:Import-ScriptFunction {
 
     $resolved = (Resolve-Path -Path $Path).Path
     if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-        $null = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
         if ($errors -and $errors.Count -gt 0) {
