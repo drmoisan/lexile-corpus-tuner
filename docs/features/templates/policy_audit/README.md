@@ -92,6 +92,90 @@ Before finalizing, delete:
 - Any `[placeholder]` text that wasn't filled in
 - Any guidance comments in square brackets
 
+### Optional: Running a Policy Audit with AI Assistants (Codex & Copilot)
+
+You can use Codex and GitHub Copilot to help fill out this template, but they should **follow this document and the canonical policy instructions**; they do not replace your judgment.
+
+#### Using Codex (web) for a full audit
+
+When working in Codex with this repo attached, you can kick off a full audit with a prompt like:
+
+> **Policy Audit – [short scope name]**  
+>  
+> Perform a **Policy Audit** for the following scope:  
+> - Scope: `[short description – e.g., “new PoshQC entrypoint tests for fix-all.ps1 on branch feature/PoshQc-#21”]`  
+> - Branch: `[branch name]`  
+>  
+> Use the **local audit instructions** in:  
+> - `docs/features/templates/policy_audit/AGENTS.md`  
+> - `docs/features/templates/policy_audit/README.md`  
+> - `docs/features/templates/policy_audit/PolicyAudit.template.md`  
+>  
+> Follow the README’s process and the AGENTS instructions to:  
+> 1. Create a new `PolicyAudit.md` for this scope (you may propose a pathname).  
+> 2. Evaluate compliance against all relevant policies:  
+>    - `.github/instructions/general-code-change.instructions.md`  
+>    - `.github/instructions/general-unit-test.instructions.md`  
+>    - `.github/instructions/python-code-change.instructions.md` / `python-unit-test.instructions.md`  
+>    - `.github/instructions/powershell-code-change.instructions.md` / `powershell-unit-test.instructions.md`  
+> 3. Fill out the template with concrete findings, status for each policy item, gaps/exceptions, and a final recommendation.  
+>  
+> Show the completed `PolicyAudit.md` as your final answer.
+
+Edit the **Scope** and **Branch** lines, then paste this into Codex. Always review the generated audit for accuracy before treating it as authoritative.
+
+#### Combined workflow: generate tests and audit in a single Codex task
+
+Sometimes you will ask Codex to both **write unit tests** for a file and then **audit** the original code plus those new tests. In that case:
+
+1. First describe the test work as usual, for example:  
+   > Write Pester tests for `scripts/dev-tools/fix-all.ps1` that comply with the PowerShell unit test policy…
+
+2. Then append a Policy Audit request, for example:  
+   > In addition to generating the unit tests described above, perform a **formal Policy Audit** for `fix-all.ps1` and the new tests you create.  
+   >  
+   > Use:  
+   > - `docs/features/templates/policy_audit/AGENTS.md`  
+   > - `docs/features/templates/policy_audit/README.md`  
+   > - `docs/features/templates/policy_audit/PolicyAudit.template.md`  
+   >  
+   > Create a new audit document named `YYYY-MM-DD-fix-all.PolicyAudit.md` (for today’s date) under an appropriate feature folder (for example `docs/features/active/PoshQc/`).  
+   > Evaluate compliance against:  
+   > - `.github/instructions/general-code-change.instructions.md`  
+   > - `.github/instructions/general-unit-test.instructions.md`  
+   > - `.github/instructions/powershell-code-change.instructions.md`  
+   > - `.github/instructions/powershell-unit-test.instructions.md`  
+   > and fill out the template with status (PASS / PARTIAL / FAIL / N/A), evidence, gaps/exceptions, and a final recommendation.
+
+This makes it explicit that you can treat “write tests” + “run audit” as one integrated Codex task, while still reusing the same policy-audit process and naming convention described above.
+
+#### Using GitHub Copilot Chat inside VS Code
+
+When you have a working copy of `PolicyAudit.template.md` open in VS Code (for example, `docs/features/active/<feature>/PolicyAudit.md`), you can ask Copilot Chat to help fill it in:
+
+> I am performing a **Policy Audit** for:  
+> - `[scope – e.g., “PowerShell PoshQC changes on feature/PoshQc-#21”]`  
+>  
+> Use the **policy audit process** defined in:  
+> - `docs/features/templates/policy_audit/README.md`  
+> - `docs/features/templates/policy_audit/AGENTS.md`  
+>  
+> And evaluate compliance against the canonical policies in:  
+> - `.github/instructions/general-code-change.instructions.md`  
+> - `.github/instructions/general-unit-test.instructions.md`  
+> - `.github/instructions/powershell-code-change.instructions.md`  
+> - `.github/instructions/powershell-unit-test.instructions.md`  
+>  
+> Fill in this `PolicyAudit.md` (the selected text) according to the template:  
+> - Mark each requirement as PASS / PARTIAL / FAIL / N/A with evidence.  
+> - Capture any gaps, exceptions, and the final recommendation.
+
+Best practice is to:
+
+- Select the body of the template before invoking Copilot Chat so it knows what to fill in.
+- Inspect every section of the generated audit against actual code, tests, and tool output.
+- Treat the AI output as a **draft**; final responsibility for correctness remains with the reviewer.
+
 ## Examples
 
 See the original completed audit that this template was derived from:
