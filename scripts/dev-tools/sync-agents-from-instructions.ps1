@@ -1,48 +1,20 @@
-param(
+﻿﻿param(
     [string]$RepoRoot = (Resolve-Path "$PSScriptRoot/../..")
 )
 
-$instructionsDir        = Join-Path $RepoRoot ".github/instructions"
+$instructionsDir = Join-Path $RepoRoot ".github/instructions"
 $copilotInstructionsPath = Join-Path $RepoRoot ".github/copilot-instructions.md"
-$agentsPath             = Join-Path $RepoRoot "AGENTS.md"
+$agentsPath = Join-Path $RepoRoot "AGENTS.md"
 
 # Map each instructions file to a section in AGENTS.md
 $sections = @(
-    @{
-        Key      = "general-code-change"
-        Title    = "General Code Change Policy"
-        FileName = "general-code-change.instructions.md"
-    },
-    @{
-        Key      = "general-unit-test"
-        Title    = "General Unit Test Policy"
-        FileName = "general-unit-test.instructions.md"
-    },
-    @{
-        Key      = "github-actions"
-        Title    = "GitHub Actions Workflow Policy"
-        FileName = "github-actions.instructions.md"
-    },
-    @{
-        Key      = "python-code-change"
-        Title    = "Python Code Change Policy"
-        FileName = "python-code-change.instructions.md"
-    },
-    @{
-        Key      = "python-unit-test"
-        Title    = "Python Unit Test Policy"
-        FileName = "python-unit-test.instructions.md"
-    },
-    @{
-        Key      = "powershell-code-change"
-        Title    = "PowerShell Code Change Policy"
-        FileName = "powershell-code-change.instructions.md"
-    },
-    @{
-        Key      = "powershell-unit-test"
-        Title    = "PowerShell Unit Test Policy"
-        FileName = "powershell-unit-test.instructions.md"
-    }
+    @{ Key = "general-code-change"; Title = "General Code Change Policy"; FileName = "general-code-change.instructions.md" },
+    @{ Key = "general-unit-test"; Title = "General Unit Test Policy"; FileName = "general-unit-test.instructions.md" },
+    @{ Key = "github-actions"; Title = "GitHub Actions Workflow Policy"; FileName = "github-actions.instructions.md" },
+    @{ Key = "python-code-change"; Title = "Python Code Change Policy"; FileName = "python-code-change.instructions.md" },
+    @{ Key = "python-unit-test"; Title = "Python Unit Test Policy"; FileName = "python-unit-test.instructions.md" },
+    @{ Key = "powershell-code-change"; Title = "PowerShell Code Change Policy"; FileName = "powershell-code-change.instructions.md" },
+    @{ Key = "powershell-unit-test"; Title = "PowerShell Unit Test Policy"; FileName = "powershell-unit-test.instructions.md" }
 )
 
 function Get-InstructionsBody {
@@ -80,7 +52,7 @@ $copilotBody
 # 2. Section blocks from .github/instructions/*.instructions.md
 $sectionBlocks = foreach ($section in $sections) {
     $filePath = Join-Path $instructionsDir $section.FileName
-    $body     = Get-InstructionsBody -Path $filePath
+    $body = Get-InstructionsBody -Path $filePath
 
     @"
 ## $($section.Title)
@@ -126,4 +98,4 @@ $header = @"
 $agentsContent = $header + "`n`n" + $copilotSection + "`n" + ($sectionBlocks -join "`n")
 
 Set-Content -LiteralPath $agentsPath -Value $agentsContent -NoNewline
-Write-Host "Updated $agentsPath from .github/copilot-instructions.md and .github/instructions/*.instructions.md"
+Write-Output "Updated $agentsPath from .github/copilot-instructions.md and .github/instructions/*.instructions.md"
