@@ -2,49 +2,18 @@ Set-StrictMode -Version Latest
 
 Describe "link-feature-docs.ps1" {
     BeforeAll {
+        $env:POSHQC_SKIP_SCRIPT_EXECUTION = '1'
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-feature-docs.ps1"
-
-        # Helper to import functions from scripts
-        function global:Import-ScriptFunction {
-            param(
-                [Parameter(Mandatory = $true)][string]$Path,
-                [Parameter(Mandatory = $true)][string]$Name
-            )
-
-            $resolved = (Resolve-Path -Path $Path).Path
-            if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-                $null = $null
-                $errors = $null
-                $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
-                if ($errors -and $errors.Count -gt 0) {
-                    throw "Failed to parse ${resolved}: $($errors[0].Message)"
-                }
-
-                $funcAst = $ast.Find(
-                    {
-                        param($node)
-                        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                        $node.Name -eq $Name
-                    },
-                    $true
-                )
-
-                if (-not $funcAst) {
-                    throw "Function $Name not found in $resolved"
-                }
-
-                return [scriptblock]::Create($funcAst.Extent.Text)
-            }
+        . $script:scriptPath
+        function global:gh {
+            param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+            $null = $Args
         }
     }
 
-    Context "Build-FeatureDocsBlock function" {
-        BeforeEach {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Build-FeatureDocsBlock")
-        }
-
+    Context "Build-FeatureDocumentationBlock function" {
         It "creates docs block with feature name in paths" {
-            $block = Build-FeatureDocsBlock -FeatureName "my-feature"
+            $block = Build-FeatureDocumentationBlock -FeatureName "my-feature"
             $block | Should -Match "## Feature Docs"
             $block | Should -Match "docs/features/active/my-feature/user-story.md"
             $block | Should -Match "docs/features/active/my-feature/spec.md"
@@ -52,21 +21,21 @@ Describe "link-feature-docs.ps1" {
         }
 
         It "handles feature names with underscores" {
-            $block = Build-FeatureDocsBlock -FeatureName "my_feature_name"
+            $block = Build-FeatureDocumentationBlock -FeatureName "my_feature_name"
             $block | Should -Match "docs/features/active/my_feature_name/user-story.md"
             $block | Should -Match "docs/features/active/my_feature_name/spec.md"
             $block | Should -Match "docs/features/active/my_feature_name/plan.md"
         }
 
         It "handles feature names with hyphens" {
-            $block = Build-FeatureDocsBlock -FeatureName "my-feature-name"
+            $block = Build-FeatureDocumentationBlock -FeatureName "my-feature-name"
             $block | Should -Match "docs/features/active/my-feature-name/user-story.md"
             $block | Should -Match "docs/features/active/my-feature-name/spec.md"
             $block | Should -Match "docs/features/active/my-feature-name/plan.md"
         }
 
         It "creates properly formatted markdown links" {
-            $block = Build-FeatureDocsBlock -FeatureName "test"
+            $block = Build-FeatureDocumentationBlock -FeatureName "test"
             $block | Should -Match "\[User Story\]\(docs/features/active/test/user-story.md\)"
             $block | Should -Match "\[Spec\]\(docs/features/active/test/spec.md\)"
             $block | Should -Match "\[Plan\]\(docs/features/active/test/plan.md\)"
@@ -74,10 +43,6 @@ Describe "link-feature-docs.ps1" {
     }
 
     Context "Set-OrAppendSection function" {
-        BeforeEach {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Set-OrAppendSection")
-        }
-
         It "replaces existing section content" {
             $content = @"
 ## Intro
@@ -201,6 +166,78 @@ other
             $updated = Set-OrAppendSection -Content $content -SectionHeading "## Feature Docs" -Replacement "## Feature Docs`nnew body"
             $updated | Should -Match "new body"
             $updated | Should -Not -Match "old body"
+        }
+    }
+
+    Context "Invoke-LinkFeatureDocument" {
+        BeforeEach {
+            $script:ghCalls = New-Object System.Collections.Generic.List[object]
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { @{ Name = 'gh' } }
+            Mock -CommandName gh -MockWith {
+                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+                $null = $Args
+                $script:ghCalls.Add($Args) | Out-Null
+                $global:LASTEXITCODE = 0
+                if ($Args[1] -eq 'view') {
+                    return '{"body":"## Intro`nexisting"}'
+                }
+                if ($Args[1] -eq 'edit') {
+                    return ""
+                }
+            }
+            Mock -CommandName Set-Content -MockWith { param($Path, $Value, $Encoding) $script:lastWrite = @{ Path = $Path; Value = $Value; Encoding = $Encoding } }
+            Mock -CommandName Remove-Item -MockWith { }
+            Mock -CommandName Write-Output -MockWith {
+                param([Parameter(ValueFromRemainingArguments = $true)]$Message, $InputObject)
+                if ($PSBoundParameters.ContainsKey('InputObject')) {
+                    $script:lastMessage = $InputObject
+                } else {
+                    $script:lastMessage = $Message
+                }
+            }
+        }
+
+        It "throws when issue number is missing" {
+            $action = { Invoke-LinkFeatureDocument -IssueNumberParam '' -FeatureNameParam 'feature' }
+            Should -ActualValue $action -Throw -ExceptionType ([System.InvalidOperationException]) -ExpectedMessage 'Issue number is required*'
+        }
+
+        It "throws when feature name is missing" {
+            $action = { Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam '' }
+            Should -ActualValue $action -Throw -ExceptionType ([System.InvalidOperationException]) -ExpectedMessage 'Feature name is required*'
+        }
+
+        It "throws when gh view fails" {
+            Mock -CommandName gh -MockWith {
+                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+                $null = $Args
+                $global:LASTEXITCODE = 1
+                return ""
+            }
+
+            $action = { Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam 'demo' }
+            Should -ActualValue $action -Throw -ExceptionType ([System.InvalidOperationException]) -ExpectedMessage 'Unable to fetch issue #42*'
+        }
+
+        It "throws when issue body is empty" {
+            Mock -CommandName gh -MockWith {
+                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
+                $null = $Args
+                $global:LASTEXITCODE = 0
+                if ($Args[1] -eq 'view') { return '{"body":""}' }
+                return ""
+            }
+
+            $action = { Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam 'demo' }
+            Should -ActualValue $action -Throw -ExceptionType ([System.InvalidOperationException]) -ExpectedMessage 'Issue #42 has an empty body*'
+        }
+
+        It "writes updated body and commits changes" {
+            Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam 'demo'
+
+            $script:lastWrite.Value | Should -Match "## Feature Docs"
+            $script:lastWrite.Path | Should -Not -BeNullOrEmpty
+            $script:lastMessage | Should -Match 'Updated issue #42'
         }
     }
 }
