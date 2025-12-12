@@ -1,9 +1,7 @@
 # Updates a GitHub issue body to include links to feature docs (user story, spec, plan).
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
     [string] $IssueNumber,
-    [Parameter(Mandatory = $true)]
     [string] $FeatureName
 )
 
@@ -17,25 +15,7 @@ function Write-ScriptError {
     exit 1
 }
 
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
-}
-
-$issueJson = & gh issue view $IssueNumber --json body
-if ($LASTEXITCODE -ne 0 -or -not $issueJson) {
-    Write-ScriptError "Unable to fetch issue #$IssueNumber. Check the number and gh auth."
-}
-
-$issue = $issueJson | ConvertFrom-Json
-$body = $issue.body
-if ([string]::IsNullOrWhiteSpace($body)) {
-    Write-ScriptError "Issue #$IssueNumber has an empty body; aborting to avoid overwriting content."
-}
-
-# Normalize feature name to both underscore and hyphen variants for paths
-$featurePath = $FeatureName
-
-function Build-FeatureDocsBlock {
+function Build-FeatureDocumentationBlock {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -50,8 +30,6 @@ function Build-FeatureDocsBlock {
 - [Plan](docs/features/active/$FeatureName/plan.md)
 "@
 }
-
-$docsBlock = Build-FeatureDocsBlock -FeatureName $featurePath
 
 function Set-OrAppendSection {
     [CmdletBinding(SupportsShouldProcess = $true)]
@@ -79,17 +57,62 @@ function Set-OrAppendSection {
     return $Content.TrimEnd() + "`n`n" + $Replacement.TrimEnd()
 }
 
-$newBody = Set-OrAppendSection -Content $body -SectionHeading "## Feature Docs" -Replacement $docsBlock
+function Invoke-LinkFeatureDocument {
+    [CmdletBinding()]
+    param(
+        [string] $IssueNumberParam,
+        [string] $FeatureNameParam
+    )
 
-$tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
-Set-Content -Path $tmp -Value $newBody -Encoding UTF8
+    if ([string]::IsNullOrWhiteSpace($IssueNumberParam)) {
+        Write-ScriptError "Issue number is required."
+    }
 
-& gh issue edit $IssueNumber --body-file $tmp
-$exit = $LASTEXITCODE
-Remove-Item $tmp -ErrorAction SilentlyContinue
+    if ([string]::IsNullOrWhiteSpace($FeatureNameParam)) {
+        Write-ScriptError "Feature name is required."
+    }
 
-if ($exit -eq 0) {
-    Write-Output "Updated issue #$IssueNumber with Feature Docs links."
-} else {
-    Write-ScriptError "Failed to update issue #$IssueNumber."
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
+        Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
+    }
+
+    $issueJson = & gh issue view $IssueNumberParam --json body
+    if ($LASTEXITCODE -ne 0 -or -not $issueJson) {
+        Write-ScriptError "Unable to fetch issue #$IssueNumberParam. Check the number and gh auth."
+    }
+
+    $issue = $issueJson | ConvertFrom-Json
+    $body = $issue.body
+    if ([string]::IsNullOrWhiteSpace($body)) {
+        Write-ScriptError "Issue #$IssueNumberParam has an empty body; aborting to avoid overwriting content."
+    }
+
+    # Normalize feature name to both underscore and hyphen variants for paths
+    $featurePath = $FeatureNameParam
+    $docsBlock = Build-FeatureDocumentationBlock -FeatureName $featurePath
+
+    $newBody = Set-OrAppendSection -Content $body -SectionHeading "## Feature Docs" -Replacement $docsBlock
+
+    $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
+    Set-Content -Path $tmp -Value $newBody -Encoding UTF8
+
+    & gh issue edit $IssueNumberParam --body-file $tmp
+    $exit = $LASTEXITCODE
+    Remove-Item $tmp -ErrorAction SilentlyContinue
+
+    if ($exit -eq 0) {
+        Write-Output "Updated issue #$IssueNumberParam with Feature Docs links."
+    } else {
+        Write-ScriptError "Failed to update issue #$IssueNumberParam."
+    }
 }
+
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
+    return
+}
+
+Invoke-LinkFeatureDocument -IssueNumberParam $IssueNumber -FeatureNameParam $FeatureName

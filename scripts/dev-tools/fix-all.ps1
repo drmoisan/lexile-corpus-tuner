@@ -65,6 +65,14 @@ function Invoke-Command-WithStatus {
     return $exitCode
 }
 
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
+    return
+}
+
 # Step 1: Run Black formatting
 Write-Step "Step 1: Running Black formatting..."
 $exitCode = Invoke-Command-WithStatus -CommandParts @('poetry', 'run', 'black', '.') -StepName "Black: format"

@@ -1,49 +1,18 @@
 Set-StrictMode -Version Latest
 
-function global:Import-ScriptFunction {
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Name
-    )
-
-    $resolved = (Resolve-Path -Path $Path).Path
-    if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-        $null = $null
-        $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
-        if ($errors -and $errors.Count -gt 0) {
-            throw "Failed to parse ${resolved}: $($errors[0].Message)"
-        }
-
-        $funcAst = $ast.Find(
-            {
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq $Name
-            },
-            $true
-        )
-
-        if (-not $funcAst) {
-            throw "Function $Name not found in $resolved"
-        }
-
-        return [scriptblock]::Create($funcAst.Extent.Text)
-    }
+BeforeAll {
+    $env:POSHQC_SKIP_SCRIPT_EXECUTION = '1'
+    $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
+    . $script:scriptPath
 }
 
 Describe "link-parent-child.ps1 - Read-IssueNumber" {
     It "trims provided issue number" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Read-IssueNumber")
         $result = Read-IssueNumber -Label "child" -Value " 42 "
         $result | Should -Be "42"
     }
 
     It "errors when no issue number supplied" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Read-IssueNumber")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Write-ScriptError")
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
         Mock -CommandName Read-Host -MockWith { "" }
@@ -54,8 +23,6 @@ Describe "link-parent-child.ps1 - Read-IssueNumber" {
     }
 
     It "prompts user when issue number is empty" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Read-IssueNumber")
         Mock -CommandName Read-Host -MockWith { "123" }
 
         $result = Read-IssueNumber -Label "child" -Value ""
@@ -64,8 +31,6 @@ Describe "link-parent-child.ps1 - Read-IssueNumber" {
     }
 
     It "prompts user when issue number is whitespace" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Read-IssueNumber")
         Mock -CommandName Read-Host -MockWith { "456" }
 
         $result = Read-IssueNumber -Label "parent" -Value "   "
@@ -75,8 +40,6 @@ Describe "link-parent-child.ps1 - Read-IssueNumber" {
 
 Describe "link-parent-child.ps1 - Test-GhCli" {
     It "succeeds when gh is available" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Test-GhCli")
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq "gh" } -MockWith {
             [pscustomobject]@{ Name = "gh"; Source = "/usr/bin/gh" }
         }
@@ -85,9 +48,6 @@ Describe "link-parent-child.ps1 - Test-GhCli" {
     }
 
     It "errors when gh is not found" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Test-GhCli")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Write-ScriptError")
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
         Mock -CommandName Get-Command -ParameterFilter { $Name -eq "gh" } -MockWith { $null }
@@ -100,8 +60,6 @@ Describe "link-parent-child.ps1 - Test-GhCli" {
 
 Describe "link-parent-child.ps1 - Get-Issue" {
     It "returns parsed JSON when gh succeeds" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Issue")
         $mockJson = '{"number":42,"title":"Test Issue","url":"https://github.com/test/repo/issues/42","body":"Issue body"}'
         Mock -CommandName gh -MockWith {
             $global:LASTEXITCODE = 0
@@ -117,9 +75,6 @@ Describe "link-parent-child.ps1 - Get-Issue" {
     }
 
     It "errors when gh command fails" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Issue")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Write-ScriptError")
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
         Mock -CommandName gh -MockWith {
@@ -133,9 +88,6 @@ Describe "link-parent-child.ps1 - Get-Issue" {
     }
 
     It "errors when gh returns empty output" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Issue")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Write-ScriptError")
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
         Mock -CommandName gh -MockWith {

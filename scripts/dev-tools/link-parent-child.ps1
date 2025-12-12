@@ -42,6 +42,14 @@ function Get-Issue {
     return $json | ConvertFrom-Json
 }
 
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
+    return
+}
+
 Test-GhCli
 
 $ChildIssueNumber = Read-IssueNumber -Label "child" -Value $ChildIssueNumber

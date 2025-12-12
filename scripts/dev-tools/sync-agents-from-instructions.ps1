@@ -1,52 +1,22 @@
+﻿[CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path "$PSScriptRoot/../..")
 )
 
-$instructionsDir        = Join-Path $RepoRoot ".github/instructions"
-$copilotInstructionsPath = Join-Path $RepoRoot ".github/copilot-instructions.md"
-$agentsPath             = Join-Path $RepoRoot "AGENTS.md"
-
-# Map each instructions file to a section in AGENTS.md
 $sections = @(
-    @{
-        Key      = "general-code-change"
-        Title    = "General Code Change Policy"
-        FileName = "general-code-change.instructions.md"
-    },
-    @{
-        Key      = "general-unit-test"
-        Title    = "General Unit Test Policy"
-        FileName = "general-unit-test.instructions.md"
-    },
-    @{
-        Key      = "github-actions"
-        Title    = "GitHub Actions Workflow Policy"
-        FileName = "github-actions.instructions.md"
-    },
-    @{
-        Key      = "python-code-change"
-        Title    = "Python Code Change Policy"
-        FileName = "python-code-change.instructions.md"
-    },
-    @{
-        Key      = "python-unit-test"
-        Title    = "Python Unit Test Policy"
-        FileName = "python-unit-test.instructions.md"
-    },
-    @{
-        Key      = "powershell-code-change"
-        Title    = "PowerShell Code Change Policy"
-        FileName = "powershell-code-change.instructions.md"
-    },
-    @{
-        Key      = "powershell-unit-test"
-        Title    = "PowerShell Unit Test Policy"
-        FileName = "powershell-unit-test.instructions.md"
-    }
+    @{ Key = "general-code-change"; Title = "General Code Change Policy"; FileName = "general-code-change.instructions.md" },
+    @{ Key = "general-unit-test"; Title = "General Unit Test Policy"; FileName = "general-unit-test.instructions.md" },
+    @{ Key = "github-actions"; Title = "GitHub Actions Workflow Policy"; FileName = "github-actions.instructions.md" },
+    @{ Key = "python-code-change"; Title = "Python Code Change Policy"; FileName = "python-code-change.instructions.md" },
+    @{ Key = "python-unit-test"; Title = "Python Unit Test Policy"; FileName = "python-unit-test.instructions.md" },
+    @{ Key = "powershell-code-change"; Title = "PowerShell Code Change Policy"; FileName = "powershell-code-change.instructions.md" },
+    @{ Key = "powershell-unit-test"; Title = "PowerShell Unit Test Policy"; FileName = "powershell-unit-test.instructions.md" }
 )
 
 function Get-InstructionsBody {
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory = $true)]
         [string]$Path
     )
 
@@ -56,7 +26,6 @@ function Get-InstructionsBody {
 
     $content = Get-Content -Raw -LiteralPath $Path
 
-    # Strip YAML frontmatter if present (between leading --- lines)
     if ($content -match '^\s*---\s*[\s\S]*?---\s*') {
         $content = $content -replace '^\s*---\s*[\s\S]*?---\s*', ''
     }
@@ -64,10 +33,20 @@ function Get-InstructionsBody {
     return $content.Trim()
 }
 
-# 1. Copilot repo-wide instructions (go first in AGENTS.md)
-$copilotBody = Get-InstructionsBody -Path $copilotInstructionsPath
+function Get-AgentContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRootParam
+    )
 
-$copilotSection = @"
+    $instructionsDirPath = Join-Path $RepoRootParam ".github/instructions"
+    $copilotPath = Join-Path $RepoRootParam ".github/copilot-instructions.md"
+    $agentsTarget = Join-Path $RepoRootParam "AGENTS.md"
+
+    $copilotBody = Get-InstructionsBody -Path $copilotPath
+
+    $copilotSection = @"
 ## Repository Instructions (GitHub Copilot Canonical)
 
 <!-- BEGIN: copilot-instructions -->
@@ -77,12 +56,11 @@ $copilotBody
 
 "@
 
-# 2. Section blocks from .github/instructions/*.instructions.md
-$sectionBlocks = foreach ($section in $sections) {
-    $filePath = Join-Path $instructionsDir $section.FileName
-    $body     = Get-InstructionsBody -Path $filePath
+    $sectionBlocks = foreach ($section in $sections) {
+        $filePath = Join-Path $instructionsDirPath $section.FileName
+        $body = Get-InstructionsBody -Path $filePath
 
-    @"
+        @"
 ## $($section.Title)
 
 <!-- BEGIN: $($section.Key) -->
@@ -91,10 +69,9 @@ $body
 <!-- END: $($section.Key) -->
 
 "@
-}
+    }
 
-# 3. Header for AGENTS.md
-$header = @"
+    $header = @"
 # AGENTS.md
 
 > NOTE: This file is **generated** from:
@@ -121,9 +98,38 @@ $header = @"
 - Use the language- and domain-specific sections for Python, PowerShell, and CI behavior.
 "@
 
-# 4. Assemble final AGENTS.md content:
-#    header → copilot section → all other sections
-$agentsContent = $header + "`n`n" + $copilotSection + "`n" + ($sectionBlocks -join "`n")
+    $agentsContent = $header + "`n`n" + $copilotSection + "`n" + ($sectionBlocks -join "`n")
 
-Set-Content -LiteralPath $agentsPath -Value $agentsContent -NoNewline
-Write-Host "Updated $agentsPath from .github/copilot-instructions.md and .github/instructions/*.instructions.md"
+    return [pscustomobject]@{ Path = $agentsTarget; Content = $agentsContent }
+}
+
+function Invoke-SyncAgentInstruction {
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRootParam
+    )
+
+    $result = Get-AgentContent -RepoRootParam $RepoRootParam
+    if (-not $PSCmdlet.ShouldProcess($result.Path, 'Update AGENTS.md')) {
+        return
+    }
+
+    Set-Content -LiteralPath $result.Path -Value $result.Content -NoNewline
+    Write-Output "Updated $($result.Path) from .github/copilot-instructions.md and .github/instructions/*.instructions.md"
+}
+
+if ($MyInvocation.InvocationName -eq '.') {
+    return
+}
+
+if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
+    return
+}
+
+Invoke-SyncAgentInstruction -RepoRootParam $RepoRoot
+
+
+
+
+
