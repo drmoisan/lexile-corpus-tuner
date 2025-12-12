@@ -8,6 +8,8 @@ Plan to fix failing Pester tests in `tests/powershell/PoshQC.Tests.ps1`, refacto
 - [ ] [P0-T2] Read `.github/instructions/powershell-unit-test.instructions.md` and capture key constraints (Pester v5, repo runsettings, organization, mocking guidance) in the same note.
 - [ ] [P0-T3] Review `scripts/powershell/PoshQC/PoshQC.psm1` and list each function, its purpose, and external dependencies (filesystem, PS modules, network, logging).
 - [ ] [P0-T4] Review `tests/powershell/PoshQC.Tests.ps1` and existing PoshQC feature docs (`plan.md`, `test-remediation-plan.md`) to understand current coverage and expectations.
+- [ ] [P0-T5] Read all files recursively under `scripts/` (dev-tools, powershell) and note purpose plus external dependencies for each script (git, actionlint, perl, lpass, filesystem, env vars).
+- [ ] [P0-T6] Read all tests under `tests/powershell` and `tests/scripts` and map each test file to the script it covers, noting any skip conditions or external dependency usage.
 
 **Phase 1 — Current State & Failure Capture**
 - [ ] [P1-T1] Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."` and record failing tests with error messages and stack traces in a short log file.
@@ -88,3 +90,75 @@ Plan to fix failing Pester tests in `tests/powershell/PoshQC.Tests.ps1`, refacto
 - [ ] [P5-T1] Run PoshQC formatter and analyzer tasks (`Invoke-PoshQCFormat`, `Invoke-PoshQCAnalyze`) against the PowerShell files to ensure policy compliance after changes.
 - [ ] [P5-T2] Run Pester via `Invoke-PoshQCTest -Root .` with coverage enabled, confirming >90% coverage for `PoshQC.psm1` and capturing the report artifact.
 - [ ] [P5-T3] Update relevant feature docs (e.g., `plan.md`, `test-remediation-plan.md`) with the completed tasks and coverage results, noting any deviations from policies.
+
+**Phase 6 — Non-PoshQC Inventory & Failures**
+- [ ] [P6-T1] Enumerate all non-PoshQC scripts under `scripts/dev-tools` and `scripts/powershell` with their external dependencies (git, actionlint, perl, lpass, filesystem paths, env vars).
+- [ ] [P6-T2] Map tests in `tests/powershell/**/*.Tests.ps1` and `tests/scripts/**/*.Tests.ps1` to their target scripts, noting skips and external dependency use.
+- [ ] [P6-T3] Run `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."` and log failing non-PoshQC tests with stack traces.
+- [ ] [P6-T4] Capture current coverage for `scripts/dev-tools/*.ps1` and `scripts/powershell/**/*.ps1` (excluding PoshQC) from the Pester report, listing functions below 90% coverage.
+
+**Phase 7 — Non-PoshQC Testability & Injection Design**
+- [ ] [P7-T1] Draft dependency maps per non-PoshQC script showing external commands, environment inputs, and filesystem touches that need injection or wrapping.
+- [ ] [P7-T2] Define shared test helpers (mock runners, in-memory file maps, clock/random seeds) to replace external calls across dev-tools tests.
+- [ ] [P7-T3] Specify deterministic ordering/normalization rules for file enumerations and output paths to stabilize assertions across scripts.
+
+**Phase 8 — Non-PoshQC Script Refactors**
+- [ ] [P8-T1] `collect-commit-context.ps1`: inject file writer and command runner; guard git failures with deterministic errors.
+- [ ] [P8-T2] `collect-commit-context.ps1`: add allow-fail placeholder path using injected logger/writer without filesystem writes.
+- [ ] [P8-T3] `collect-pull-request-context.ps1`: inject diff provider and numstat parser inputs; isolate brace-rename formatting logic.
+- [ ] [P8-T4] `collect-pull-request-context.ps1`: add malformed/empty diff handling with deterministic errors.
+- [ ] [P8-T5] `fix-all.ps1`: inject command runner and logger; ensure non-zero exits propagate deterministically.
+- [ ] [P8-T6] `link-feature-docs.ps1`: inject file reader/writer; ensure append/replace behavior is deterministic when section missing.
+- [ ] [P8-T7] `link-parent-child.ps1`: inject input provider and error logger; make validation paths testable without stdin.
+- [ ] [P8-T8] `new-active-feature-folder.ps1`: inject filesystem creator and template loader; normalize checklist deterministically.
+- [ ] [P8-T9] `new-potential-entry.ps1`: inject short-name pattern provider/validator; expose validation outcomes without filesystem.
+- [ ] [P8-T10] `potential-to-issue.ps1`: inject content reader/writer and section extractor; guard missing-section errors deterministically.
+- [ ] [P8-T11] `run-actionlint.ps1`: inject binary locator and command runner; add deterministic errors for missing binary and non-zero exit codes.
+- [ ] [P8-T12] `run-cloc.ps1`: finalize injection for cloc exe/script selection and perl detection; ensure deterministic errors for missing binaries.
+- [ ] [P8-T13] `sync-agents-from-instructions.ps1`: inject git status/diff provider and file writer; guard missing instruction files with deterministic errors.
+- [ ] [P8-T14] `tree.ps1`: inject file enumerator/attribute provider; make hidden/exclude handling deterministic without real filesystem.
+- [ ] [P8-T15] `scripts/powershell/convert-poshqc-coverage.ps1` (if present): inject reader/writer and repo-root resolver; honor pass-thru/skip paths without disk access.
+
+**Phase 9 — Non-PoshQC Test Remediation & Coverage**
+- [ ] [P9-T1] Add tests for `collect-commit-context.ps1` covering success capture via injected writer/runner.
+- [ ] [P9-T2] Add tests for `collect-commit-context.ps1` covering allow-fail placeholder emission.
+- [ ] [P9-T3] Add tests for `collect-commit-context.ps1` covering git failure path with deterministic error.
+- [ ] [P9-T4] Add tests for `collect-pull-request-context.ps1` covering brace-rename formatting.
+- [ ] [P9-T5] Add tests for `collect-pull-request-context.ps1` covering numstat parsing totals/file list.
+- [ ] [P9-T6] Add tests for `collect-pull-request-context.ps1` covering extension summary counts.
+- [ ] [P9-T7] Add tests for `collect-pull-request-context.ps1` covering issue reference extraction.
+- [ ] [P9-T8] Add tests for `collect-pull-request-context.ps1` covering malformed/empty diff handling.
+- [ ] [P9-T9] Add tests for `fix-all.ps1` covering step/success/failure logging with injected runner.
+- [ ] [P9-T10] Add tests for `fix-all.ps1` covering non-zero exit propagation.
+- [ ] [P9-T11] Add tests for `link-feature-docs.ps1` covering section replace behavior.
+- [ ] [P9-T12] Add tests for `link-feature-docs.ps1` covering append-when-missing behavior.
+- [ ] [P9-T13] Add tests for `link-parent-child.ps1` covering trimmed inputs with injected input provider.
+- [ ] [P9-T14] Add tests for `link-parent-child.ps1` covering missing-input validation path.
+- [ ] [P9-T15] Add tests for `new-active-feature-folder.ps1` covering checklist normalization.
+- [ ] [P9-T16] Add tests for `new-active-feature-folder.ps1` covering section extraction/replacement.
+- [ ] [P9-T17] Add tests for `new-active-feature-folder.ps1` covering placeholder substitution.
+- [ ] [P9-T18] Add tests for `new-potential-entry.ps1` covering valid short-name acceptance via injected validator.
+- [ ] [P9-T19] Add tests for `new-potential-entry.ps1` covering invalid short-name rejection.
+- [ ] [P9-T20] Add tests for `potential-to-issue.ps1` covering section extraction.
+- [ ] [P9-T21] Add tests for `potential-to-issue.ps1` covering metadata line insertion.
+- [ ] [P9-T22] Add tests for `potential-to-issue.ps1` covering missing-section error path.
+- [ ] [P9-T23] Add tests for `run-actionlint.ps1` covering missing binary error via injected locator.
+- [ ] [P9-T24] Add tests for `run-actionlint.ps1` covering non-zero exit handling via injected runner.
+- [ ] [P9-T25] Add tests for `run-cloc.ps1` covering cloc.exe preference on Windows via injected binaries.
+- [ ] [P9-T26] Add tests for `run-cloc.ps1` covering perl fallback when cloc.exe absent.
+- [ ] [P9-T27] Add tests for `run-cloc.ps1` covering missing binary error path.
+- [ ] [P9-T28] Add tests for `run-cloc.ps1` covering custom path parameter handling.
+- [ ] [P9-T29] Add tests for `sync-agents-from-instructions.ps1` covering missing instruction file error.
+- [ ] [P9-T30] Add tests for `sync-agents-from-instructions.ps1` covering successful sync with injected content/writer.
+- [ ] [P9-T31] Add tests for `sync-agents-from-instructions.ps1` covering git-dirty detection via injected provider.
+- [ ] [P9-T32] Add tests for `tree.ps1` covering exclusions and hidden-entry toggle with injected enumerator.
+- [ ] [P9-T33] Add tests for `tree.ps1` covering directories-only toggle.
+- [ ] [P9-T34] Add tests for `convert-poshqc-coverage.ps1` covering missing input skip with injected logger.
+- [ ] [P9-T35] Add tests for `convert-poshqc-coverage.ps1` covering pass-thru returning converted content without writes.
+- [ ] [P9-T36] Add tests for `convert-poshqc-coverage.ps1` covering default output path derivation for `.koverage.xml`.
+
+**Phase 10 — Non-PoshQC Policy Compliance**
+- [ ] [P10-T1] Verify refactored non-PoshQC scripts stay under 500 lines and remain cohesive; add minimal comments for non-obvious injections.
+- [ ] [P10-T2] Run PoshQC formatter/analyzer on modified non-PoshQC scripts/tests and fix all findings.
+- [ ] [P10-T3] Run `Invoke-PoshQCTest -Root .` with coverage enabled to confirm >90% coverage for modified non-PoshQC scripts and absence of external dependency calls during tests.
+- [ ] [P10-T4] Update docs (existing plan/test-remediation notes) with completed non-PoshQC tasks, coverage results, and any residual risks.
