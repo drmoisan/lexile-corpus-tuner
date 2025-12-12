@@ -1,9 +1,8 @@
 ---
-applyTo: "**/*.ps1"
+applyTo: "**/*.ps1,**/*.psm1,**/*.psd1,**/*.ps1xml"
 name: powershell-code-change-policy
 description: "PowerShell-specific code change rules layered on top of the general code change policy"
 ---
-
 # PowerShell Code Change Policy
 
 This policy **extends** `general-code-change.instructions.md` and applies to all PowerShell source, scripts, and modules (`*.ps1`, `*.psm1`) in this repo.
