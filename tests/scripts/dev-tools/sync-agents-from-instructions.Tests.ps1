@@ -27,7 +27,8 @@ line2
             Mock -CommandName Get-Content -MockWith { $content }
 
             $result = Get-InstructionsBody -Path "dummy.md"
-            $result | Should -Be "line1`nline2"
+            $normalized = $result -replace "`r`n", "`n"
+            $normalized | Should -Be "line1`nline2"
         }
     }
 
@@ -54,7 +55,8 @@ line2
         It "builds AGENTS content with all sections" {
             $result = Get-AgentContent -RepoRootParam "/repo"
 
-            $result.Path | Should -Be "/repo/AGENTS.md"
+            $expectedPath = Join-Path -Path "/repo" -ChildPath "AGENTS.md"
+            $result.Path | Should -Be $expectedPath
             $result.Content | Should -Match "# AGENTS.md"
             $result.Content | Should -Match "copilot body"
             $result.Content | Should -Match "general code"
