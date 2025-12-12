@@ -1,6 +1,6 @@
 @{
     Run          = @{
-        Path = @('scripts', 'tests/powershell')
+        Path = @('scripts', 'tests/powershell', 'tests/scripts')
         Exit = $true
     }
 

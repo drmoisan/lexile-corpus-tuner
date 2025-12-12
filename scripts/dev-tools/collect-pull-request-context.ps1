@@ -148,7 +148,7 @@ function ConvertFrom-Numstat {
     $adds = 0
     $dels = 0
     $files = @()
-    foreach ($line in ($NumstatText -split "`n")) {
+    foreach ($line in ($NumstatText -split '\r?\n')) {
         if (-not $line) { continue }
         $parts = $line -split "`t"
         if ($parts.Count -ge 3) {
