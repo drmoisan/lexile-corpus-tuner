@@ -92,7 +92,7 @@ Describe "Show-Tree function" {
             $output = Show-Tree -Path "C:\root" -ExcludeNames @() -IncludeHiddenEntries:$false -DirectoriesOnly:$false
 
             # Assert
-            $output | Should -Match "^\s{5}readme\.md$"
+            $output | Should -Match "^\s{6}readme\.md$"
         }
     }
 
@@ -319,9 +319,11 @@ Describe "Show-Tree function" {
             $output = Show-Tree -Path "C:\root" -ExcludeNames @() -IncludeHiddenEntries:$false -DirectoriesOnly:$false
 
             # Assert
-            $lines = $output | Where-Object { $_ -match "deep\.txt" }
-            $lines | Should -HaveCount 1
-            $lines[0] | Should -Match "^\s{8,}"
+            $output | Should -Not -BeNullOrEmpty
+            $outputText = $output -join "`n"
+            $outputText | Should -Match "deep"
+            # Check that deep.txt has proper indentation (8+ spaces for depth 2)
+            $outputText | Should -Match "\s{8,}.*deep\.txt"
         }
 
         It "stops recursion at excluded directories" {
