@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$RepoRoot = (Resolve-Path "$PSScriptRoot/../..")
 )
@@ -128,6 +128,7 @@ if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
 }
 
 Invoke-SyncAgentInstruction -RepoRootParam $RepoRoot
+
 
 
 
