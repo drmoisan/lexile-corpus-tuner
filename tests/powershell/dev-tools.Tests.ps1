@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
 . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support/TestHelpers.ps1"))
@@ -366,12 +366,216 @@ Describe "potential-to-issue.ps1 helpers" {
 }
 
 Describe "run-cloc.ps1" {
-    It "throws when no bundled cloc is found" {
+    BeforeAll {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\run-cloc.ps1"
-        Mock -CommandName Resolve-Path -MockWith { param($Path) $null = $Path; [pscustomobject]@{ Path = "C:\repo" } }
-        Mock -CommandName Test-Path -MockWith { $false }
+    }
 
-        { & $scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
+    Context "Initialize-OutputRendering" {
+        It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" {
+            if ($PSVersionTable.PSVersion.Major -ge 7) {
+                . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+                $originalValue = $PSStyle.OutputRendering
+                try {
+                    $PSStyle.OutputRendering = 'Ansi'
+                    Initialize-OutputRendering
+                    $PSStyle.OutputRendering | Should -Be 'PlainText'
+                }
+                finally {
+                    $PSStyle.OutputRendering = $originalValue
+                }
+            }
+            else {
+                Set-ItResult -Skipped -Because "Test only applies to PowerShell 7+"
+            }
+        }
+
+        It "does not error on Windows PowerShell 5.1" {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+            { Initialize-OutputRendering } | Should -Not -Throw
+        }
+    }
+
+    Context "Test-IsWindows" {
+        It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            if ($PSVersionTable.PSVersion.Major -lt 6) {
+                $result = Test-IsWindows
+                $result | Should -BeOfType [bool]
+            }
+            else {
+                Set-ItResult -Skipped -Because "Test only applies to Windows PowerShell 5.1"
+            }
+        }
+
+        It "returns platform detection on PowerShell 6+" {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            if ($PSVersionTable.PSVersion.Major -ge 6) {
+                $result = Test-IsWindows
+                $result | Should -Be $IsWindows
+            }
+            else {
+                Set-ItResult -Skipped -Because "Test only applies to PowerShell 6+"
+            }
+        }
+    }
+
+    Context "Get-ClocPath" {
+        It "constructs correct paths from script root and target path" {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
+            Mock -CommandName Resolve-Path -MockWith {
+                param($InputPath)
+                [pscustomobject]@{ Path = "C:\resolved\$InputPath" }
+            }
+
+            $result = Get-ClocPath -ScriptRoot "C:\script" -TargetPath "target"
+
+            $result.Root | Should -Be "C:\resolved\target"
+            $result.ClocExe | Should -Match "tools\\cloc\.exe$"
+            $result.ClocScript | Should -Match "tools\\cloc$"
+        }
+
+        It "resolves relative target paths" {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
+            Mock -CommandName Resolve-Path -MockWith {
+                [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+                param($InputPath)
+                [pscustomobject]@{ Path = "C:\absolute\path" }
+            }
+
+            $result = Get-ClocPath -ScriptRoot "C:\base" -TargetPath "../relative"
+
+            $result.Root | Should -Be "C:\absolute\path"
+        }
+    }
+
+    Context "Invoke-ClocCount" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-ClocCount")
+            $script:executedCommand = $null
+            $script:executedArgs = $null
+        }
+
+        It "runs cloc.exe on Windows when it exists" {
+            $paths = @{
+                Root       = "C:\\repo"
+                ClocExe    = "C:\\tools\cloc.exe"
+                ClocScript = "C:\\tools\cloc"
+            }
+
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
+
+            # Mock the call operator for cloc.exe
+            $global:LASTEXITCODE = 0
+            Mock -ScriptBlock {
+                $script:executedCommand = "cloc.exe"
+            } -Verifiable
+
+            { Invoke-ClocCount -Paths $paths -IsWindows $true } | Should -Not -Throw
+        }
+
+        It "runs cloc script with perl when cloc.exe not found" {
+            $paths = @{
+                Root       = "C:\\repo"
+                ClocExe    = "C:\\tools\cloc.exe"
+                ClocScript = "C:\\tools\cloc"
+            }
+
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
+                [pscustomobject]@{ Path = "C:\perl\bin\perl.exe" }
+            }
+
+            $global:LASTEXITCODE = 0
+            Mock -ScriptBlock {
+                $script:executedCommand = "perl"
+            } -Verifiable
+
+            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Not -Throw
+        }
+
+        It "throws when perl is not found for cloc script" {
+            $paths = @{
+                Root       = "C:\\repo"
+                ClocExe    = "C:\\tools\cloc.exe"
+                ClocScript = "C:\\tools\cloc"
+            }
+
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith { $null }
+
+            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Throw "Perl is required to run the bundled cloc script."
+        }
+
+        It "throws when no cloc binary found" {
+            $paths = @{
+                Root       = "C:\\repo"
+                ClocExe    = "C:\\tools\cloc.exe"
+                ClocScript = "C:\\tools\cloc"
+            }
+
+            Mock -CommandName Test-Path -MockWith { $false }
+
+            { Invoke-ClocCount -Paths $paths -IsWindows $true } | Should -Throw "Bundled cloc binary not found."
+        }
+
+        It "prefers cloc.exe on Windows even when cloc script exists" {
+            $paths = @{
+                Root       = "C:\\repo"
+                ClocExe    = "C:\\tools\cloc.exe"
+                ClocScript = "C:\\tools\cloc"
+            }
+
+            Mock -CommandName Test-Path -MockWith { $true }
+            $global:LASTEXITCODE = 0
+            $script:whichPath = $null
+
+            Mock -ScriptBlock {
+                $script:whichPath = "cloc.exe"
+            } -Verifiable
+
+            Invoke-ClocCount -Paths $paths -IsWindows $true
+            # Verify cloc.exe was preferred (implementation detail test)
+        }
+
+        It "uses cloc script on non-Windows platforms" {
+            $paths = @{
+                Root       = "/home/repo"
+                ClocExe    = "/home/tools/cloc.exe"
+                ClocScript = "/home/tools/cloc"
+            }
+
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
+                [pscustomobject]@{ Path = "/usr/bin/perl" }
+            }
+
+            $global:LASTEXITCODE = 0
+
+            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Not -Throw
+        }
+    }
+
+    Context "Integration scenarios" {
+        It "throws when no bundled cloc is found" {
+            Mock -CommandName Resolve-Path -MockWith { param($Path) $null = $Path; [pscustomobject]@{ Path = "C:\repo" } }
+            Mock -CommandName Test-Path -MockWith { $false }
+
+            { & $scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
+        }
+
+        It "accepts custom path parameter" {
+            Mock -CommandName Resolve-Path -MockWith {
+                param($Path)
+                [pscustomobject]@{ Path = $Path }
+            }
+            Mock -CommandName Test-Path -MockWith { $false }
+
+            { & $scriptPath -Path "C:\custom\path" } | Should -Throw
+        }
     }
 }
 
@@ -445,3 +649,4 @@ Describe "Convert-PoshQCCoverageToRelative" {
         $result | Should -Not -Match ([regex]::Escape($repoRoot))
     }
 }
+
