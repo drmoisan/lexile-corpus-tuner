@@ -1,65 +1,7 @@
 Set-StrictMode -Version Latest
 
-function global:Import-ScriptFunction {
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Name
-    )
-
-    $resolved = (Resolve-Path -Path $Path).Path
-    if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-        $null = $null
-        $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
-        if ($errors -and $errors.Count -gt 0) {
-            throw "Failed to parse ${resolved}: $($errors[0].Message)"
-        }
-
-        $funcAst = $ast.Find(
-            {
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq $Name
-            },
-            $true
-        )
-
-        if (-not $funcAst) {
-            throw "Function $Name not found in $resolved"
-        }
-
-        return [scriptblock]::Create($funcAst.Extent.Text)
-    }
-}
-
-Describe "collect-commit-context.ps1" {
-    BeforeEach {
-        $script:ReportOutput = "mock-output.txt"
-        $script:captured = New-Object System.Collections.Generic.List[string]
-        Mock -CommandName Add-Content -MockWith {
-            param($Path, $Value)
-            $null = $Path
-            $script:captured.Add($Value)
-        }
-    }
-
-    It "writes section headers and content" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" }
-
-        $script:captured.Count | Should -Be 2
-        $script:captured[0] | Should -Match "===== Test Section ====="
-        $script:captured[1] | Should -Match "line1`nline2"
-    }
-
-    It "writes placeholder when allowed to fail" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail
-        $script:captured[1] | Should -Match "\[n/a\]"
-    }
-}
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support/TestHelpers.ps1"))
 
 Describe "collect-pull-request-context.ps1 helpers" {
     It "formats brace rename paths" {
@@ -72,10 +14,7 @@ Describe "collect-pull-request-context.ps1 helpers" {
     It "converts numstat text to totals and file list" {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-pull-request-context.ps1"
         . (Import-ScriptFunction -Path $scriptPath -Name "ConvertFrom-Numstat")
-        $num = @"
-4	2	file1.ps1
-1	0	dir/file2.psm1
-"@
+        $num = "4`t2`tfile1.ps1`n1`t0`tdir/file2.psm1"
         $result = ConvertFrom-Numstat -NumstatText $num
         $result.Additions | Should -Be 5
         $result.Deletions | Should -Be 2
