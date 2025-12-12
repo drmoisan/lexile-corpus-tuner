@@ -1,7 +1,8 @@
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAlignAssignmentStatement', '', Justification = 'Test mock data structures with nested hash tables are difficult to align uniformly')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Mock function parameters mirror real function signatures for testing')]
+param()
+
 Set-StrictMode -Version Latest
-# PSScriptAnalyzerSuppressRule PSUseConsistentWhitespace
-# PSScriptAnalyzerSuppressRule PSAlignAssignmentStatement
-# PSScriptAnalyzerSuppressRule PSReviewUnusedParameter
 
 BeforeAll {
     $modulePath = Join-Path $PSScriptRoot '../../scripts/powershell/PoshQC/PoshQC.psm1'
@@ -352,22 +353,22 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Import-Module -MockWith { }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{ Enabled = $false }
                     }
                 }
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = @("$testRoot/tests") }
+                        Run = @{
+                            Path = @{ Value = @("$testRoot/tests") }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = $null
@@ -404,22 +405,22 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Test-Path -MockWith { $true }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests', 'scripts') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests', 'scripts') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{ Enabled = $false }
                     }
                 }
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = $Hashtable.Run.Path }
+                        Run = @{
+                            Path = @{ Value = $Hashtable.Run.Path }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = $null
@@ -441,22 +442,22 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Test-Path -MockWith { $true }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests', '.venv', 'scripts') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests', '.venv', 'scripts') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{ Enabled = $false }
                     }
                 }
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = $Hashtable.Run.Path }
+                        Run = @{
+                            Path = @{ Value = $Hashtable.Run.Path }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = $null
@@ -478,12 +479,12 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Test-Path -MockWith { $true }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{
-                            Enabled      = $true
-                            OutputPath   = 'artifacts/results.xml'
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{
+                            Enabled = $true
+                            OutputPath = 'artifacts/results.xml'
                             OutputFormat = 'JUnitXml'
                         }
                         CodeCoverage = @{ Enabled = $false }
@@ -492,12 +493,12 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = $Hashtable.Run.Path }
+                        Run = @{
+                            Path = @{ Value = $Hashtable.Run.Path }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $true }
+                        TestResult = @{
+                            Enabled = @{ Value = $true }
                             OutputPath = @{ Value = $Hashtable.TestResult.OutputPath }
                         }
                         CodeCoverage = $null
@@ -524,14 +525,14 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Test-Path -MockWith { $true }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{
-                            Enabled      = $true
-                            Path         = @('src/**/*.ps1')
-                            OutputPath   = 'artifacts/coverage.xml'
+                            Enabled = $true
+                            Path = @('src/**/*.ps1')
+                            OutputPath = 'artifacts/coverage.xml'
                             OutputFormat = 'CoverageGutters'
                         }
                     }
@@ -539,17 +540,17 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = $Hashtable.Run.Path }
+                        Run = @{
+                            Path = @{ Value = $Hashtable.Run.Path }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = @{
-                            Enabled    = @{ Value = $true }
-                            Path       = @{ Value = $Hashtable.CodeCoverage.Path }
+                            Enabled = @{ Value = $true }
+                            Path = @{ Value = $Hashtable.CodeCoverage.Path }
                             OutputPath = @{ Value = $Hashtable.CodeCoverage.OutputPath }
                         }
                     }
@@ -572,14 +573,14 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Import-Module -MockWith { }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{
-                            Enabled      = $true
-                            Path         = @('src/**/*.ps1')
-                            OutputPath   = 'artifacts/coverage.xml'
+                            Enabled = $true
+                            Path = @('src/**/*.ps1')
+                            OutputPath = 'artifacts/coverage.xml'
                             OutputFormat = 'CoverageGutters'
                         }
                     }
@@ -587,17 +588,17 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = @("$testRoot/tests") }
+                        Run = @{
+                            Path = @{ Value = @("$testRoot/tests") }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = @{
-                            Enabled    = @{ Value = $true }
-                            Path       = @{ Value = $Hashtable.CodeCoverage.Path }
+                            Enabled = @{ Value = $true }
+                            Path = @{ Value = $Hashtable.CodeCoverage.Path }
                             OutputPath = @{ Value = "$testRoot/artifacts/coverage.xml" }
                         }
                     }
@@ -637,14 +638,14 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Test-Path -MockWith { $true }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{
-                            Enabled      = $true
-                            Path         = @('src/**/*.ps1')
-                            OutputPath   = 'artifacts/coverage.xml'
+                            Enabled = $true
+                            Path = @('src/**/*.ps1')
+                            OutputPath = 'artifacts/coverage.xml'
                             OutputFormat = 'CoverageGutters'
                         }
                     }
@@ -652,17 +653,17 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = $Hashtable.Run.Path }
+                        Run = @{
+                            Path = @{ Value = $Hashtable.Run.Path }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = @{
-                            Enabled    = @{ Value = $true }
-                            Path       = @{ Value = $Hashtable.CodeCoverage.Path }
+                            Enabled = @{ Value = $true }
+                            Path = @{ Value = $Hashtable.CodeCoverage.Path }
                             OutputPath = @{ Value = 'artifacts/coverage.xml' }
                         }
                     }
@@ -690,14 +691,14 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Import-Module -MockWith { }
                 Mock -CommandName Import-PowerShellDataFile -MockWith {
                     @{
-                        Run          = @{ Path = @('tests') }
-                        Should       = @{ ErrorAction = 'Stop' }
-                        Output       = @{ Verbosity = 'Detailed' }
-                        TestResult   = @{ Enabled = $false }
+                        Run = @{ Path = @('tests') }
+                        Should = @{ ErrorAction = 'Stop' }
+                        Output = @{ Verbosity = 'Detailed' }
+                        TestResult = @{ Enabled = $false }
                         CodeCoverage = @{
-                            Enabled      = $true
-                            Path         = @('src/**/*.ps1')
-                            OutputPath   = 'artifacts/coverage.xml'
+                            Enabled = $true
+                            Path = @('src/**/*.ps1')
+                            OutputPath = 'artifacts/coverage.xml'
                             OutputFormat = 'CoverageGutters'
                         }
                     }
@@ -705,17 +706,17 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName New-PesterConfiguration -MockWith {
                     param($Hashtable)
                     $config = [PSCustomObject]@{
-                        Run          = @{
-                            Path        = @{ Value = @("$testRoot/tests") }
+                        Run = @{
+                            Path = @{ Value = @("$testRoot/tests") }
                             ExcludePath = @{ Value = @() }
                         }
-                        TestResult   = @{
-                            Enabled    = @{ Value = $false }
+                        TestResult = @{
+                            Enabled = @{ Value = $false }
                             OutputPath = @{ Value = $null }
                         }
                         CodeCoverage = @{
-                            Enabled    = @{ Value = $true }
-                            Path       = @{ Value = $Hashtable.CodeCoverage.Path }
+                            Enabled = @{ Value = $true }
+                            Path = @{ Value = $Hashtable.CodeCoverage.Path }
                             OutputPath = @{ Value = "$testRoot/artifacts/coverage.xml" }
                         }
                     }
