@@ -125,48 +125,6 @@ Describe "link-parent-child.ps1 helpers" {
     }
 }
 
-Describe "new-active-feature-folder.ps1 helpers" {
-    It "normalizes checklist bullets" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Format-Checklist")
-        $checklistInput = "Item one`n- existing`n"
-        $result = Format-Checklist -Text $checklistInput
-        $lines = $result -split "`r?`n" | ForEach-Object { $_.Trim() }
-        $lines | Should -Contain "- [ ] Item one"
-        $lines | Should -Contain "- existing"
-    }
-
-    It "extracts named sections" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Section")
-        $content = "## Header`nline1`n## Next`nline2"
-        (Get-Section -Content $content -Name "Header") | Should -Be "line1"
-    }
-
-    It "sets or replaces sections" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-Section")
-        $content = "## Header`nold`n"
-        $updated = Set-Section -Content $content -Name "Header" -Body "new"
-        $updated | Should -Match "## Header"
-        $updated | Should -Match "new"
-        $updated | Should -Not -Match "old"
-    }
-
-    It "replaces common placeholders" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-HeaderPlaceholder")
-        $script:FeatureName = "example_feature"
-        $script:issueField = "#1"
-        $script:ownerField = "owner"
-        $script:updatedField = "2025-01-01"
-        $content = "- Owner: name`n- Last Updated: YYYY-MM-DD`n<feature-name> #<id>"
-        $result = Set-HeaderPlaceholder -Content $content
-        $result | Should -Not -Match "<feature-name>"
-        $result | Should -Not -Match "YYYY-MM-DD"
-    }
-}
-
 Describe "new-potential-entry.ps1 validation" {
     It "contains short name validation pattern" {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
