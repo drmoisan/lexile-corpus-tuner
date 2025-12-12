@@ -11,8 +11,7 @@ function Write-ScriptError {
         [Parameter(Mandatory = $true)]
         [string] $Message
     )
-    Write-Error -Message $Message
-    exit 1
+    throw [System.InvalidOperationException]::new($Message)
 }
 
 function Build-FeatureDocumentationBlock {

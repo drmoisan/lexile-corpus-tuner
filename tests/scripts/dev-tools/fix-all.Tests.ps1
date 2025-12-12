@@ -94,3 +94,87 @@ Describe "fix-all.ps1 helpers" {
         }
     }
 }
+
+Describe "Invoke-FixAll" {
+    BeforeEach {
+        $script:steps = New-Object System.Collections.Generic.List[string]
+        $script:lastFailure = $null
+        Mock -CommandName Write-Step -MockWith { param($Message) $script:steps.Add($Message) | Out-Null }
+        Mock -CommandName Write-Success -MockWith { }
+        Mock -CommandName Write-Failure -MockWith { param($Message) $script:lastFailure = $Message }
+        Mock -CommandName Write-Output -MockWith { param($Message) $null = $Message }
+    }
+
+    It "returns success when all commands succeed" {
+        Mock -CommandName Invoke-Command-WithStatus -MockWith {
+            param($CommandParts, $StepName)
+            $null = $CommandParts
+            $null = $StepName
+            return 0
+        }
+
+        $result = Invoke-FixAll -MaxRuffRetries 1
+        $result | Should -Be 0
+        Assert-MockCalled -CommandName Invoke-Command-WithStatus -Times 6
+        $script:steps | Should -Contain "Step 6: Running Pytest with coverage..."
+    }
+
+    It "retries Ruff and returns failure when retries exhausted" {
+        $script:attempts = 0
+        Mock -CommandName Invoke-Command-WithStatus -MockWith {
+            param($CommandParts, $StepName)
+            $null = $CommandParts
+            if ($StepName -like "Ruff: fix") {
+                $script:attempts++ | Out-Null
+                return 1
+            }
+            return 0
+        }
+
+        $result = Invoke-FixAll -MaxRuffRetries 2
+        $result | Should -Be 1
+        $script:lastFailure | Should -Match "Ruff linting failed"
+        $script:attempts | Should -Be 2
+    }
+
+    It "returns failure when verification passes fail" {
+        Mock -CommandName Invoke-Command-WithStatus -MockWith {
+            param($CommandParts, $StepName)
+            $null = $CommandParts
+            switch ($StepName) {
+                "Ruff: lint (verify)" { return 1 }
+                default { return 0 }
+            }
+        }
+
+        $result = Invoke-FixAll -MaxRuffRetries 1
+        $result | Should -Be 1
+        $script:lastFailure | Should -Match "Ruff linting still has issues"
+    }
+
+    It "returns failure when initial Black pass fails" {
+        Mock -CommandName Invoke-Command-WithStatus -MockWith {
+            param($CommandParts, $StepName)
+            $null = $CommandParts
+            if ($StepName -eq "Black: format") { return 1 }
+            return 0
+        }
+
+        $result = Invoke-FixAll -MaxRuffRetries 1
+        $result | Should -Be 1
+        $script:lastFailure | Should -Match "Black formatting failed"
+    }
+
+    It "returns failure when Pytest fails" {
+        Mock -CommandName Invoke-Command-WithStatus -MockWith {
+            param($CommandParts, $StepName)
+            $null = $CommandParts
+            if ($StepName -eq "Pytest: test with coverage") { return 1 }
+            return 0
+        }
+
+        $result = Invoke-FixAll -MaxRuffRetries 1
+        $result | Should -Be 1
+        $script:lastFailure | Should -Match "Pytest failed"
+    }
+}
