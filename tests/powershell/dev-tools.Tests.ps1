@@ -1,65 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 
-function global:Import-ScriptFunction {
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Name
-    )
-
-    $resolved = (Resolve-Path -Path $Path).Path
-    if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-        $null = $null
-        $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
-        if ($errors -and $errors.Count -gt 0) {
-            throw "Failed to parse ${resolved}: $($errors[0].Message)"
-        }
-
-        $funcAst = $ast.Find(
-            {
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq $Name
-            },
-            $true
-        )
-
-        if (-not $funcAst) {
-            throw "Function $Name not found in $resolved"
-        }
-
-        return [scriptblock]::Create($funcAst.Extent.Text)
-    }
-}
-
-Describe "collect-commit-context.ps1" {
-    BeforeEach {
-        $script:ReportOutput = "mock-output.txt"
-        $script:captured = New-Object System.Collections.Generic.List[string]
-        Mock -CommandName Add-Content -MockWith {
-            param($Path, $Value)
-            $null = $Path
-            $script:captured.Add($Value)
-        }
-    }
-
-    It "writes section headers and content" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" }
-
-        $script:captured.Count | Should -Be 2
-        $script:captured[0] | Should -Match "===== Test Section ====="
-        $script:captured[1] | Should -Match "line1`nline2"
-    }
-
-    It "writes placeholder when allowed to fail" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-commit-context.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Add-ReportSection")
-        Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail
-        $script:captured[1] | Should -Match "\[n/a\]"
-    }
-}
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support/TestHelpers.ps1"))
 
 Describe "collect-pull-request-context.ps1 helpers" {
     It "formats brace rename paths" {
@@ -72,10 +14,7 @@ Describe "collect-pull-request-context.ps1 helpers" {
     It "converts numstat text to totals and file list" {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\collect-pull-request-context.ps1"
         . (Import-ScriptFunction -Path $scriptPath -Name "ConvertFrom-Numstat")
-        $num = @"
-4	2	file1.ps1
-1	0	dir/file2.psm1
-"@
+        $num = "4`t2`tfile1.ps1`n1`t0`tdir/file2.psm1"
         $result = ConvertFrom-Numstat -NumstatText $num
         $result.Additions | Should -Be 5
         $result.Deletions | Should -Be 2
@@ -186,48 +125,6 @@ Describe "link-parent-child.ps1 helpers" {
     }
 }
 
-Describe "new-active-feature-folder.ps1 helpers" {
-    It "normalizes checklist bullets" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Format-Checklist")
-        $checklistInput = "Item one`n- existing`n"
-        $result = Format-Checklist -Text $checklistInput
-        $lines = $result -split "`r?`n" | ForEach-Object { $_.Trim() }
-        $lines | Should -Contain "- [ ] Item one"
-        $lines | Should -Contain "- existing"
-    }
-
-    It "extracts named sections" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Section")
-        $content = "## Header`nline1`n## Next`nline2"
-        (Get-Section -Content $content -Name "Header") | Should -Be "line1"
-    }
-
-    It "sets or replaces sections" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-Section")
-        $content = "## Header`nold`n"
-        $updated = Set-Section -Content $content -Name "Header" -Body "new"
-        $updated | Should -Match "## Header"
-        $updated | Should -Match "new"
-        $updated | Should -Not -Match "old"
-    }
-
-    It "replaces common placeholders" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-active-feature-folder.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-HeaderPlaceholder")
-        $script:FeatureName = "example_feature"
-        $script:issueField = "#1"
-        $script:ownerField = "owner"
-        $script:updatedField = "2025-01-01"
-        $content = "- Owner: name`n- Last Updated: YYYY-MM-DD`n<feature-name> #<id>"
-        $result = Set-HeaderPlaceholder -Content $content
-        $result | Should -Not -Match "<feature-name>"
-        $result | Should -Not -Match "YYYY-MM-DD"
-    }
-}
-
 Describe "new-potential-entry.ps1 validation" {
     It "contains short name validation pattern" {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
@@ -236,27 +133,235 @@ Describe "new-potential-entry.ps1 validation" {
 }
 
 Describe "potential-to-issue.ps1 helpers" {
-    It "extracts a section by heading" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-Section")
-        $script:content = "## Problem / Why`nabc`n## Proposed Behavior`ndef"
-        $result = Get-Section -name "Problem / Why"
-        $result | Should -Be "abc"
+    BeforeAll {
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
     }
 
-    It "inserts or updates metadata lines" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Set-LineValue")
-        $lines = New-Object System.Collections.Generic.List[string]
-        $lines.AddRange([string[]]@("# Title", "- Issue: #1"))
-        $metaEnd = 2
-        $metaRef = [ref]$metaEnd
+    Context "Get-FeatureName function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-FeatureName")
+        }
 
-        Set-LineValue -arr $lines -label "Issue URL" -value "https://example" -metaEndRef $metaRef
-        $lines | Should -Contain "- Issue URL: https://example"
+        It "extracts feature name from markdown heading" {
+            $content = "# My Feature Name`n## Section"
+            $result = Get-FeatureName -Content $content -FilePath "test.md"
+            $result | Should -Be "My Feature Name"
+        }
 
-        Set-LineValue -arr $lines -label "Issue" -value "#2" -metaEndRef $metaRef
-        ($lines | Where-Object { $_ -like "- Issue:*" }) | Should -Contain "- Issue: #2"
+        It "removes (Potential) suffix from heading" {
+            $content = "# Feature (Potential)`n## Section"
+            $result = Get-FeatureName -Content $content -FilePath "test.md"
+            $result | Should -Be "Feature"
+        }
+
+        It "trims whitespace after removing (Potential)" {
+            $content = "#   Feature Name (Potential)  `n## Section"
+            $result = Get-FeatureName -Content $content -FilePath "test.md"
+            $result | Should -Be "Feature Name"
+        }
+
+        It "falls back to filename when no heading found" {
+            $content = "No heading here"
+            $result = Get-FeatureName -Content $content -FilePath "C:\path\to\my-feature.md"
+            $result | Should -Be "my-feature"
+        }
+
+        It "removes .md extension from filename fallback" {
+            $content = "No heading"
+            $result = Get-FeatureName -Content $content -FilePath "feature-name.md"
+            $result | Should -Be "feature-name"
+        }
+
+        It "handles heading with special characters" {
+            $content = "# Feature: Advanced (v2.0)`n## Section"
+            $result = Get-FeatureName -Content $content -FilePath "test.md"
+            $result | Should -Be "Feature: Advanced (v2.0)"
+        }
+
+        It "uses first heading when multiple exist" {
+            $content = "# First Feature`n## Second`n# Third"
+            $result = Get-FeatureName -Content $content -FilePath "test.md"
+            $result | Should -Be "First Feature"
+        }
+    }
+
+    Context "Get-FeaturePath function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-FeaturePath")
+        }
+
+        It "replaces spaces with underscores" {
+            $result = Get-FeaturePath -FeatureName "My Feature Name"
+            $result | Should -Be "My_Feature_Name"
+        }
+
+        It "removes special characters except alphanumeric, underscore, and hyphen" {
+            $result = Get-FeaturePath -FeatureName "Feature: (v2.0) @ Test!"
+            $result | Should -Be "Feature_v20__Test"
+        }
+
+        It "handles multiple consecutive spaces" {
+            $result = Get-FeaturePath -FeatureName "Feature   Name"
+            $result | Should -Be "Feature_Name"
+        }
+
+        It "preserves hyphens in feature name" {
+            $result = Get-FeaturePath -FeatureName "my-feature-name"
+            $result | Should -Be "my-feature-name"
+        }
+
+        It "handles feature name with numbers" {
+            $result = Get-FeaturePath -FeatureName "Feature v2 Update"
+            $result | Should -Be "Feature_v2_Update"
+        }
+
+        It "handles single character feature name" {
+            $result = Get-FeaturePath -FeatureName "A"
+            $result | Should -Be "A"
+        }
+    }
+
+    Context "Get-Section function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-Section")
+        }
+
+        It "extracts a section by heading" {
+            $script:content = "## Problem / Why`nabc`n## Proposed Behavior`ndef"
+            $result = Get-Section -name "Problem / Why"
+            $result | Should -Be "abc"
+        }
+
+        It "extracts section with multiple lines" {
+            $script:content = "## Problem / Why`nline1`nline2`nline3`n## Next Section`nother"
+            $result = Get-Section -name "Problem / Why"
+            $result | Should -Be "line1`nline2`nline3"
+        }
+
+        It "returns empty string when section not found" {
+            $script:content = "## Problem / Why`nabc`n## Proposed Behavior`ndef"
+            $result = Get-Section -name "NonExistent"
+            $result | Should -Be ""
+        }
+
+        It "handles section at end of document" {
+            $script:content = "## Problem / Why`nabc`n## Last Section`nfinal content"
+            $result = Get-Section -name "Last Section"
+            $result | Should -Be "final content"
+        }
+
+        It "trims whitespace from section content" {
+            $script:content = "## Problem / Why`n  abc  `n  def  `n## Next"
+            $result = Get-Section -name "Problem / Why"
+            $result | Should -Be "abc  `n  def"
+        }
+
+        It "handles sections with special characters in heading" {
+            $script:content = "## Acceptance Criteria (early draft)`ncontent here`n## Next"
+            $result = Get-Section -name "Acceptance Criteria (early draft)"
+            $result | Should -Be "content here"
+        }
+
+        It "handles empty section" {
+            $script:content = "## Problem / Why`n`n## Proposed Behavior`ndef"
+            $result = Get-Section -name "Problem / Why"
+            $result | Should -Be ""
+        }
+
+        It "handles section with windows line endings" {
+            $script:content = "## Problem / Why`r`nabc`r`n## Proposed Behavior`r`ndef"
+            $result = Get-Section -name "Problem / Why"
+            $result | Should -Be "abc"
+        }
+    }
+
+    Context "Set-LineValue function" {
+        BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Set-LineValue")
+        }
+
+        It "inserts new metadata line when label not found" {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.AddRange([string[]]@("# Title", "- Issue: #1"))
+            $metaEnd = 2
+            $metaRef = [ref]$metaEnd
+
+            Set-LineValue -arr $lines -label "Issue URL" -value "https://example" -metaEndRef $metaRef
+            $lines | Should -Contain "- Issue URL: https://example"
+            $metaRef.Value | Should -Be 3
+        }
+
+        It "updates existing metadata line when label found" {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.AddRange([string[]]@("# Title", "- Issue: #1"))
+            $metaEnd = 2
+            $metaRef = [ref]$metaEnd
+
+            Set-LineValue -arr $lines -label "Issue" -value "#2" -metaEndRef $metaRef
+            ($lines | Where-Object { $_ -like "- Issue:*" }) | Should -Contain "- Issue: #2"
+            $metaRef.Value | Should -Be 2
+        }
+
+        It "inserts at correct position using metaEnd" {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.AddRange([string[]]@("# Title", "## First Section", "content"))
+            $metaEnd = 1
+            $metaRef = [ref]$metaEnd
+
+            Set-LineValue -arr $lines -label "Status" -value "Active" -metaEndRef $metaRef
+            $lines[1] | Should -Be "- Status: Active"
+            $lines[2] | Should -Be "## First Section"
+        }
+
+        It "handles multiple insertions incrementing metaEnd" {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.AddRange([string[]]@("# Title"))
+            $metaEnd = 1
+            $metaRef = [ref]$metaEnd
+
+            Set-LineValue -arr $lines -label "Issue" -value "#1" -metaEndRef $metaRef
+            Set-LineValue -arr $lines -label "URL" -value "http://test" -metaEndRef $metaRef
+            Set-LineValue -arr $lines -label "Status" -value "Active" -metaEndRef $metaRef
+
+            $lines | Should -Contain "- Issue: #1"
+            $lines | Should -Contain "- URL: http://test"
+            $lines | Should -Contain "- Status: Active"
+            $metaRef.Value | Should -Be 4
+        }
+
+        It "respects WhatIf when using ShouldProcess" {
+            $lines = New-Object System.Collections.Generic.List[string]
+            $lines.AddRange([string[]]@("# Title"))
+            $metaEnd = 1
+            $metaRef = [ref]$metaEnd
+
+            Set-LineValue -arr $lines -label "Test" -value "Value" -metaEndRef $metaRef -WhatIf
+            $lines | Should -Not -Contain "- Test: Value"
+        }
+    }
+
+    Context "Write-ScriptError function" {
+        It "is a CmdletBinding function that accepts a Message parameter" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
+            $scriptContent = Get-Content -Path $scriptPath -Raw
+            $scriptContent | Should -Match "function Write-ScriptError"
+            $scriptContent | Should -Match "\[CmdletBinding\(\)\]"
+            $scriptContent | Should -Match "param\(\s+\[Parameter\(Mandatory = \`$true\)\]\s+\[string\] \`$Message"
+        }
+
+        It "calls Write-Error in the function body" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
+            $scriptContent = Get-Content -Path $scriptPath -Raw
+            # Verify the function contains Write-Error command
+            $scriptContent | Should -Match "function Write-ScriptError[\s\S]+?Write-Error.*Message"
+        }
+
+        It "calls exit 1 in the function body" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\potential-to-issue.ps1"
+            $scriptContent = Get-Content -Path $scriptPath -Raw
+            # Verify the function contains exit 1 command
+            $scriptContent | Should -Match "function Write-ScriptError[\s\S]+?exit 1"
+        }
     }
 }
 
