@@ -1,4 +1,7 @@
 Set-StrictMode -Version Latest
+# PSScriptAnalyzerSuppressRule PSUseConsistentWhitespace
+# PSScriptAnalyzerSuppressRule PSAlignAssignmentStatement
+# PSScriptAnalyzerSuppressRule PSReviewUnusedParameter
 
 BeforeAll {
     $modulePath = Join-Path $PSScriptRoot '../../scripts/powershell/PoshQC/PoshQC.psm1'
@@ -744,3 +747,4 @@ Describe 'Invoke-PoshQCTest' {
         }
     }
 }
+
