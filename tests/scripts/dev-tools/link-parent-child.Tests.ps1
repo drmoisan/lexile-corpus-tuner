@@ -31,7 +31,7 @@ Describe "link-parent-child.ps1 - Read-IssueNumber" {
 
         $result = Read-IssueNumber -Label "child" -Value ""
         $result | Should -Be "123"
-        Assert-MockCalled -CommandName Read-Host -Times 1
+        Should -Invoke -CommandName Read-Host -Times 1
     }
 
     It "prompts user when issue number is whitespace" {
@@ -151,7 +151,7 @@ Describe "link-parent-child.ps1 - Invoke-LinkParentChild" {
 
         Invoke-LinkParentChild -ChildIssueNumberParam '1' -ParentIssueNumberParam '10'
 
-        Assert-MockCalled -CommandName Set-Content -Times 0
+        Should -Invoke -CommandName Set-Content -Times 0
         $script:ghCalls.Count | Should -Be 0
         $script:messages | Should -Contain "No parent body changes were required."
         $script:messages | Should -Contain "Child issue already references parent #10; no comment added."
@@ -165,7 +165,7 @@ Describe "link-parent-child.ps1 - Invoke-LinkParentChild" {
 
         $script:lastWrite.Value | Should -Match "## Child Issues"
         $script:lastWrite.Value | Should -Match "#1"
-        Assert-MockCalled -CommandName Read-Host -Times 1
+        Should -Invoke -CommandName Read-Host -Times 1
         $script:messages | Should -Contain "Updated parent issue #10 with child link."
         $script:messages | Should -Contain "Added parent link comment to child issue #1."
     }

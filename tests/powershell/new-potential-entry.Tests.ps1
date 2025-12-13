@@ -2,37 +2,6 @@ Set-StrictMode -Version Latest
 
 . (Resolve-Path -Path (Join-Path $PSScriptRoot 'Support/TestHelpers.ps1'))
 
-if (-not (Get-Command -Name Import-ScriptFunction -ErrorAction SilentlyContinue)) {
-    function global:Import-ScriptFunction {
-        param(
-            [Parameter(Mandatory = $true)][string]$Path,
-            [Parameter(Mandatory = $true)][string]$Name
-        )
-
-        $resolved = (Resolve-Path -Path $Path).Path
-        $errors = $null
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
-        if ($errors -and $errors.Count -gt 0) {
-            throw "Failed to parse ${resolved}: $($errors[0].Message)"
-        }
-
-        $funcAst = $ast.Find(
-            {
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq $Name
-            },
-            $true
-        )
-
-        if (-not $funcAst) {
-            throw "Function $Name not found in $resolved"
-        }
-
-        return [scriptblock]::Create($funcAst.Extent.Text)
-    }
-}
-
 Describe "new-potential-entry.ps1 - Test-ValidShortName" {
     BeforeAll {
         $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"

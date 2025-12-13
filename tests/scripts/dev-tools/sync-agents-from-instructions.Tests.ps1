@@ -73,9 +73,9 @@ line2
 
             Invoke-SyncAgentInstruction -RepoRootParam "/work"
 
-            Assert-MockCalled -CommandName Get-AgentContent -Times 1 -ParameterFilter { $RepoRootParam -eq "/work" }
-            Assert-MockCalled -CommandName Set-Content -Times 1 -ParameterFilter { $LiteralPath -eq "/work/AGENTS.md" -and $Value -eq "content" -and $NoNewline }
-            Assert-MockCalled -CommandName Write-Output -Times 1
+            Should -Invoke -CommandName Get-AgentContent -Times 1 -ParameterFilter { $RepoRootParam -eq "/work" }
+            Should -Invoke -CommandName Set-Content -Times 1 -ParameterFilter { $LiteralPath -eq "/work/AGENTS.md" -and $Value -eq "content" -and $NoNewline }
+            Should -Invoke -CommandName Write-Output -Times 1
         }
     }
 }

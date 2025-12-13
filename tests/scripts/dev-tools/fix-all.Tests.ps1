@@ -73,7 +73,7 @@ Describe "fix-all.ps1 helpers" {
             $global:LASTEXITCODE = 0
             $result = Invoke-Command-WithStatus -CommandParts @("Write-Output", "demo") -StepName "demo-step"
             $result | Should -Be 0
-            Assert-MockCalled -CommandName Write-Step -Times 1
+            Should -Invoke -CommandName Write-Step -Times 1
         }
 
         It "returns exit code when command fails" {
@@ -115,7 +115,7 @@ Describe "Invoke-FixAll" {
 
         $result = Invoke-FixAll -MaxRuffRetries 1
         $result | Should -Be 0
-        Assert-MockCalled -CommandName Invoke-Command-WithStatus -Times 6
+        Should -Invoke -CommandName Invoke-Command-WithStatus -Times 6
         $script:steps | Should -Contain "Step 6: Running Pytest with coverage..."
     }
 
