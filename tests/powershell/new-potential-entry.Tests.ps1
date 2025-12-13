@@ -1,6 +1,9 @@
 Set-StrictMode -Version Latest
 
-. (Resolve-Path -Path (Join-Path $PSScriptRoot 'Support/TestHelpers.ps1'))
+BeforeAll {
+    $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+    . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support\TestHelpers.ps1"))
+}
 
 Describe "new-potential-entry.ps1 - Test-ValidShortName" {
     BeforeAll {

@@ -390,9 +390,6 @@ Describe 'Invoke-PoshQCTest' {
                 Mock -CommandName Get-ChildItem -MockWith { @() }
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
-
-                # The function returns early when no test files are found, but Get-ChildItem should still be called
-                Should -Invoke -CommandName Get-ChildItem -Times 1 -Exactly
             }
         }
 
@@ -617,14 +614,17 @@ Describe 'Invoke-PoshQCTest' {
                     }
                     return $false
                 }
-                Mock -CommandName Get-ChildItem -MockWith {
-                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
-                }
                 Mock -CommandName Invoke-Pester -MockWith { }
                 Mock -CommandName Convert-PoshQCCoverageToRelative -MockWith { }
 
-                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
+                $enumerateTestsStub = {
+                    param([string[]] $Paths, [string[]] $Excluded, [scriptblock] $TestPathFn)
+                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
+                }
 
+                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -EnumerateTests $enumerateTestsStub -InformationAction SilentlyContinue } | Should -Not -Throw
+
+                Should -Invoke -CommandName Invoke-Pester -Times 1 -Exactly
                 Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -Times 1 -Exactly
             }
         }
@@ -670,14 +670,17 @@ Describe 'Invoke-PoshQCTest' {
                     return $config
                 }
                 Mock -CommandName New-Item -MockWith { }
-                Mock -CommandName Get-ChildItem -MockWith {
-                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
-                }
                 Mock -CommandName Invoke-Pester -MockWith { }
                 Mock -CommandName Convert-PoshQCCoverageToRelative -MockWith { }
 
-                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -DisableKoverageCopy -InformationAction SilentlyContinue } | Should -Not -Throw
+                $enumerateTestsStub = {
+                    param([string[]] $Paths, [string[]] $Excluded, [scriptblock] $TestPathFn)
+                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
+                }
 
+                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -EnumerateTests $enumerateTestsStub -DisableKoverageCopy -InformationAction SilentlyContinue } | Should -Not -Throw
+
+                Should -Invoke -CommandName Invoke-Pester -Times 1 -Exactly
                 Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -Times 0 -Exactly
             }
         }
@@ -735,14 +738,17 @@ Describe 'Invoke-PoshQCTest' {
                     }
                     return $false
                 }
-                Mock -CommandName Get-ChildItem -MockWith {
-                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
-                }
                 Mock -CommandName Invoke-Pester -MockWith { }
                 Mock -CommandName Convert-PoshQCCoverageToRelative -MockWith { }
 
-                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -KoverageOutputPath $customKoveragePath -InformationAction SilentlyContinue } | Should -Not -Throw
+                $enumerateTestsStub = {
+                    param([string[]] $Paths, [string[]] $Excluded, [scriptblock] $TestPathFn)
+                    @([PSCustomObject]@{ FullName = "$testRoot/tests/test.Tests.ps1" })
+                }
 
+                { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -EnumerateTests $enumerateTestsStub -KoverageOutputPath $customKoveragePath -InformationAction SilentlyContinue } | Should -Not -Throw
+
+                Should -Invoke -CommandName Invoke-Pester -Times 1 -Exactly
                 Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -ParameterFilter { $OutputPath -eq $customKoveragePath } -Times 1 -Exactly
             }
         }

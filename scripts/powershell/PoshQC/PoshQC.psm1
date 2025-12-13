@@ -7,8 +7,15 @@ $script:DefaultExcludedDirs = @(
     '__pycache__', '.mypy_cache', '.ruff_cache', '.vscode', '.idea', 'artifacts'
 )
 
+<#
+.SYNOPSIS
+Enumerates PowerShell files in a given root directory.
+.DESCRIPTION
+Returns all PowerShell (.ps1/.psm1/.psd1) files recursively, excluding specified directories.
+#>
 function Get-PoshQCFileList {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [string] $Root,
@@ -121,7 +128,18 @@ function Install-PoshQCTool {
     }
 }
 
-# Formats PowerShell files with repo PSScriptAnalyzer settings.
+<#
+.SYNOPSIS
+Formats PowerShell files using PSScriptAnalyzer.
+.DESCRIPTION
+Applies PSScriptAnalyzer formatting rules from repo settings to all PowerShell files under Root.
+.PARAMETER Root
+Root directory to search for PowerShell files. Defaults to current location.
+.PARAMETER SettingsPath
+Path to PSScriptAnalyzer settings file.
+.PARAMETER ExcludeDirs
+Directory names to exclude from processing.
+#>
 function Invoke-PoshQCFormat {
     [CmdletBinding()]
     param(
@@ -171,7 +189,18 @@ function Invoke-PoshQCFormat {
     }
 }
 
-# Runs PSScriptAnalyzer with repo settings.
+<#
+.SYNOPSIS
+Runs PSScriptAnalyzer static analysis on PowerShell files.
+.DESCRIPTION
+Analyzes all PowerShell files under Root using repo PSScriptAnalyzer settings and reports issues.
+.PARAMETER Root
+Root directory to search for PowerShell files. Defaults to current location.
+.PARAMETER SettingsPath
+Path to PSScriptAnalyzer settings file.
+.PARAMETER ExcludeDirs
+Directory names to exclude from analysis.
+#>
 function Invoke-PoshQCAnalyze {
     [CmdletBinding()]
     param(
@@ -228,7 +257,22 @@ function Invoke-PoshQCAnalyze {
     & $Logger "PSScriptAnalyzer passed: no findings under $Root"
 }
 
-# Creates a Koverage-friendly copy of coverage output with relative paths.
+<#
+.SYNOPSIS
+Converts coverage XML paths from absolute to relative.
+.DESCRIPTION
+Rewrites Pester coverage XML file paths to be relative to the repo root for Koverage compatibility.
+.PARAMETER InputPath
+Path to input coverage XML file.
+.PARAMETER OutputPath
+Path to write relative-path coverage XML.
+.PARAMETER RepoRoot
+Repository root directory for path relativization.
+.PARAMETER InputContent
+Alternative to InputPath - provide XML content directly.
+.PARAMETER PassThru
+Return the converted XML content as output.
+#>
 function Convert-PoshQCCoverageToRelative {
     [CmdletBinding()]
     param(
@@ -314,7 +358,22 @@ function Convert-PoshQCCoverageToRelative {
     & $Logger "Wrote Koverage coverage copy: $resolvedOutputPath"
 }
 
-# Runs Pester using the repo configuration.
+<#
+.SYNOPSIS
+Runs Pester tests with coverage reporting.
+.DESCRIPTION
+Executes Pester tests using repo configuration, generates coverage reports in multiple formats.
+.PARAMETER Root
+Root directory for test discovery. Defaults to current location.
+.PARAMETER SettingsPath
+Path to Pester configuration file.
+.PARAMETER ExcludeDirs
+Directory names to exclude from test/coverage paths.
+.PARAMETER KoverageOutputPath
+Custom path for Koverage-compatible coverage XML output.
+.PARAMETER DisableKoverageCopy
+Skip creation of Koverage-friendly coverage copy.
+#>
 function Invoke-PoshQCTest {
     [CmdletBinding()]
     param(

@@ -34,6 +34,7 @@ function Get-ClocPath {
         Constructs paths for cloc executables and target directory
     #>
     [CmdletBinding()]
+    [OutputType([System.Collections.Hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$ScriptRoot,
@@ -71,7 +72,8 @@ function Get-ClocPath {
                 }
             }
             catch {
-                # Try next candidate
+                # Try next candidate - intentionally silent as we iterate through paths
+                Write-Verbose "Could not resolve target '$_', trying next candidate"
             }
         }
     }
@@ -122,3 +124,4 @@ Initialize-OutputRendering
 $paths = Get-ClocPath -ScriptRoot $PSScriptRoot -TargetPath $Path -JoinPath $JoinPath -ResolvePath $ResolvePath
 $onWindowsPlatform = Test-IsWindows
 Invoke-ClocCount -Paths $paths -IsWindowsPlatform $onWindowsPlatform -InvokeProcess $InvokeProcess
+
