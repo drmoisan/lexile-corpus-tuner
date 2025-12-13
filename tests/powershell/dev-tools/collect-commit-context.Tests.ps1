@@ -124,8 +124,8 @@ line3
             $fileExists = $false
 
             $expectedRoot = "C:\repo-root"
-            $outputPath = Join-Path -Path $expectedRoot -ChildPath "artifacts/commit_context.txt"
-            $outputDir = Split-Path -Parent $outputPath
+            $outputPath = "C:\repo-root\artifacts\commit_context.txt"
+            $outputDir = "C:\repo-root\artifacts"
 
             $gitOutputs = New-Object 'System.Collections.Generic.Dictionary[string,string]'
             $gitOutputs.Add('rev-parse --is-inside-work-tree', 'true')

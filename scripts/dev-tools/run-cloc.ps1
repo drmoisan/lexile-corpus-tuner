@@ -54,16 +54,25 @@ function Get-ClocPath {
         & $JoinPath $ScriptRoot $TargetPath
     }
 
+    $resolveInputs = @()
+    if (-not [IO.Path]::IsPathRooted($TargetPath)) {
+        $resolveInputs += $TargetPath
+    }
+    $resolveInputs += $targetCandidate
+
     $resolvedTarget = $targetCandidate
     if (& $TestPath $targetCandidate) {
-        try {
-            $resolvedPath = & $ResolvePath $targetCandidate
-            if ($resolvedPath) {
-                $resolvedTarget = if ($resolvedPath -is [string]) { $resolvedPath } else { $resolvedPath.Path }
+        foreach ($candidate in $resolveInputs) {
+            try {
+                $resolvedPath = & $ResolvePath $candidate
+                if ($resolvedPath) {
+                    $resolvedTarget = if ($resolvedPath -is [string]) { $resolvedPath } else { $resolvedPath.Path }
+                    break
+                }
             }
-        }
-        catch {
-            $resolvedTarget = $targetCandidate
+            catch {
+                # Try next candidate
+            }
         }
     }
 
@@ -84,7 +93,8 @@ function Invoke-ClocCount {
         [Parameter(Mandatory = $true)]
         [hashtable]$Paths,
         [Parameter(Mandatory = $true)]
-        [bool]$IsWindows,
+        [Alias('IsWindows')]
+        [bool]$IsWindowsPlatform,
         [scriptblock]$TestPath = { param([string]$Path) Test-Path $Path },
         [scriptblock]$FindCommand = { param([string]$Name) Get-Command $Name -ErrorAction SilentlyContinue },
         [scriptblock]$InvokeProcess = { param($Command, $Arguments) & $Command @($Arguments) }
@@ -92,7 +102,7 @@ function Invoke-ClocCount {
 
     $clocArgs = @("--vcs=git", "--quiet", "--exclude-dir=tools", $Paths.Root)
 
-    if ($IsWindows -and (& $TestPath $Paths.ClocExe)) {
+    if ($IsWindowsPlatform -and (& $TestPath $Paths.ClocExe)) {
         & $InvokeProcess $Paths.ClocExe $clocArgs
     }
     elseif (& $TestPath $Paths.ClocScript) {
@@ -111,4 +121,4 @@ function Invoke-ClocCount {
 Initialize-OutputRendering
 $paths = Get-ClocPath -ScriptRoot $PSScriptRoot -TargetPath $Path -JoinPath $JoinPath -ResolvePath $ResolvePath
 $onWindowsPlatform = Test-IsWindows
-Invoke-ClocCount -Paths $paths -IsWindows $onWindowsPlatform -InvokeProcess $InvokeProcess
+Invoke-ClocCount -Paths $paths -IsWindowsPlatform $onWindowsPlatform -InvokeProcess $InvokeProcess

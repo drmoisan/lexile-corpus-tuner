@@ -14,10 +14,10 @@ function Get-PoshQCFileList {
         [string] $Root,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
         [scriptblock] $ResolvePath = { param([string] $Path) Resolve-Path -Path $Path -ErrorAction Stop },
-        [scriptblock] $EnumerateFiles = { param([string] $Path) Get-ChildItem -Path $Path -Recurse -File },
+        [scriptblock] $EnumerateFiles = { param([string] $Path) Get-ChildItem -Path $Path -Recurse },
         [scriptblock] $ShouldExclude = {
             param($File, [string[]] $ExcludedDirs)
-            $parts = $File.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
+            $parts = $File.FullName -split '[\\/]+' | Where-Object { $_ -ne '' }
             foreach ($dir in $ExcludedDirs) {
                 if ($parts -contains $dir) { return $true }
             }
@@ -31,6 +31,9 @@ function Get-PoshQCFileList {
 
     try {
         $resolvedRoot = & $ResolvePath $Root
+        if ($resolvedRoot -isnot [string]) {
+            $resolvedRoot = $resolvedRoot.Path
+        }
     } catch {
         throw "Failed to resolve root path '$Root': $($_.Exception.Message)"
     }
@@ -352,7 +355,8 @@ function Invoke-PoshQCTest {
                 $resultPath = $Config.TestResult.OutputPath.Value
                 $resultDir = Split-Path -Parent $resultPath
                 if (-not [string]::IsNullOrWhiteSpace($resultDir)) {
-                    New-Item -ItemType Directory -Path (Join-Path $RootPath $resultDir) -Force | Out-Null
+                    $resolvedResultDir = if ([IO.Path]::IsPathRooted($resultDir)) { $resultDir } else { Join-Path $RootPath $resultDir }
+                    New-Item -ItemType Directory -Path $resolvedResultDir -Force | Out-Null
                 }
                 $Config.TestResult.OutputPath = if ([IO.Path]::IsPathRooted($resultPath)) {
                     $resultPath
@@ -376,7 +380,8 @@ function Invoke-PoshQCTest {
                 $coveragePath = $Config.CodeCoverage.OutputPath.Value
                 $coverageDir = Split-Path -Parent $coveragePath
                 if (-not [string]::IsNullOrWhiteSpace($coverageDir)) {
-                    New-Item -ItemType Directory -Path (Join-Path $RootPath $coverageDir) -Force | Out-Null
+                    $resolvedCoverageDir = if ([IO.Path]::IsPathRooted($coverageDir)) { $coverageDir } else { Join-Path $RootPath $coverageDir }
+                    New-Item -ItemType Directory -Path $resolvedCoverageDir -Force | Out-Null
                 }
                 $Config.CodeCoverage.OutputPath = if ([IO.Path]::IsPathRooted($coveragePath)) {
                     $coveragePath
@@ -388,12 +393,12 @@ function Invoke-PoshQCTest {
             $Config
         },
         [scriptblock] $EnumerateTests = {
-            param([string[]] $Paths, [string[]] $Excluded)
+            param([string[]] $Paths, [string[]] $Excluded, [scriptblock] $TestPathFn)
             $tests = @()
             foreach ($path in $Paths) {
-                if (-not (Test-Path $path)) { continue }
-                $tests += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 -File | Where-Object {
-                    $parts = $_.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
+                if (-not (& $TestPathFn $path)) { continue }
+                $tests += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 | Where-Object {
+                    $parts = $_.FullName -split '[\\/]+' | Where-Object { $_ -ne '' }
                     foreach ($dir in $Excluded) {
                         if ($parts -contains $dir) { return $false }
                     }
@@ -451,7 +456,8 @@ function Invoke-PoshQCTest {
             $coveragePath = $config.CodeCoverage.OutputPath.Value
             $coverageDir = Split-Path -Parent $coveragePath
             if (-not [string]::IsNullOrWhiteSpace($coverageDir)) {
-                New-Item -ItemType Directory -Path (Join-Path $Root $coverageDir) -Force | Out-Null
+                $resolvedCoverageDir = if ([IO.Path]::IsPathRooted($coverageDir)) { $coverageDir } else { Join-Path $Root $coverageDir }
+                New-Item -ItemType Directory -Path $resolvedCoverageDir -Force | Out-Null
             }
             $config.CodeCoverage.OutputPath = if ([IO.Path]::IsPathRooted($coveragePath)) {
                 $coveragePath
@@ -470,7 +476,7 @@ function Invoke-PoshQCTest {
         }
     }
 
-    $testFiles = & $EnumerateTests $config.Run.Path.Value $ExcludeDirs
+    $testFiles = & $EnumerateTests $config.Run.Path.Value $ExcludeDirs $TestPathExists
     if (-not $testFiles) {
         & $Logger "No Pester test files found under configured paths for root $Root"
         return

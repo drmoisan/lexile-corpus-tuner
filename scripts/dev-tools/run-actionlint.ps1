@@ -22,7 +22,7 @@ function Resolve-ActionlintPath {
     )
 
     $scriptDir = Split-Path -Parent $ScriptPath
-    $repoRoot = Resolve-Path (Join-Path $scriptDir '..\..')
+    $repoRoot = (Resolve-Path (Join-Path $scriptDir '..\..')).Path
     $binDir = Join-Path $repoRoot 'tools\actionlint\bin'
     $exePath = Join-Path $binDir 'actionlint.exe'
 
@@ -116,6 +116,7 @@ function Invoke-ActionlintCommand {
 }
 
 # Main script execution
+# Flow: Resolve-ActionlintPath -> Find-ActionlintOnPath -> Install-Actionlint -> Add-DirectoryToPath -> Invoke-ActionlintCommand
 $paths = Resolve-ActionlintPath -ScriptPath $PSCommandPath
 
 # Try to find actionlint on PATH first

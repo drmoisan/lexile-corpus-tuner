@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
 . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support/TestHelpers.ps1"))
@@ -442,218 +442,221 @@ Describe "run-cloc.ps1" {
 
             $result.Root | Should -Be "C\absolute\path"
         }
-    Context "Invoke-ClocCount" {
-        BeforeEach {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-ClocCount")
-            $script:executedCommand = $null
-            $script:executedArgs = $null
+        Context "Invoke-ClocCount" {
+            BeforeEach {
+                . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-ClocCount")
+                $script:executedCommand = $null
+                $script:executedArgs = $null
+            }
+
+            It "runs cloc.exe on Windows when it exists" {
+                $paths = @{
+                    Root       = "C:\\repo"
+                    ClocExe    = "C:\\tools\cloc.exe"
+                    ClocScript = "C:\\tools\cloc"
+                }
+
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
+
+                $global:LASTEXITCODE = 0
+                $runner = {
+                    param($Command, $Arguments)
+                    $script:executedCommand = $Command
+                    $script:executedArgs = $Arguments
+                }
+
+                { Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner } | Should -Not -Throw
+                $script:executedCommand | Should -Be $paths.ClocExe
+            }
+
+            It "runs cloc script with perl when cloc.exe not found" {
+                $paths = @{
+                    Root       = "C:\\repo"
+                    ClocExe    = "C:\\tools\cloc.exe"
+                    ClocScript = "C:\\tools\cloc"
+                }
+
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+                Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
+                    [pscustomobject]@{ Path = "C:\perl\bin\perl.exe" }
+                }
+
+                $global:LASTEXITCODE = 0
+                $runner = {
+                    param($Command, $Arguments)
+                    $script:executedCommand = $Command
+                    $script:executedArgs = $Arguments
+                }
+
+                { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
+                $script:executedCommand | Should -Be "C:\perl\bin\perl.exe"
+                $script:executedArgs | Should -Contain $paths.ClocScript
+            }
+
+            It "throws when perl is not found for cloc script" {
+                $paths = @{
+                    Root       = "C:\\repo"
+                    ClocExe    = "C:\\tools\cloc.exe"
+                    ClocScript = "C:\\tools\cloc"
+                }
+
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+                Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith { $null }
+
+                { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Throw "Perl is required to run the bundled cloc script."
+            }
+
+            It "throws when no cloc binary found" {
+                $paths = @{
+                    Root       = "C:\\repo"
+                    ClocExe    = "C:\\tools\cloc.exe"
+                    ClocScript = "C:\\tools\cloc"
+                }
+
+                Mock -CommandName Test-Path -MockWith { $false }
+
+                { Invoke-ClocCount -Paths $paths -IsWindows $true } | Should -Throw "Bundled cloc binary not found."
+            }
+
+            It "prefers cloc.exe on Windows even when cloc script exists" {
+                $paths = @{
+                    Root       = "C:\\repo"
+                    ClocExe    = "C:\\tools\cloc.exe"
+                    ClocScript = "C:\\tools\cloc"
+                }
+
+                Mock -CommandName Test-Path -MockWith { $true }
+                $global:LASTEXITCODE = 0
+                $script:whichPath = $null
+
+                $runner = {
+                    param($Command, $Arguments)
+                    $script:whichPath = $Command
+                }
+
+                Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner
+                $script:whichPath | Should -Be $paths.ClocExe
+            }
+
+            It "uses cloc script on non-Windows platforms" {
+                $paths = @{
+                    Root       = "/home/repo"
+                    ClocExe    = "/home/tools/cloc.exe"
+                    ClocScript = "/home/tools/cloc"
+                }
+
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
+                Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
+                Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
+                    [pscustomobject]@{ Path = "/usr/bin/perl" }
+                }
+
+                $global:LASTEXITCODE = 0
+                $runner = {
+                    param($Command, $Arguments)
+                    $script:executedCommand = $Command
+                    $script:executedArgs = $Arguments
+                }
+
+                { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
+                $script:executedCommand | Should -Be "/usr/bin/perl"
+                $script:executedArgs | Should -Contain $paths.ClocScript
+            }
         }
 
-        It "runs cloc.exe on Windows when it exists" {
-            $paths = @{
-                Root       = "C:\\repo"
-                ClocExe    = "C:\\tools\cloc.exe"
-                ClocScript = "C:\\tools\cloc"
+        Context "Integration scenarios" {
+            It "throws when no bundled cloc is found" {
+                Mock -CommandName Resolve-Path -MockWith { param($Path) $null = $Path; [pscustomobject]@{ Path = "C:\repo" } }
+                Mock -CommandName Test-Path -MockWith { $false }
+
+                { & $scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
             }
 
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
+            It "accepts custom path parameter" {
+                Mock -CommandName Resolve-Path -MockWith {
+                    param($Path)
+                    [pscustomobject]@{ Path = $Path }
+                }
+                Mock -CommandName Test-Path -MockWith { $false }
 
-            $global:LASTEXITCODE = 0
-            $runner = {
-                param($Command, $Arguments)
-                $script:executedCommand = $Command
-                $script:executedArgs = $Arguments
+                { & $scriptPath -Path "C:\custom\path" } | Should -Throw
             }
-
-            { Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner } | Should -Not -Throw
-            $script:executedCommand | Should -Be $paths.ClocExe
-        }
-
-        It "runs cloc script with perl when cloc.exe not found" {
-            $paths = @{
-                Root       = "C:\\repo"
-                ClocExe    = "C:\\tools\cloc.exe"
-                ClocScript = "C:\\tools\cloc"
-            }
-
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
-                [pscustomobject]@{ Path = "C:\perl\bin\perl.exe" }
-            }
-
-            $global:LASTEXITCODE = 0
-            $runner = {
-                param($Command, $Arguments)
-                $script:executedCommand = $Command
-                $script:executedArgs = $Arguments
-            }
-
-            { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
-            $script:executedCommand | Should -Be "C:\perl\bin\perl.exe"
-            $script:executedArgs | Should -Contain $paths.ClocScript
-        }
-
-        It "throws when perl is not found for cloc script" {
-            $paths = @{
-                Root       = "C:\\repo"
-                ClocExe    = "C:\\tools\cloc.exe"
-                ClocScript = "C:\\tools\cloc"
-            }
-
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith { $null }
-
-            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Throw "Perl is required to run the bundled cloc script."
-        }
-
-        It "throws when no cloc binary found" {
-            $paths = @{
-                Root       = "C:\\repo"
-                ClocExe    = "C:\\tools\cloc.exe"
-                ClocScript = "C:\\tools\cloc"
-            }
-
-            Mock -CommandName Test-Path -MockWith { $false }
-
-            { Invoke-ClocCount -Paths $paths -IsWindows $true } | Should -Throw "Bundled cloc binary not found."
-        }
-
-        It "prefers cloc.exe on Windows even when cloc script exists" {
-            $paths = @{
-                Root       = "C:\\repo"
-                ClocExe    = "C:\\tools\cloc.exe"
-                ClocScript = "C:\\tools\cloc"
-            }
-
-            Mock -CommandName Test-Path -MockWith { $true }
-            $global:LASTEXITCODE = 0
-            $script:whichPath = $null
-
-            $runner = {
-                param($Command, $Arguments)
-                $script:whichPath = $Command
-            }
-
-            Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner
-            $script:whichPath | Should -Be $paths.ClocExe
-        }
-
-        It "uses cloc script on non-Windows platforms" {
-            $paths = @{
-                Root       = "/home/repo"
-                ClocExe    = "/home/tools/cloc.exe"
-                ClocScript = "/home/tools/cloc"
-            }
-
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
-            Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "perl" } -MockWith {
-                [pscustomobject]@{ Path = "/usr/bin/perl" }
-            }
-
-            $global:LASTEXITCODE = 0
-            $runner = {
-                param($Command, $Arguments)
-                $script:executedCommand = $Command
-                $script:executedArgs = $Arguments
-            }
-
-            { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
-            $script:executedCommand | Should -Be "/usr/bin/perl"
-            $script:executedArgs | Should -Contain $paths.ClocScript
         }
     }
 
-    Context "Integration scenarios" {
-        It "throws when no bundled cloc is found" {
-            Mock -CommandName Resolve-Path -MockWith { param($Path) $null = $Path; [pscustomobject]@{ Path = "C:\repo" } }
-            Mock -CommandName Test-Path -MockWith { $false }
+    Describe "tree.ps1" {
+        It "lists entries while honoring exclusions and hidden flag" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\tree.ps1"
+            . (Import-ScriptFunction -Path $scriptPath -Name "Show-Tree")
+            $items = @(
+                [pscustomobject]@{ Name = "visible.txt"; FullName = "C:\root\visible.txt"; PSIsContainer = $false; Attributes = [IO.FileAttributes]::Normal },
+                [pscustomobject]@{ Name = ".git"; FullName = "C:\root\.git"; PSIsContainer = $true; Attributes = [IO.FileAttributes]::Directory },
+                [pscustomobject]@{ Name = "folder"; FullName = "C:\root\folder"; PSIsContainer = $true; Attributes = [IO.FileAttributes]::Directory }
+            )
 
-            { & $scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
-        }
-
-        It "accepts custom path parameter" {
-            Mock -CommandName Resolve-Path -MockWith {
-                param($Path)
-                [pscustomobject]@{ Path = $Path }
+            Mock -CommandName Get-ChildItem -MockWith {
+                param($LiteralPath, $Force)
+                $null = $Force
+                if ($LiteralPath -eq "C:\root") {
+                    return $items
+                }
+                return @()
             }
-            Mock -CommandName Test-Path -MockWith { $false }
 
-            { & $scriptPath -Path "C:\custom\path" } | Should -Throw
-        }
-    }
-}
-
-Describe "tree.ps1" {
-    It "lists entries while honoring exclusions and hidden flag" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\tree.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Show-Tree")
-        $items = @(
-            [pscustomobject]@{ Name = "visible.txt"; FullName = "C:\root\visible.txt"; PSIsContainer = $false; Attributes = [IO.FileAttributes]::Normal },
-            [pscustomobject]@{ Name = ".git"; FullName = "C:\root\.git"; PSIsContainer = $true; Attributes = [IO.FileAttributes]::Directory },
-            [pscustomobject]@{ Name = "folder"; FullName = "C:\root\folder"; PSIsContainer = $true; Attributes = [IO.FileAttributes]::Directory }
-        )
-
-        Mock -CommandName Get-ChildItem -MockWith {
-            param($LiteralPath, $Force)
-            $null = $Force
-            if ($LiteralPath -eq "C:\root") {
-                return $items
-            }
-            return @()
-        }
-
-        $output = Show-Tree -Path "C:\root" -ExcludeNames @(".git") -IncludeHiddenEntries -DirectoriesOnly:$false
+            $output = Show-Tree -Path "C:\root" -ExcludeNames @(".git") -IncludeHiddenEntries -DirectoriesOnly:$false
         ($output -join "`n") | Should -Not -Match "\.git"
         ($output -join "`n") | Should -Match "visible.txt"
         ($output -join "`n") | Should -Match "folder"
+        }
     }
+
+    Describe "load-openai-key.ps1" {
+        It "sets environment variable when secret is returned" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
+            $setCalls = New-Object System.Collections.Generic.List[hashtable]
+
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith { [pscustomobject]@{ Name = "lpass" } }
+            Mock -CommandName lpass -MockWith { $global:LASTEXITCODE = 0; "secret-value" }
+            Mock -CommandName Set-Item -MockWith { param($Path, $Value) $setCalls.Add(@{ Path = $Path; Value = $Value }) }
+
+            & $scriptPath -ItemName "Test Item" -EnvVar "TEST_ENV"
+
+            $setCalls.Count | Should -Be 1
+            $setCalls[0].Path | Should -Be "Env:TEST_ENV"
+            $setCalls[0].Value | Should -Be "secret-value"
+        }
+    }
+
+    Describe "Convert-PoshQCCoverageToRelative" {
+        It "strips repo root prefix from coverage content" {
+            $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
+            Import-Module -Name $modulePath -Force
+
+            $repoRoot = 'D:\repos\lexile-corpus-tuner'
+            $coverageContent = '<file path="D:\repos\lexile-corpus-tuner\scripts\demo.ps1" />'
+
+            $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
+
+            $result | Should -Match 'scripts\\demo.ps1'
+            $result | Should -Not -Match ([regex]::Escape($repoRoot))
+        }
+
+        It "strips repo root prefix when coverage uses forward slashes" {
+            $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
+            Import-Module -Name $modulePath -Force
+
+            $repoRoot = 'D:\repos\lexile-corpus-tuner'
+            $coverageContent = '<file path="D:/repos/lexile-corpus-tuner/scripts/demo.ps1" />'
+
+            $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
+
+            $result | Should -Match 'scripts/demo.ps1'
+            $result | Should -Not -Match ([regex]::Escape($repoRoot))
+        }
+    }
+
 }
 
-Describe "load-openai-key.ps1" {
-    It "sets environment variable when secret is returned" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
-        $setCalls = New-Object System.Collections.Generic.List[hashtable]
-
-        Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith { [pscustomobject]@{ Name = "lpass" } }
-        Mock -CommandName lpass -MockWith { $global:LASTEXITCODE = 0; "secret-value" }
-        Mock -CommandName Set-Item -MockWith { param($Path, $Value) $setCalls.Add(@{ Path = $Path; Value = $Value }) }
-
-        & $scriptPath -ItemName "Test Item" -EnvVar "TEST_ENV"
-
-        $setCalls.Count | Should -Be 1
-        $setCalls[0].Path | Should -Be "Env:TEST_ENV"
-        $setCalls[0].Value | Should -Be "secret-value"
-    }
-}
-
-Describe "Convert-PoshQCCoverageToRelative" {
-    It "strips repo root prefix from coverage content" {
-        $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
-        Import-Module -Name $modulePath -Force
-
-        $repoRoot = 'D:\repos\lexile-corpus-tuner'
-        $coverageContent = '<file path="D:\repos\lexile-corpus-tuner\scripts\demo.ps1" />'
-
-        $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
-
-        $result | Should -Match 'scripts\\demo.ps1'
-        $result | Should -Not -Match ([regex]::Escape($repoRoot))
-    }
-
-    It "strips repo root prefix when coverage uses forward slashes" {
-        $modulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\powershell\PoshQC\PoshQC.psm1"
-        Import-Module -Name $modulePath -Force
-
-        $repoRoot = 'D:\repos\lexile-corpus-tuner'
-        $coverageContent = '<file path="D:/repos/lexile-corpus-tuner/scripts/demo.ps1" />'
-
-        $result = Convert-PoshQCCoverageToRelative -InputContent $coverageContent -RepoRoot $repoRoot -PassThru
-
-        $result | Should -Match 'scripts/demo.ps1'
-        $result | Should -Not -Match ([regex]::Escape($repoRoot))
-    }
-}
