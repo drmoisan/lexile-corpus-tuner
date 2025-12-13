@@ -28,8 +28,8 @@ Describe 'Get-PoshQCFileList' {
                 $result = Get-PoshQCFileList -Root $testRoot
 
                 $result.Count | Should -Be 2
-                Assert-MockCalled -CommandName Resolve-Path -Times 1 -Exactly
-                Assert-MockCalled -CommandName Get-ChildItem -Times 1 -Exactly
+                Should -Invoke -CommandName Resolve-Path -Times 1 -Exactly
+                Should -Invoke -CommandName Get-ChildItem -Times 1 -Exactly
             }
         }
 
@@ -172,7 +172,7 @@ Describe 'Invoke-PoshQCFormat' {
 
                 { Invoke-PoshQCFormat -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Set-Content -Times 0 -Exactly
+                Should -Invoke -CommandName Set-Content -Times 0 -Exactly
             }
         }
 
@@ -192,7 +192,7 @@ Describe 'Invoke-PoshQCFormat' {
 
                 { Invoke-PoshQCFormat -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Set-Content -Times 1 -Exactly
+                Should -Invoke -CommandName Set-Content -Times 1 -Exactly
             }
         }
 
@@ -297,7 +297,7 @@ Describe 'Invoke-PoshQCAnalyze' {
 
                 { Invoke-PoshQCAnalyze -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Invoke-ScriptAnalyzer -Times 2 -Exactly
+                Should -Invoke -CommandName Invoke-ScriptAnalyzer -Times 2 -Exactly
             }
         }
 
@@ -392,7 +392,7 @@ Describe 'Invoke-PoshQCTest' {
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
                 # The function returns early when no test files are found, but Get-ChildItem should still be called
-                Assert-MockCalled -CommandName Get-ChildItem -Times 1 -Exactly
+                Should -Invoke -CommandName Get-ChildItem -Times 1 -Exactly
             }
         }
 
@@ -510,7 +510,7 @@ Describe 'Invoke-PoshQCTest' {
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName New-Item -Times 1 -Exactly
+                Should -Invoke -CommandName New-Item -Times 1 -Exactly
             }
         }
     }
@@ -561,7 +561,7 @@ Describe 'Invoke-PoshQCTest' {
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName New-Item -Times 1 -Exactly
+                Should -Invoke -CommandName New-Item -Times 1 -Exactly
             }
         }
 
@@ -625,7 +625,7 @@ Describe 'Invoke-PoshQCTest' {
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Convert-PoshQCCoverageToRelative -Times 1 -Exactly
+                Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -Times 1 -Exactly
             }
         }
 
@@ -678,7 +678,7 @@ Describe 'Invoke-PoshQCTest' {
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -DisableKoverageCopy -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Convert-PoshQCCoverageToRelative -Times 0 -Exactly
+                Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -Times 0 -Exactly
             }
         }
 
@@ -743,7 +743,7 @@ Describe 'Invoke-PoshQCTest' {
 
                 { Invoke-PoshQCTest -Root $testRoot -SettingsPath $testSettings -KoverageOutputPath $customKoveragePath -InformationAction SilentlyContinue } | Should -Not -Throw
 
-                Assert-MockCalled -CommandName Convert-PoshQCCoverageToRelative -ParameterFilter { $OutputPath -eq $customKoveragePath } -Times 1 -Exactly
+                Should -Invoke -CommandName Convert-PoshQCCoverageToRelative -ParameterFilter { $OutputPath -eq $customKoveragePath } -Times 1 -Exactly
             }
         }
     }
