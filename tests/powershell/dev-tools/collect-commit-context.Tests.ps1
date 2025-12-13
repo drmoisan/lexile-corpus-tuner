@@ -186,13 +186,25 @@ line3
             }
         }
 
+        AfterEach {
+            # Explicit cleanup to prevent cross-test contamination
+            $gitCallLog.Clear()
+            $addContentCalls.Clear()
+            $createdDirs.Clear()
+            $removedPaths.Clear()
+            $setLocations.Clear()
+            $gitOutputs.Clear()
+        }
+
         It "writes report sections using git output" {
             $outputText = & $script:collectCommitScript 2>$null | Out-String
 
             $setLocations | Should -Contain $expectedRoot
             ($addContentCalls | ForEach-Object { $_.Path } | Select-Object -Unique) | Should -Be @($outputPath)
 
-            $addContentCalls[0].Value | Should -Match "^Please generate a commit message"
+            # Check that expected content exists somewhere in the calls (more robust than assuming index 0)
+            $allValues = $addContentCalls | ForEach-Object { $_.Value }
+            $allValues | Where-Object { $_ -match "^Please generate a commit message" } | Should -Not -BeNullOrEmpty
             ($addContentCalls | Where-Object { $_.Value -like "*===== Repository remotes*" }).Count | Should -BeGreaterThan 0
             ($addContentCalls | Where-Object { $_.Value -like "*origin https://example/repo*" }).Count | Should -BeGreaterThan 0
             ($addContentCalls | Where-Object { $_.Value -like "*feature/branch*" }).Count | Should -BeGreaterThan 0

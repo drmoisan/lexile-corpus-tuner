@@ -7,66 +7,79 @@ BeforeAll {
 
 Describe "new-potential-entry.ps1 - Test-ValidShortName" {
     BeforeAll {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Test-ValidShortName")
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
     }
 
     Context "Valid short names" {
         It "accepts single lowercase word" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "feature" | Should -Be $true
         }
 
         It "accepts kebab-case with two words" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my-feature" | Should -Be $true
         }
 
         It "accepts kebab-case with multiple words" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my-new-feature" | Should -Be $true
         }
 
         It "accepts numbers in the name" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "feature-v2" | Should -Be $true
         }
 
         It "accepts name with only numbers" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "123" | Should -Be $true
         }
 
         It "accepts mixed alphanumeric kebab-case" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "abc123-def456" | Should -Be $true
         }
     }
 
     Context "Invalid short names" {
         It "rejects uppercase letters" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "MyFeature" | Should -Be $false
         }
 
         It "rejects spaces" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my feature" | Should -Be $false
         }
 
         It "rejects underscores" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my_feature" | Should -Be $false
         }
 
         It "rejects trailing hyphen" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "feature-" | Should -Be $false
         }
 
         It "rejects leading hyphen" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "-feature" | Should -Be $false
         }
 
         It "rejects double hyphens" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my--feature" | Should -Be $false
         }
 
         It "rejects special characters" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "my@feature" | Should -Be $false
         }
 
         It "rejects empty string" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-ValidShortName")
             Test-ValidShortName -Name "" | Should -Be $false
         }
     }
@@ -74,18 +87,19 @@ Describe "new-potential-entry.ps1 - Test-ValidShortName" {
 
 Describe "new-potential-entry.ps1 - Get-AuthorName" {
     BeforeAll {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-AuthorName")
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
     }
 
     Context "Author name retrieval" {
         It "returns git config user.name when available" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-AuthorName")
             Mock -CommandName git -MockWith { "John Doe" }
             $result = Get-AuthorName
             $result | Should -Be "John Doe"
         }
 
         It "falls back to USERNAME environment variable when git fails" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-AuthorName")
             Mock -CommandName git -MockWith {
                 $global:LASTEXITCODE = 1
                 return $null
@@ -96,6 +110,7 @@ Describe "new-potential-entry.ps1 - Get-AuthorName" {
         }
 
         It "returns 'Unknown' when git returns empty and no USERNAME" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-AuthorName")
             Mock -CommandName git -MockWith { "" }
             $originalUsername = $env:USERNAME
             try {
@@ -109,6 +124,7 @@ Describe "new-potential-entry.ps1 - Get-AuthorName" {
         }
 
         It "returns 'Unknown' when git returns whitespace only" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-AuthorName")
             Mock -CommandName git -MockWith { "   " }
             $originalUsername = $env:USERNAME
             try {
@@ -125,30 +141,33 @@ Describe "new-potential-entry.ps1 - Get-AuthorName" {
 
 Describe "new-potential-entry.ps1 - Convert-TemplateContent" {
     BeforeAll {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Convert-TemplateContent")
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
     }
 
     Context "Template content replacement" {
         It "replaces feature-name placeholder" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Convert-TemplateContent")
             $content = "# <feature-name> (Potential)"
             $result = Convert-TemplateContent -Content $content -ShortName "my-feature" -Date "2025-12-10" -Author "Test User"
             $result | Should -Be "# my-feature (Potential)"
         }
 
         It "replaces date placeholder" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Convert-TemplateContent")
             $content = "- Date captured: YYYY-MM-DD"
             $result = Convert-TemplateContent -Content $content -ShortName "my-feature" -Date "2025-12-10" -Author "Test User"
             $result | Should -Be "- Date captured: 2025-12-10"
         }
 
         It "replaces author placeholder" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Convert-TemplateContent")
             $content = "- Author: name"
             $result = Convert-TemplateContent -Content $content -ShortName "my-feature" -Date "2025-12-10" -Author "Test User"
             $result | Should -Be "- Author: Test User"
         }
 
         It "replaces all placeholders in complete template" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Convert-TemplateContent")
             $content = @"
 # <feature-name> (Potential)
 
@@ -166,6 +185,7 @@ Describe "new-potential-entry.ps1 - Convert-TemplateContent" {
         }
 
         It "handles multiple occurrences of feature-name" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Convert-TemplateContent")
             $content = "<feature-name> and <feature-name>"
             $result = Convert-TemplateContent -Content $content -ShortName "test" -Date "2025-12-10" -Author "Test User"
             $result | Should -Be "test and test"
@@ -175,12 +195,12 @@ Describe "new-potential-entry.ps1 - Convert-TemplateContent" {
 
 Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
     BeforeAll {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
-        . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-VSCodeOpen")
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
     }
 
     Context "VS Code command detection and execution" {
         It "returns true when code command is available" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-VSCodeOpen")
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq "code" } -MockWith {
                 [pscustomobject]@{ Name = "code" }
             }
@@ -192,6 +212,7 @@ Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
         }
 
         It "returns false when code command is not available" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-VSCodeOpen")
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq "code" } -MockWith {
                 $null
             }
@@ -201,6 +222,7 @@ Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
         }
 
         It "calls Start-Process with correct arguments when code is available" {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-VSCodeOpen")
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq "code" } -MockWith {
                 [pscustomobject]@{ Name = "code" }
             }
