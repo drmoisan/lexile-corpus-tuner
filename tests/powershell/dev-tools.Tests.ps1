@@ -422,32 +422,26 @@ Describe "run-cloc.ps1" {
     Context "Get-ClocPath" {
         It "constructs correct paths from script root and target path" {
             . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
-            Mock -CommandName Resolve-Path -MockWith {
-                param($InputPath)
-                [pscustomobject]@{ Path = "C:\resolved\$InputPath" }
-            }
+            $resolver = { param($InputPath) [pscustomobject]@{ Path = "C\resolved\$InputPath" } }
 
-            $result = Get-ClocPath -ScriptRoot "C:\script" -TargetPath "target"
+            $result = Get-ClocPath -ScriptRoot "C\script" -TargetPath "target" -ResolvePath $resolver -TestPath { $true }
 
-            $result.Root | Should -Be "C:\resolved\target"
+            $result.Root | Should -Be "C\resolved\target"
             $result.ClocExe | Should -Match "tools\\cloc\.exe$"
             $result.ClocScript | Should -Match "tools\\cloc$"
         }
-
         It "resolves relative target paths" {
             . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
-            Mock -CommandName Resolve-Path -MockWith {
+            $resolver = {
                 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
                 param($InputPath)
-                [pscustomobject]@{ Path = "C:\absolute\path" }
+                [pscustomobject]@{ Path = "C\absolute\path" }
             }
 
-            $result = Get-ClocPath -ScriptRoot "C:\base" -TargetPath "../relative"
+            $result = Get-ClocPath -ScriptRoot "C\base" -TargetPath "../relative" -ResolvePath $resolver -TestPath { $true }
 
-            $result.Root | Should -Be "C:\absolute\path"
+            $result.Root | Should -Be "C\absolute\path"
         }
-    }
-
     Context "Invoke-ClocCount" {
         BeforeEach {
             . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-ClocCount")
@@ -465,13 +459,15 @@ Describe "run-cloc.ps1" {
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
 
-            # Mock the call operator for cloc.exe
             $global:LASTEXITCODE = 0
-            Mock -ScriptBlock {
-                $script:executedCommand = "cloc.exe"
-            } -Verifiable
+            $runner = {
+                param($Command, $Arguments)
+                $script:executedCommand = $Command
+                $script:executedArgs = $Arguments
+            }
 
-            { Invoke-ClocCount -Paths $paths -IsWindows $true } | Should -Not -Throw
+            { Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner } | Should -Not -Throw
+            $script:executedCommand | Should -Be $paths.ClocExe
         }
 
         It "runs cloc script with perl when cloc.exe not found" {
@@ -488,11 +484,15 @@ Describe "run-cloc.ps1" {
             }
 
             $global:LASTEXITCODE = 0
-            Mock -ScriptBlock {
-                $script:executedCommand = "perl"
-            } -Verifiable
+            $runner = {
+                param($Command, $Arguments)
+                $script:executedCommand = $Command
+                $script:executedArgs = $Arguments
+            }
 
-            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Not -Throw
+            { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
+            $script:executedCommand | Should -Be "C:\perl\bin\perl.exe"
+            $script:executedArgs | Should -Contain $paths.ClocScript
         }
 
         It "throws when perl is not found for cloc script" {
@@ -532,12 +532,13 @@ Describe "run-cloc.ps1" {
             $global:LASTEXITCODE = 0
             $script:whichPath = $null
 
-            Mock -ScriptBlock {
-                $script:whichPath = "cloc.exe"
-            } -Verifiable
+            $runner = {
+                param($Command, $Arguments)
+                $script:whichPath = $Command
+            }
 
-            Invoke-ClocCount -Paths $paths -IsWindows $true
-            # Verify cloc.exe was preferred (implementation detail test)
+            Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner
+            $script:whichPath | Should -Be $paths.ClocExe
         }
 
         It "uses cloc script on non-Windows platforms" {
@@ -554,8 +555,15 @@ Describe "run-cloc.ps1" {
             }
 
             $global:LASTEXITCODE = 0
+            $runner = {
+                param($Command, $Arguments)
+                $script:executedCommand = $Command
+                $script:executedArgs = $Arguments
+            }
 
-            { Invoke-ClocCount -Paths $paths -IsWindows $false } | Should -Not -Throw
+            { Invoke-ClocCount -Paths $paths -IsWindows $false -InvokeProcess $runner } | Should -Not -Throw
+            $script:executedCommand | Should -Be "/usr/bin/perl"
+            $script:executedArgs | Should -Contain $paths.ClocScript
         }
     }
 
@@ -649,4 +657,3 @@ Describe "Convert-PoshQCCoverageToRelative" {
         $result | Should -Not -Match ([regex]::Escape($repoRoot))
     }
 }
-

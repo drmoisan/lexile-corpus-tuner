@@ -8,26 +8,43 @@ $script:DefaultExcludedDirs = @(
 )
 
 function Get-PoshQCFileList {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string] $Root,
-        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs
+        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
+        [scriptblock] $ResolvePath = { param([string] $Path) Resolve-Path -Path $Path -ErrorAction Stop },
+        [scriptblock] $EnumerateFiles = { param([string] $Path) Get-ChildItem -Path $Path -Recurse -File },
+        [scriptblock] $ShouldExclude = {
+            param($File, [string[]] $ExcludedDirs)
+            $parts = $File.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
+            foreach ($dir in $ExcludedDirs) {
+                if ($parts -contains $dir) { return $true }
+            }
+            return $false
+        },
+        [scriptblock] $IsAllowedExtension = {
+            param($File)
+            $File.Extension -in '.ps1', '.psm1', '.psd1'
+        }
     )
 
-    $resolvedRoot = Resolve-Path -Path $Root -ErrorAction Stop
-    $files = Get-ChildItem -Path $resolvedRoot -Recurse -Include *.ps1, *.psm1, *.psd1 -File
+    try {
+        $resolvedRoot = & $ResolvePath $Root
+    } catch {
+        throw "Failed to resolve root path '$Root': $($_.Exception.Message)"
+    }
+
+    $files = @(& $EnumerateFiles $resolvedRoot)
     if (-not $files) { return @() }
 
-    $result = @()
-    foreach ($file in $files) {
-        $parts = $file.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
-        $skip = $false
-        foreach ($dir in $ExcludeDirs) {
-            if ($parts -contains $dir) { $skip = $true; break }
-        }
-        if (-not $skip) { $result += $file }
+    $result = foreach ($file in $files) {
+        if (-not (& $IsAllowedExtension $file)) { continue }
+        if (& $ShouldExclude $file $ExcludeDirs) { continue }
+        $file
     }
-    return $result
+
+    return @($result | Sort-Object -Property FullName -Stable)
 }
 
 <#
@@ -38,26 +55,39 @@ Ensures PSGallery is trusted and installs required module versions in the Curren
 #>
 function Install-PoshQCTool {
     [CmdletBinding()]
-    param()
+    param(
+        [scriptblock] $SetTls = { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 },
+        [scriptblock] $GetRepository = { param([string] $Name) Get-PSRepository -Name $Name -ErrorAction SilentlyContinue },
+        [scriptblock] $RegisterRepository = { Register-PSRepository -Default -InstallationPolicy Trusted },
+        [scriptblock] $SetRepository = { param([string] $Name, [string] $Policy) Set-PSRepository -Name $Name -InstallationPolicy $Policy -ErrorAction Stop },
+        [scriptblock] $FindModule = { param([string] $Name) Get-Module -ListAvailable -Name $Name },
+        [scriptblock] $InstallModule = { param([string] $Name, [string] $Version) Install-Module -Name $Name -RequiredVersion $Version -Scope CurrentUser -AllowClobber -Force },
+        [scriptblock] $Logger = {
+            param([string] $Message, [string] $Level = 'Information')
+            switch ($Level) {
+                'Warning' { Write-Warning $Message }
+                'Verbose' { Write-Verbose $Message }
+                default { Write-Information $Message -InformationAction Continue }
+            }
+        }
+    )
 
     $ErrorActionPreference = 'Stop'
 
-    # Ensure TLS 1.2 for downloads
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        & $SetTls
     } catch {
-        Write-Verbose ("Unable to enforce TLS 1.2 for module install: {0}" -f $_.Exception.Message)
+        & $Logger "Unable to enforce TLS 1.2 for module install: $($_.Exception.Message)" 'Verbose'
     }
-
-    $gallery = Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue
+    $gallery = & $GetRepository 'PSGallery'
     if (-not $gallery) {
-        Write-Information "PSGallery not found; registering." -InformationAction Continue
-        Register-PSRepository -Default -InstallationPolicy Trusted
+        & $Logger 'PSGallery not found; registering.'
+        & $RegisterRepository
     } elseif ($gallery.InstallationPolicy -ne 'Trusted') {
         try {
-            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction Stop
+            & $SetRepository 'PSGallery' 'Trusted'
         } catch {
-            Write-Warning "Could not set PSGallery as trusted automatically. You may be prompted during install."
+            & $Logger 'Could not set PSGallery as trusted automatically. You may be prompted during install.' 'Warning'
         }
     }
 
@@ -67,103 +97,120 @@ function Install-PoshQCTool {
     )
 
     foreach ($module in $requiredModules) {
-        $installed = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
+        $installed = & $FindModule $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
         if ($installed) {
-            Write-Information "$($module.Name) $($installed.Version) already present." -InformationAction Continue
+            & $Logger "$($module.Name) $($installed.Version) already present."
             continue
         }
-        Write-Information "Installing $($module.Name) $($module.Version) (CurrentUser scope)..." -InformationAction Continue
-        Install-Module -Name $module.Name -RequiredVersion $module.Version -Scope CurrentUser -AllowClobber -Force
-        $post = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
+
+        & $Logger "Installing $($module.Name) $($module.Version) (CurrentUser scope)..."
+        try {
+            & $InstallModule $module.Name $module.Version
+        } catch {
+            throw "Failed to install $($module.Name) $($module.Version): $($_.Exception.Message)"
+        }
+
+        $post = & $FindModule $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
         if (-not $post) {
             throw "Failed to install $($module.Name) $($module.Version)."
         }
-        Write-Information "$($module.Name) $($module.Version) installed." -InformationAction Continue
+        & $Logger "$($module.Name) $($module.Version) installed."
     }
 }
 
-<#
-.SYNOPSIS
-Formats PowerShell files with repo PSScriptAnalyzer settings.
-.DESCRIPTION
-Runs Invoke-Formatter on all PowerShell scripts under the root, excluding configured directories.
-#>
+# Formats PowerShell files with repo PSScriptAnalyzer settings.
 function Invoke-PoshQCFormat {
     [CmdletBinding()]
     param(
         [string] $Root = (Get-Location).Path,
         [string] $SettingsPath = $script:PssaSettings,
-        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs
+        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
+        [scriptblock] $EnsureModule = {
+            param([string] $Name, [string] $ErrorMessage)
+            if (-not (Get-Module -ListAvailable -Name $Name)) { throw $ErrorMessage }
+            Import-Module $Name -ErrorAction Stop
+        },
+        [scriptblock] $TestPathExists = { param([string] $Path) Test-Path $Path },
+        [scriptblock] $GetFileList = { param([string] $RootPath, [string[]] $Excluded) Get-PoshQCFileList -Root $RootPath -ExcludeDirs $Excluded },
+        [scriptblock] $ReadFile = { param([string] $Path) Get-Content -Raw -Path $Path },
+        [scriptblock] $WriteFile = { param([string] $Path, [string] $Content) Set-Content -Path $Path -Value $Content -Encoding UTF8 },
+        [scriptblock] $FormatContent = { param([string] $Content, [string] $Settings) Invoke-Formatter -ScriptDefinition $Content -Settings $Settings },
+        [scriptblock] $Logger = {
+            param([string] $Message)
+            Write-Information $Message -InformationAction Continue
+        }
     )
 
     $ErrorActionPreference = 'Stop'
 
-    if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
-    }
-    Import-Module PSScriptAnalyzer -ErrorAction Stop
+    & $EnsureModule 'PSScriptAnalyzer' "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 
-    if (-not (Test-Path $SettingsPath)) {
+    if (-not (& $TestPathExists $SettingsPath)) {
         throw "Settings not found: $SettingsPath"
     }
 
-    $files = Get-PoshQCFileList -Root $Root -ExcludeDirs $ExcludeDirs
+    $files = @(& $GetFileList $Root $ExcludeDirs)
     if (-not $files) {
-        Write-Information "No PowerShell files found under $Root" -InformationAction Continue
+        & $Logger "No PowerShell files found under $Root"
         return
     }
 
     foreach ($file in $files) {
-        $original = Get-Content -Raw -Path $file.FullName
+        $original = & $ReadFile $file.FullName
         $normalized = $original -replace "`r?`n", "`n"
-        $formatted = Invoke-Formatter -ScriptDefinition $normalized -Settings $SettingsPath
+        $formatted = & $FormatContent $normalized $SettingsPath
         if ($formatted -ne $normalized) {
-            Set-Content -Path $file.FullName -Value $formatted -Encoding UTF8
-            Write-Information "Formatted: $($file.FullName)" -InformationAction Continue
+            & $WriteFile $file.FullName $formatted
+            & $Logger "Formatted: $($file.FullName)"
+        } else {
+            & $Logger "Already formatted: $($file.FullName)"
         }
     }
 }
 
-<#
-.SYNOPSIS
-Runs PSScriptAnalyzer with repo settings.
-.DESCRIPTION
-Analyzes PowerShell scripts under the root and throws if any findings are present.
-#>
+# Runs PSScriptAnalyzer with repo settings.
 function Invoke-PoshQCAnalyze {
     [CmdletBinding()]
     param(
         [string] $Root = (Get-Location).Path,
         [string] $SettingsPath = $script:PssaSettings,
-        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs
+        [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
+        [scriptblock] $EnsureModule = {
+            param([string] $Name, [string] $ErrorMessage)
+            if (-not (Get-Module -ListAvailable -Name $Name)) { throw $ErrorMessage }
+            Import-Module $Name -ErrorAction Stop
+        },
+        [scriptblock] $TestPathExists = { param([string] $Path) Test-Path $Path },
+        [scriptblock] $GetFileList = { param([string] $RootPath, [string[]] $Excluded) Get-PoshQCFileList -Root $RootPath -ExcludeDirs $Excluded },
+        [scriptblock] $AnalyzeFile = {
+            param([string] $Path, [string] $Settings)
+            Invoke-ScriptAnalyzer -Path $Path -Settings $Settings -Severity Error, Warning, Information -ErrorAction Stop
+        },
+        [scriptblock] $Logger = {
+            param([string] $Message)
+            Write-Information $Message -InformationAction Continue
+        }
     )
 
 
     $ErrorActionPreference = 'Stop'
 
-    if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-        throw "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
-    }
-    Import-Module PSScriptAnalyzer -ErrorAction Stop
+    & $EnsureModule 'PSScriptAnalyzer' "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 
-    if (-not (Test-Path $SettingsPath)) {
+    if (-not (& $TestPathExists $SettingsPath)) {
         throw "Settings not found: $SettingsPath"
     }
 
-    $files = Get-PoshQCFileList -Root $Root -ExcludeDirs $ExcludeDirs | Where-Object { $_.Extension -in '.ps1', '.psm1' }
+    $files = @(& $GetFileList $Root $ExcludeDirs | Where-Object { $_.Extension -in '.ps1', '.psm1' })
     if (-not $files) {
-        Write-Information "No PowerShell files found under $Root" -InformationAction Continue
+        & $Logger "No PowerShell files found under $Root"
         return
     }
 
     $results = @()
     foreach ($file in $files) {
         try {
-            $results += Invoke-ScriptAnalyzer `
-                -Path $file.FullName `
-                -Settings $SettingsPath `
-                -Severity Error, Warning, Information `
-                -ErrorAction Stop
+            $results += & $AnalyzeFile $file.FullName $SettingsPath
         } catch {
             $errorType = $_.Exception.GetType().FullName
             $errorMessage = $_.Exception.Message
@@ -175,15 +222,10 @@ function Invoke-PoshQCAnalyze {
         $results | Format-Table -AutoSize
         throw "PSScriptAnalyzer reported $($results.Count) issue(s)."
     }
-    Write-Information "PSScriptAnalyzer passed: no findings under $Root" -InformationAction Continue
+    & $Logger "PSScriptAnalyzer passed: no findings under $Root"
 }
 
-<#
-.SYNOPSIS
-Creates a Koverage-friendly copy of coverage output with relative paths.
-.DESCRIPTION
-Converts Pester CoverageGutters XML by stripping the repository root prefix so tools like Coverage Gutters and Koverage can map files correctly. Accepts file paths or raw XML content and can optionally return the modified content without writing a file.
-#>
+# Creates a Koverage-friendly copy of coverage output with relative paths.
 function Convert-PoshQCCoverageToRelative {
     [CmdletBinding()]
     param(
@@ -191,27 +233,57 @@ function Convert-PoshQCCoverageToRelative {
         [Parameter()][string] $OutputPath,
         [Parameter()][string] $RepoRoot = (Get-Location).Path,
         [Parameter()][string] $InputContent,
-        [switch] $PassThru
+        [switch] $PassThru,
+        [scriptblock] $ResolvePath = { param([string] $Path) (Resolve-Path -Path $Path -ErrorAction Stop).Path },
+        [scriptblock] $JoinPath = { param([string] $Parent, [string] $Child) Join-Path -Path $Parent -ChildPath $Child },
+        [scriptblock] $TestPathExists = { param([string] $Path) Test-Path $Path },
+        [scriptblock] $ReadContent = { param([string] $Path) Get-Content -Path $Path -Raw },
+        [scriptblock] $WriteContent = { param([string] $Path, [string] $Content) Set-Content -Path $Path -Value $Content -Encoding UTF8 },
+        [scriptblock] $EnsureDirectory = {
+            param([string] $Path)
+            $dir = Split-Path -Parent $Path
+            if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        },
+        [scriptblock] $GetDefaultOutputPath = {
+            param([string] $ResolvedInputPath, [string] $ResolvedRoot)
+            $coverageDir = if ($ResolvedInputPath) { Split-Path -Parent $ResolvedInputPath } else { $ResolvedRoot }
+            $coverageBase = if ($ResolvedInputPath) { [IO.Path]::GetFileNameWithoutExtension($ResolvedInputPath) } else { 'powershell-coverage' }
+            Join-Path -Path $coverageDir -ChildPath "$coverageBase.koverage.xml"
+        },
+        [scriptblock] $Logger = {
+            param([string] $Message)
+            Write-Information $Message -InformationAction Continue
+        }
     )
 
     $ErrorActionPreference = 'Stop'
 
     if (-not $InputPath -and -not $InputContent) {
-        throw 'Either InputPath or InputContent must be provided.'
+        & $Logger 'No coverage input provided; skipping conversion.'
+        return
     }
 
-    $resolvedRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $resolvedRoot = $RepoRoot
+    try {
+        $maybeResolvedRoot = & $ResolvePath $RepoRoot
+        if ($maybeResolvedRoot) {
+            $resolvedRoot = if ($maybeResolvedRoot -is [string]) { $maybeResolvedRoot } else { $maybeResolvedRoot.Path }
+        }
+    }
+    catch {
+        $resolvedRoot = $RepoRoot
+    }
 
     $resolvedInputPath = $null
     if ($InputPath) {
-        $resolvedInputPath = if ([IO.Path]::IsPathRooted($InputPath)) { $InputPath } else { Join-Path $resolvedRoot $InputPath }
-        if (-not (Test-Path $resolvedInputPath)) {
-            Write-Information "Coverage file not found; skipping Koverage output: $resolvedInputPath" -InformationAction Continue
+        $resolvedInputPath = if ([IO.Path]::IsPathRooted($InputPath)) { $InputPath } else { & $JoinPath $resolvedRoot $InputPath }
+        if (-not (& $TestPathExists $resolvedInputPath)) {
+            & $Logger "Coverage file not found; skipping Koverage output: $resolvedInputPath"
             return
         }
 
         if (-not $InputContent) {
-            $InputContent = Get-Content -Path $resolvedInputPath -Raw
+            $InputContent = & $ReadContent $resolvedInputPath
         }
     }
 
@@ -230,27 +302,16 @@ function Convert-PoshQCCoverageToRelative {
     }
 
     if (-not $OutputPath) {
-        $coverageDir = if ($resolvedInputPath) { Split-Path -Parent $resolvedInputPath } else { $resolvedRoot }
-        $coverageBase = if ($resolvedInputPath) { [IO.Path]::GetFileNameWithoutExtension($resolvedInputPath) } else { 'powershell-coverage' }
-        $OutputPath = Join-Path $coverageDir "$coverageBase.koverage.xml"
+        $OutputPath = & $GetDefaultOutputPath $resolvedInputPath $resolvedRoot
     }
 
-    $resolvedOutputPath = if ([IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path $resolvedRoot $OutputPath }
-    $outputDir = Split-Path -Parent $resolvedOutputPath
-    if ($outputDir -and -not (Test-Path $outputDir)) {
-        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-    }
-
-    Set-Content -Path $resolvedOutputPath -Value $fixedContent -Encoding UTF8
-    Write-Information "Wrote Koverage coverage copy: $resolvedOutputPath" -InformationAction Continue
+    $resolvedOutputPath = if ([IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { & $JoinPath $resolvedRoot $OutputPath }
+    & $EnsureDirectory $resolvedOutputPath
+    & $WriteContent $resolvedOutputPath $fixedContent
+    & $Logger "Wrote Koverage coverage copy: $resolvedOutputPath"
 }
 
-<#
-.SYNOPSIS
-Runs Pester using the repo configuration.
-.DESCRIPTION
-Builds a Pester configuration from the runsettings file, expands relative paths under the root, and executes tests.
-#>
+# Runs Pester using the repo configuration.
 function Invoke-PoshQCTest {
     [CmdletBinding()]
     param(
@@ -258,51 +319,113 @@ function Invoke-PoshQCTest {
         [string] $SettingsPath = $script:PesterSettings,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
         [string] $KoverageOutputPath,
-        [switch] $DisableKoverageCopy
+        [switch] $DisableKoverageCopy,
+        [scriptblock] $EnsureModule = {
+            param([string] $Name, [string] $ErrorMessage)
+            if (-not (Get-Module -ListAvailable -Name $Name)) { throw $ErrorMessage }
+            Import-Module $Name -ErrorAction Stop
+        },
+        [scriptblock] $TestPathExists = { param([string] $Path) Test-Path $Path },
+        [scriptblock] $LoadSettings = { param([string] $Path) Import-PowerShellDataFile -Path $Path },
+        [scriptblock] $BuildConfiguration = { param($Settings) New-PesterConfiguration -Hashtable $Settings },
+        [scriptblock] $ExpandRunPaths = {
+            param($Config, [string] $RootPath, [string[]] $Excluded)
+            if ($Config.Run.Path.Value) {
+                $Config.Run.Path = @(
+                    $Config.Run.Path.Value |
+                        ForEach-Object { Join-Path $RootPath $_ } |
+                            Where-Object { $Excluded -notcontains (Split-Path -Path $_ -Leaf) }
+                )
+            }
+
+            if ($Excluded) {
+                $excludedPaths = @($Excluded | ForEach-Object { Join-Path $RootPath $_ })
+                $existingExclude = if ($Config.Run.ExcludePath.Value) { @($Config.Run.ExcludePath.Value | ForEach-Object { Join-Path $RootPath $_ }) } else { @() }
+                $Config.Run.ExcludePath = $existingExclude + $excludedPaths
+            }
+
+            $Config
+        },
+        [scriptblock] $EnsureResultPath = {
+            param($Config, [string] $RootPath)
+            if ($Config.TestResult.Enabled.Value -and $Config.TestResult.OutputPath.Value) {
+                $resultPath = $Config.TestResult.OutputPath.Value
+                $resultDir = Split-Path -Parent $resultPath
+                if (-not [string]::IsNullOrWhiteSpace($resultDir)) {
+                    New-Item -ItemType Directory -Path (Join-Path $RootPath $resultDir) -Force | Out-Null
+                }
+                $Config.TestResult.OutputPath = if ([IO.Path]::IsPathRooted($resultPath)) {
+                    $resultPath
+                } else {
+                    Join-Path $RootPath $resultPath
+                }
+            }
+            $Config
+        },
+        [scriptblock] $ExpandCoveragePaths = {
+            param($Config, [string] $RootPath)
+            if (-not $Config.CodeCoverage) { return $Config }
+
+            if ($Config.CodeCoverage.Path.Value) {
+                $Config.CodeCoverage.Path = @(
+                    $Config.CodeCoverage.Path.Value | ForEach-Object { if ([IO.Path]::IsPathRooted($_)) { $_ } else { Join-Path $RootPath $_ } }
+                )
+            }
+
+            if ($Config.CodeCoverage.OutputPath.Value) {
+                $coveragePath = $Config.CodeCoverage.OutputPath.Value
+                $coverageDir = Split-Path -Parent $coveragePath
+                if (-not [string]::IsNullOrWhiteSpace($coverageDir)) {
+                    New-Item -ItemType Directory -Path (Join-Path $RootPath $coverageDir) -Force | Out-Null
+                }
+                $Config.CodeCoverage.OutputPath = if ([IO.Path]::IsPathRooted($coveragePath)) {
+                    $coveragePath
+                } else {
+                    Join-Path $RootPath $coveragePath
+                }
+            }
+
+            $Config
+        },
+        [scriptblock] $EnumerateTests = {
+            param([string[]] $Paths, [string[]] $Excluded)
+            $tests = @()
+            foreach ($path in $Paths) {
+                if (-not (Test-Path $path)) { continue }
+                $tests += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 -File | Where-Object {
+                    $parts = $_.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
+                    foreach ($dir in $Excluded) {
+                        if ($parts -contains $dir) { return $false }
+                    }
+                    return $true
+                }
+            }
+            @($tests | Sort-Object -Property FullName -Stable)
+        },
+        [scriptblock] $Logger = {
+            param([string] $Message)
+            Write-Information $Message -InformationAction Continue
+        },
+        [scriptblock] $InvokePester = { param($Config) Invoke-Pester -Configuration $Config },
+        [scriptblock] $CopyCoverage = {
+            param([string] $CoveragePath, [string] $RepoRoot, [string] $KoveragePath)
+            Convert-PoshQCCoverageToRelative -InputPath $CoveragePath -OutputPath $KoveragePath -RepoRoot $RepoRoot
+        }
     )
 
     $ErrorActionPreference = 'Stop'
 
-    if (-not (Get-Module -ListAvailable -Name Pester)) {
-        throw "Pester is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
-    }
-    Import-Module Pester -ErrorAction Stop
+    & $EnsureModule 'Pester' "Pester is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 
-    if (-not (Test-Path $SettingsPath)) {
+    if (-not (& $TestPathExists $SettingsPath)) {
         throw "Settings not found: $SettingsPath"
     }
 
-    $settings = Import-PowerShellDataFile -Path $SettingsPath
-    $config = New-PesterConfiguration -Hashtable $settings
-
-    # Resolve paths relative to repo root and honor exclusions.
-    if ($config.Run.Path.Value) {
-        $config.Run.Path = @(
-            $config.Run.Path.Value |
-                ForEach-Object { Join-Path $Root $_ } |
-                    Where-Object { $ExcludeDirs -notcontains (Split-Path -Path $_ -Leaf) }
-        )
-    }
-
-    if ($ExcludeDirs) {
-        $excludedPaths = @($ExcludeDirs | ForEach-Object { Join-Path $Root $_ })
-        $existingExclude = if ($config.Run.ExcludePath.Value) { @($config.Run.ExcludePath.Value | ForEach-Object { Join-Path $Root $_ }) } else { @() }
-        $config.Run.ExcludePath = $existingExclude + $excludedPaths
-    }
-
-    # Ensure result directory exists if configured
-    if ($config.TestResult.Enabled.Value -and $config.TestResult.OutputPath.Value) {
-        $resultPath = $config.TestResult.OutputPath.Value
-        $resultDir = Split-Path -Parent $resultPath
-        if (-not [string]::IsNullOrWhiteSpace($resultDir)) {
-            New-Item -ItemType Directory -Path (Join-Path $Root $resultDir) -Force | Out-Null
-        }
-        $config.TestResult.OutputPath = if ([IO.Path]::IsPathRooted($resultPath)) {
-            $resultPath
-        } else {
-            Join-Path $Root $resultPath
-        }
-    }
+    $settings = & $LoadSettings $SettingsPath
+    $config = & $BuildConfiguration $settings
+    $config = & $ExpandRunPaths $config $Root $ExcludeDirs
+    $config = & $EnsureResultPath $config $Root
+    $config = & $ExpandCoveragePaths $config $Root
 
     $coverageEnabled = $false
     if ($config.CodeCoverage) {
@@ -347,24 +470,13 @@ function Invoke-PoshQCTest {
         }
     }
 
-    $testFiles = @()
-    foreach ($path in $config.Run.Path.Value) {
-        if (-not (Test-Path $path)) { continue }
-        $testFiles += Get-ChildItem -Path $path -Recurse -Include *.Tests.ps1 -File | Where-Object {
-            $parts = $_.FullName.Split([IO.Path]::DirectorySeparatorChar, [System.StringSplitOptions]::RemoveEmptyEntries)
-            foreach ($dir in $ExcludeDirs) {
-                if ($parts -contains $dir) { return $false }
-            }
-            return $true
-        }
-    }
-
+    $testFiles = & $EnumerateTests $config.Run.Path.Value $ExcludeDirs
     if (-not $testFiles) {
-        Write-Information "No Pester test files found under configured paths for root $Root" -InformationAction Continue
+        & $Logger "No Pester test files found under configured paths for root $Root"
         return
     }
 
-    Invoke-Pester -Configuration $config
+    & $InvokePester $config
 
     $shouldEmitKoverageCopy = -not $DisableKoverageCopy
     if ($shouldEmitKoverageCopy -and $coverageEnabled -and $coverageOutputPath) {
@@ -381,7 +493,7 @@ function Invoke-PoshQCTest {
             $derivedKoveragePath
         }
 
-        Convert-PoshQCCoverageToRelative -InputPath $coverageOutputPath -OutputPath $effectiveKoveragePath -RepoRoot $Root
+        & $CopyCoverage $coverageOutputPath $Root $effectiveKoveragePath
     }
 }
 

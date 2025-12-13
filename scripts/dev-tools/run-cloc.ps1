@@ -1,5 +1,8 @@
-﻿param(
-    [string]$Path = "$PSScriptRoot/.."
+param(
+    [string]$Path = "$PSScriptRoot/..",
+    [scriptblock]$JoinPath = { param($Parent, $Child) Join-Path -Path $Parent -ChildPath $Child },
+    [scriptblock]$ResolvePath = { param($TargetPath) Resolve-Path -Path $TargetPath -ErrorAction Stop },
+    [scriptblock]$InvokeProcess = { param($Command, $Arguments) & $Command @($Arguments) }
 )
 
 function Initialize-OutputRendering {
@@ -30,20 +33,44 @@ function Get-ClocPath {
     .SYNOPSIS
         Constructs paths for cloc executables and target directory
     #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [string]$ScriptRoot,
         [Parameter(Mandatory = $true)]
-        [string]$TargetPath
+        [string]$TargetPath,
+        [scriptblock]$JoinPath = { param($Parent, $Child) Join-Path -Path $Parent -ChildPath $Child },
+        [scriptblock]$ResolvePath = { param($TargetPath) Resolve-Path -Path $TargetPath -ErrorAction Stop },
+        [scriptblock]$TestPath = { param([string]$Path) Test-Path $Path }
     )
 
-    $toolsRoot = Join-Path -Path $ScriptRoot -ChildPath ".."
-    $toolsDir = Join-Path -Path $toolsRoot -ChildPath "tools"
+    $toolsRoot = & $JoinPath $ScriptRoot ".."
+    $toolsDir = & $JoinPath $toolsRoot "tools"
+
+    $targetCandidate = if ([IO.Path]::IsPathRooted($TargetPath)) {
+        $TargetPath
+    }
+    else {
+        & $JoinPath $ScriptRoot $TargetPath
+    }
+
+    $resolvedTarget = $targetCandidate
+    if (& $TestPath $targetCandidate) {
+        try {
+            $resolvedPath = & $ResolvePath $targetCandidate
+            if ($resolvedPath) {
+                $resolvedTarget = if ($resolvedPath -is [string]) { $resolvedPath } else { $resolvedPath.Path }
+            }
+        }
+        catch {
+            $resolvedTarget = $targetCandidate
+        }
+    }
 
     return @{
-        Root       = (Resolve-Path $TargetPath).Path
-        ClocExe    = Join-Path -Path $toolsDir -ChildPath "cloc.exe"
-        ClocScript = Join-Path -Path $toolsDir -ChildPath "cloc"
+        Root       = $resolvedTarget
+        ClocExe    = & $JoinPath $toolsDir "cloc.exe"
+        ClocScript = & $JoinPath $toolsDir "cloc"
     }
 }
 
@@ -52,24 +79,28 @@ function Invoke-ClocCount {
     .SYNOPSIS
         Executes cloc with the appropriate binary for the platform
     #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Paths,
         [Parameter(Mandatory = $true)]
-        [bool]$IsWindows
+        [bool]$IsWindows,
+        [scriptblock]$TestPath = { param([string]$Path) Test-Path $Path },
+        [scriptblock]$FindCommand = { param([string]$Name) Get-Command $Name -ErrorAction SilentlyContinue },
+        [scriptblock]$InvokeProcess = { param($Command, $Arguments) & $Command @($Arguments) }
     )
 
     $clocArgs = @("--vcs=git", "--quiet", "--exclude-dir=tools", $Paths.Root)
 
-    if ($IsWindows -and (Test-Path $Paths.ClocExe)) {
-        & $Paths.ClocExe @clocArgs
+    if ($IsWindows -and (& $TestPath $Paths.ClocExe)) {
+        & $InvokeProcess $Paths.ClocExe $clocArgs
     }
-    elseif (Test-Path $Paths.ClocScript) {
-        $perl = Get-Command perl -ErrorAction SilentlyContinue
+    elseif (& $TestPath $Paths.ClocScript) {
+        $perl = & $FindCommand 'perl'
         if (-not $perl) {
             throw "Perl is required to run the bundled cloc script."
         }
-        & $perl.Path $Paths.ClocScript @clocArgs
+        & $InvokeProcess $perl.Path @($Paths.ClocScript) + $clocArgs
     }
     else {
         throw "Bundled cloc binary not found."
@@ -78,7 +109,6 @@ function Invoke-ClocCount {
 
 # Main execution
 Initialize-OutputRendering
-$paths = Get-ClocPath -ScriptRoot $PSScriptRoot -TargetPath $Path
+$paths = Get-ClocPath -ScriptRoot $PSScriptRoot -TargetPath $Path -JoinPath $JoinPath -ResolvePath $ResolvePath
 $onWindowsPlatform = Test-IsWindows
-Invoke-ClocCount -Paths $paths -IsWindows $onWindowsPlatform
-
+Invoke-ClocCount -Paths $paths -IsWindows $onWindowsPlatform -InvokeProcess $InvokeProcess

@@ -1,15 +1,15 @@
 Set-StrictMode -Version Latest
 
-# Helper function to import script functions for testing
-function global:Import-ScriptFunction {
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [Parameter(Mandatory = $true)][string]$Name
-    )
+. (Resolve-Path -Path (Join-Path $PSScriptRoot 'Support/TestHelpers.ps1'))
 
-    $resolved = (Resolve-Path -Path $Path).Path
-    if (-not (Get-Command -Name $Name -ErrorAction SilentlyContinue)) {
-        $null = $null
+if (-not (Get-Command -Name Import-ScriptFunction -ErrorAction SilentlyContinue)) {
+    function global:Import-ScriptFunction {
+        param(
+            [Parameter(Mandatory = $true)][string]$Path,
+            [Parameter(Mandatory = $true)][string]$Name
+        )
+
+        $resolved = (Resolve-Path -Path $Path).Path
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
         if ($errors -and $errors.Count -gt 0) {

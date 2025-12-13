@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 # Import the helper to load functions from scripts
-. (Join-Path $PSScriptRoot '..\..\powershell\dev-tools.Tests.ps1' -Resolve)
+. (Join-Path $PSScriptRoot '..\..\powershell\Support\TestHelpers.ps1' -Resolve)
 
 Describe "run-actionlint.ps1" {
     BeforeAll {
