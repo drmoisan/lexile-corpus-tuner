@@ -16,6 +16,19 @@ Lexile Corpus Tuner is a toolkit for measuring, constraining, and rewriting a co
 
 ## Install
 
+### Option 1: Docker Dev Container (Recommended)
+
+For a fully configured development environment with all tools:
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop) and [VS Code Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Open this workspace in VS Code
+3. Press `F1` → **Dev Containers: Reopen in Container**
+4. Wait for setup to complete (~5-10 minutes first time)
+
+See [`.devcontainer/README.md`](.devcontainer/README.md) for details.
+
+### Option 2: Local Installation
+
 ```bash
 poetry install --with dev
 # Optional extras
