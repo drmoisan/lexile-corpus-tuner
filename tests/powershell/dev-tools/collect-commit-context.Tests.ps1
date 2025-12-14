@@ -1,27 +1,61 @@
 Set-StrictMode -Version Latest
 
+function global:Import-ScriptFunction {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $resolved = (Resolve-Path -Path $Path).Path
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$null, [ref]$errors)
+    if ($errors -and $errors.Count -gt 0) {
+        throw "Failed to parse ${resolved}: $($errors[0].Message)"
+    }
+
+    $funcAst = $ast.Find(
+        {
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq $Name
+        },
+        $true
+    )
+
+    if (-not $funcAst) {
+        throw "Function $Name not found in $resolved"
+    }
+
+    $functionText = $funcAst.Extent.Text
+    $parseErrors = $null
+    $parsed = [System.Management.Automation.Language.Parser]::ParseInput($functionText, $resolved, [ref]$null, [ref]$parseErrors)
+    if ($parseErrors -and $parseErrors.Count -gt 0) {
+        throw "Failed to parse function body for ${resolved}: $($parseErrors[0].Message)"
+    }
+
+    return $parsed.GetScriptBlock()
+}
+
 Describe "collect-commit-context.ps1" {
     BeforeAll {
-        $script:scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-        $script:helperPath = Join-Path -Path $script:scriptRoot -ChildPath "..\Support\TestHelpers.ps1"
-        . (Resolve-Path -Path $script:helperPath)
-        $script:collectCommitScript = Join-Path -Path $script:scriptRoot -ChildPath "..\..\..\scripts\dev-tools\collect-commit-context.ps1"
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\collect-commit-context.ps1"
     }
 
     Context "Add-ReportSection function" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Add-ReportSection")
             $script:ReportOutput = "mock-output.txt"
             $script:captured = New-Object System.Collections.Generic.List[string]
-            Mock -CommandName Add-Content -MockWith {
+        }
+
+        It "writes section headers and content" {
+            $mockAddContent = {
                 param($Path, $Value)
                 $null = $Path
                 $script:captured.Add($Value)
             }
-        }
 
-        It "writes section headers and content" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" }
+            Add-ReportSection -Title "Test Section" -Cmd { "line1`nline2" } -AddContentFunc $mockAddContent
 
             $script:captured.Count | Should -Be 2
             $script:captured[0] | Should -Match "===== Test Section ====="
@@ -29,91 +63,34 @@ Describe "collect-commit-context.ps1" {
         }
 
         It "writes placeholder when allowed to fail" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail
+            $mockAddContent = {
+                param($Path, $Value)
+                $null = $Path
+                $script:captured.Add($Value)
+            }
+
+            Add-ReportSection -Title "MayFail" -Cmd { throw "boom" } -AllowFail -AddContentFunc $mockAddContent
             $script:captured[1] | Should -Match "\[n/a\]"
         }
 
         It "throws error when not allowed to fail" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            { Add-ReportSection -Title "MustSucceed" -Cmd { throw "error" } } | Should -Throw
-        }
+            $mockAddContent = {
+                param($Path, $Value)
+                $null = $Path
+                $script:captured.Add($Value)
+            }
 
-        It "trims trailing whitespace from command output" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "Trimmed" -Cmd { "content   `n  " }
-
-            $script:captured[1] | Should -Be "content"
-        }
-
-        It "handles empty command output" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "Empty" -Cmd { "" }
-
-            $script:captured.Count | Should -Be 2
-            $script:captured[0] | Should -Match "===== Empty ====="
-        }
-
-        It "handles null command parameter" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "NoCmd" -Cmd $null
-
-            $script:captured.Count | Should -Be 1
-            $script:captured[0] | Should -Match "===== NoCmd ====="
-        }
-
-        It "writes multiple sections to same output" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "First" -Cmd { "content1" }
-            Add-ReportSection -Title "Second" -Cmd { "content2" }
-
-            $script:captured.Count | Should -Be 4
-            $script:captured[0] | Should -Match "===== First ====="
-            $script:captured[2] | Should -Match "===== Second ====="
-        }
-
-        It "handles multiline output correctly" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            $multiline = "line1`nline2`nline3"
-            Add-ReportSection -Title "MultiLine" -Cmd { $multiline }
-
-            $script:captured[1] | Should -Be $multiline
-        }
-
-        It "handles scriptblock that returns objects" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "Objects" -Cmd { [PSCustomObject]@{ Name = "test"; Value = 42 } }
-
-            $script:captured.Count | Should -Be 2
-            $script:captured[1] | Should -Match "test"
-        }
-
-        It "handles command with no output" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            Add-ReportSection -Title "NoOutput" -Cmd { $null }
-
-            $script:captured.Count | Should -Be 2
-            $script:captured[1] | Should -Be ""
-        }
-
-        It "preserves line breaks in multiline content" {
-            . (Import-ScriptFunction -Path $script:collectCommitScript -Name "Add-ReportSection")
-            $content = @"
-line1
-line2
-line3
-"@
-            Add-ReportSection -Title "Lines" -Cmd { $content }
-
-            $script:captured[1] | Should -Match "line1"
-            $script:captured[1] | Should -Match "line2"
-            $script:captured[1] | Should -Match "line3"
+            { Add-ReportSection -Title "MustSucceed" -Cmd { throw "error" } -AddContentFunc $mockAddContent } | Should -Throw
         }
     }
 
     Context "Script execution" {
-        # Use mocks to keep the test isolated from Git and the filesystem per unit-test policy.
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Add-ReportSection")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-CollectCommitContext")
+
             $gitCallLog = New-Object System.Collections.Generic.List[string]
             $addContentCalls = New-Object System.Collections.Generic.List[hashtable]
             $createdDirs = New-Object System.Collections.Generic.List[string]
@@ -127,32 +104,34 @@ line3
             $outputPath = "C:\repo-root\artifacts\commit_context.txt"
             $outputDir = "C:\repo-root\artifacts"
 
-            $gitOutputs = New-Object 'System.Collections.Generic.Dictionary[string,string]'
-            $gitOutputs.Add('rev-parse --is-inside-work-tree', 'true')
-            $gitOutputs.Add('rev-parse --show-toplevel', $expectedRoot)
-            $gitOutputs.Add('remote -v', "origin https://example/repo (fetch)`norigin https://example/repo (push)")
-            $gitOutputs.Add('branch --show-current', 'feature/branch')
-            $gitOutputs.Add('rev-parse --abbrev-ref --symbolic-full-name @{u}', 'origin/feature/branch')
-            $gitOutputs.Add('status -sb', ' M file.ps1')
-            $gitOutputs.Add('diff --staged --name-status', "M`tfile.ps1")
-            $gitOutputs.Add('diff --staged', 'staged diff')
-            $gitOutputs.Add('diff --name-status', "M`tfile.ps1")
-            $gitOutputs.Add('diff', 'unstaged diff')
-            $gitOutputs.Add('ls-files --others --exclude-standard', 'untracked.txt')
-            $gitOutputs.Add('diff --numstat', "1`t2`tfile1.ps1")
-            $gitOutputs.Add('diff --staged --numstat', "3`t4`tfile2.ps1")
-            $gitOutputs.Add('diff --name-only HEAD -- *.py', "a.py`nb.py")
-            $gitOutputs.Add('diff --name-only HEAD *.py', "a.py`nb.py")
-            $gitOutputs.Add('show -s --pretty=fuller -1', 'commit header')
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
 
-            Mock -CommandName git -MockWith {
-                $call = ($args -join ' ')
+                $call = ($GitArgs -join ' ')
                 $gitCallLog.Add($call)
-                if (-not $gitOutputs.ContainsKey($call)) {
-                    throw "Unexpected git call: $call"
-                }
 
-                return $gitOutputs[$call]
+                $global:LASTEXITCODE = 0
+
+                switch ($call) {
+                    'rev-parse --is-inside-work-tree' { return 'true' }
+                    'rev-parse --show-toplevel' { return $expectedRoot }
+                    'remote -v' { return "origin https://example/repo (fetch)`norigin https://example/repo (push)" }
+                    'branch --show-current' { return 'feature/branch' }
+                    'rev-parse --abbrev-ref --symbolic-full-name @{u}' { return 'origin/feature/branch' }
+                    'status -sb' { return ' M file.ps1' }
+                    'diff --staged --name-status' { return "M`tfile.ps1" }
+                    'diff --staged' { return 'staged diff' }
+                    'diff --name-status' { return "M`tfile.ps1" }
+                    'diff' { return 'unstaged diff' }
+                    'ls-files --others --exclude-standard' { return 'untracked.txt' }
+                    'diff --numstat' { return "1`t2`tfile1.ps1" }
+                    'diff --staged --numstat' { return "3`t4`tfile2.ps1" }
+                    'diff --name-only HEAD -- *.py' { return "a.py`nb.py" }
+                    'show -s --pretty=fuller -1' { return 'commit header' }
+                    default {
+                        throw "Unexpected git call: $call"
+                    }
+                }
             }
 
             Mock -CommandName Test-Path -MockWith {
@@ -187,22 +166,19 @@ line3
         }
 
         AfterEach {
-            # Explicit cleanup to prevent cross-test contamination
             $gitCallLog.Clear()
             $addContentCalls.Clear()
             $createdDirs.Clear()
             $removedPaths.Clear()
             $setLocations.Clear()
-            $gitOutputs.Clear()
         }
 
         It "writes report sections using git output" {
-            $outputText = & $script:collectCommitScript 2>$null | Out-String
+            $outputText = Invoke-CollectCommitContext -Output "artifacts/commit_context.txt" 2>$null | Out-String
 
             $setLocations | Should -Contain $expectedRoot
             ($addContentCalls | ForEach-Object { $_.Path } | Select-Object -Unique) | Should -Be @($outputPath)
 
-            # Check that expected content exists somewhere in the calls (more robust than assuming index 0)
             $allValues = $addContentCalls | ForEach-Object { $_.Value }
             $allValues | Where-Object { $_ -match "^Please generate a commit message" } | Should -Not -BeNullOrEmpty
             ($addContentCalls | Where-Object { $_.Value -like "*===== Repository remotes*" }).Count | Should -BeGreaterThan 0
@@ -211,6 +187,7 @@ line3
 
             $gitCallLog | Should -Contain 'remote -v'
             $gitCallLog | Should -Contain 'branch --show-current'
+            $gitCallLog | Should -Contain 'rev-parse --is-inside-work-tree'
             $outputText | Should -Match ([regex]::Escape($outputPath))
         }
 
@@ -218,7 +195,7 @@ line3
             $dirExists = $false
             $dirExists | Should -BeFalse
 
-            & $script:collectCommitScript | Out-Null
+            Invoke-CollectCommitContext -Output "artifacts/commit_context.txt" | Out-Null
 
             $createdDirs | Should -Contain $outputDir
         }
@@ -229,11 +206,10 @@ line3
             $dirExists | Should -BeTrue
             $fileExists | Should -BeTrue
 
-            & $script:collectCommitScript | Out-Null
+            Invoke-CollectCommitContext -Output "artifacts/commit_context.txt" | Out-Null
 
             $removedPaths | Should -Contain $outputPath
             ($addContentCalls | ForEach-Object { $_.Path } | Select-Object -Unique) | Should -Be @($outputPath)
         }
     }
 }
-

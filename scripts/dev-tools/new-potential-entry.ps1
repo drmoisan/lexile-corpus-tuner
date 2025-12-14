@@ -14,9 +14,15 @@ function Test-ValidShortName {
 }
 
 function Get-AuthorName {
-    $author = (git config user.name) 2>$null
+    [CmdletBinding()]
+    param(
+        [scriptblock] $GetGitConfig = { param([string]$Key) git config $Key 2>$null },
+        [scriptblock] $GetEnvironmentVariable = { param([string]$Name) $env:USERNAME }
+    )
+
+    $author = & $GetGitConfig 'user.name'
     if (-not $author -or [string]::IsNullOrWhiteSpace($author)) {
-        $author = $env:USERNAME
+        $author = & $GetEnvironmentVariable 'USERNAME'
     }
     if (-not $author) { $author = 'Unknown' }
     return $author
@@ -48,13 +54,17 @@ function Convert-TemplateContent {
 }
 
 function Invoke-VSCodeOpen {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string[]] $Files
+        [string[]] $Files,
+        [scriptblock] $GetCommand = { param([string]$Name) Get-Command $Name -ErrorAction SilentlyContinue },
+        [scriptblock] $StartProcess = { param([string]$FilePath, $ArgumentList) Start-Process $FilePath -ArgumentList $ArgumentList }
     )
-    $codeCmd = Get-Command code -ErrorAction SilentlyContinue
+
+    $codeCmd = & $GetCommand 'code'
     if ($codeCmd) {
-        Start-Process code -ArgumentList $Files
+        & $StartProcess 'code' $Files
         return $true
     }
     return $false
