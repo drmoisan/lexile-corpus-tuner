@@ -125,3 +125,5 @@ $paths = Get-ClocPath -ScriptRoot $PSScriptRoot -TargetPath $Path -JoinPath $Joi
 $onWindowsPlatform = Test-IsWindows
 Invoke-ClocCount -Paths $paths -IsWindowsPlatform $onWindowsPlatform -InvokeProcess $InvokeProcess
 
+
+

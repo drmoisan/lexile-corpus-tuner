@@ -224,7 +224,6 @@ function Invoke-PoshQCAnalyze {
         }
     )
 
-
     $ErrorActionPreference = 'Stop'
 
     & $EnsureModule 'PSScriptAnalyzer' "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."

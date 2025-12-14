@@ -139,3 +139,6 @@ Add-DirectoryToPath -Directory $paths.BinDir
 Invoke-ActionlintCommand -CommandPath $actionlintCmd -Arguments $args
 
 
+
+
+

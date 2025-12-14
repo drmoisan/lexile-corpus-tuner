@@ -228,49 +228,49 @@ Describe "potential-to-issue.ps1 helpers" {
 
         It "extracts a section by heading" {
             $script:content = "## Problem / Why`nabc`n## Proposed Behavior`ndef"
-            $result = Get-Section -name "Problem / Why"
+            $result = Get-Section -Name "Problem / Why"
             $result | Should -Be "abc"
         }
 
         It "extracts section with multiple lines" {
             $script:content = "## Problem / Why`nline1`nline2`nline3`n## Next Section`nother"
-            $result = Get-Section -name "Problem / Why"
+            $result = Get-Section -Name "Problem / Why"
             $result | Should -Be "line1`nline2`nline3"
         }
 
         It "returns empty string when section not found" {
             $script:content = "## Problem / Why`nabc`n## Proposed Behavior`ndef"
-            $result = Get-Section -name "NonExistent"
+            $result = Get-Section -Name "NonExistent"
             $result | Should -Be ""
         }
 
         It "handles section at end of document" {
             $script:content = "## Problem / Why`nabc`n## Last Section`nfinal content"
-            $result = Get-Section -name "Last Section"
+            $result = Get-Section -Name "Last Section"
             $result | Should -Be "final content"
         }
 
         It "trims whitespace from section content" {
             $script:content = "## Problem / Why`n  abc  `n  def  `n## Next"
-            $result = Get-Section -name "Problem / Why"
+            $result = Get-Section -Name "Problem / Why"
             $result | Should -Be "abc  `n  def"
         }
 
         It "handles sections with special characters in heading" {
             $script:content = "## Acceptance Criteria (early draft)`ncontent here`n## Next"
-            $result = Get-Section -name "Acceptance Criteria (early draft)"
+            $result = Get-Section -Name "Acceptance Criteria (early draft)"
             $result | Should -Be "content here"
         }
 
         It "handles empty section" {
             $script:content = "## Problem / Why`n`n## Proposed Behavior`ndef"
-            $result = Get-Section -name "Problem / Why"
+            $result = Get-Section -Name "Problem / Why"
             $result | Should -Be ""
         }
 
         It "handles section with windows line endings" {
             $script:content = "## Problem / Why`r`nabc`r`n## Proposed Behavior`r`ndef"
-            $result = Get-Section -name "Problem / Why"
+            $result = Get-Section -Name "Problem / Why"
             $result | Should -Be "abc"
         }
     }
@@ -367,13 +367,15 @@ Describe "potential-to-issue.ps1 helpers" {
 
 Describe "run-cloc.ps1" {
     BeforeAll {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\run-cloc.ps1"
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'scriptPath')]
+        param()
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\run-cloc.ps1"  # type: ignore
     }
 
     Context "Initialize-OutputRendering" {
         It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" {
             if ($PSVersionTable.PSVersion.Major -ge 7) {
-                . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+                . (Import-ScriptFunction -Path $script:scriptPath -Name "Initialize-OutputRendering")
                 $originalValue = $PSStyle.OutputRendering
                 try {
                     $PSStyle.OutputRendering = 'Ansi'
@@ -390,14 +392,14 @@ Describe "run-cloc.ps1" {
         }
 
         It "does not error on Windows PowerShell 5.1" {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Initialize-OutputRendering")
             { Initialize-OutputRendering } | Should -Not -Throw
         }
     }
 
     Context "Test-IsWindows" {
         It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-IsWindows")
             if ($PSVersionTable.PSVersion.Major -lt 6) {
                 $result = Test-IsWindows
                 $result | Should -BeOfType [bool]
@@ -408,7 +410,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "returns platform detection on PowerShell 6+" {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-IsWindows")
             if ($PSVersionTable.PSVersion.Major -ge 6) {
                 $result = Test-IsWindows
                 $result | Should -Be $IsWindows
@@ -421,7 +423,7 @@ Describe "run-cloc.ps1" {
 
     Context "Get-ClocPath" {
         It "constructs correct paths from script root and target path" {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-ClocPath")
             $resolver = { param($InputPath) [pscustomobject]@{ Path = "C\resolved\$InputPath" } }
 
             $result = Get-ClocPath -ScriptRoot "C\script" -TargetPath "target" -ResolvePath $resolver -TestPath { $true }
@@ -431,10 +433,11 @@ Describe "run-cloc.ps1" {
             $result.ClocScript | Should -Match "tools\\cloc$"
         }
         It "resolves relative target paths" {
-            . (Import-ScriptFunction -Path $scriptPath -Name "Get-ClocPath")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-ClocPath")
             $resolver = {
                 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
                 param($InputPath)
+                $null = $InputPath
                 [pscustomobject]@{ Path = "C\absolute\path" }
             }
 
@@ -444,17 +447,16 @@ Describe "run-cloc.ps1" {
         }
         Context "Invoke-ClocCount" {
             BeforeEach {
-                . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-ClocCount")
+                . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-ClocCount")
                 $script:executedCommand = $null
                 $script:executedArgs = $null
             }
 
             It "runs cloc.exe on Windows when it exists" {
-                $paths = @{
-                    Root       = "C:\\repo"
-                    ClocExe    = "C:\\tools\cloc.exe"
-                    ClocScript = "C:\\tools\cloc"
-                }
+                $paths = @{}
+                $paths.Root = "C\\repo"
+                $paths.ClocExe = "C\\tools\cloc.exe"
+                $paths.ClocScript = "C\\tools\cloc"
 
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
@@ -471,11 +473,10 @@ Describe "run-cloc.ps1" {
             }
 
             It "runs cloc script with perl when cloc.exe not found" {
-                $paths = @{
-                    Root       = "C:\\repo"
-                    ClocExe    = "C:\\tools\cloc.exe"
-                    ClocScript = "C:\\tools\cloc"
-                }
+                $paths = @{}
+                $paths.Root = "C\\repo"
+                $paths.ClocExe = "C\\tools\cloc.exe"
+                $paths.ClocScript = "C\\tools\cloc"
 
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
@@ -496,11 +497,10 @@ Describe "run-cloc.ps1" {
             }
 
             It "throws when perl is not found for cloc script" {
-                $paths = @{
-                    Root       = "C:\\repo"
-                    ClocExe    = "C:\\tools\cloc.exe"
-                    ClocScript = "C:\\tools\cloc"
-                }
+                $paths = @{}
+                $paths.Root = "C\\repo"
+                $paths.ClocExe = "C\\tools\cloc.exe"
+                $paths.ClocScript = "C\\tools\cloc"
 
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
@@ -510,11 +510,10 @@ Describe "run-cloc.ps1" {
             }
 
             It "throws when no cloc binary found" {
-                $paths = @{
-                    Root       = "C:\\repo"
-                    ClocExe    = "C:\\tools\cloc.exe"
-                    ClocScript = "C:\\tools\cloc"
-                }
+                $paths = @{}
+                $paths.Root = "C\\repo"
+                $paths.ClocExe = "C\\tools\cloc.exe"
+                $paths.ClocScript = "C\\tools\cloc"
 
                 Mock -CommandName Test-Path -MockWith { $false }
 
@@ -522,11 +521,10 @@ Describe "run-cloc.ps1" {
             }
 
             It "prefers cloc.exe on Windows even when cloc script exists" {
-                $paths = @{
-                    Root       = "C:\\repo"
-                    ClocExe    = "C:\\tools\cloc.exe"
-                    ClocScript = "C:\\tools\cloc"
-                }
+                $paths = @{}
+                $paths.Root = "C\\repo"
+                $paths.ClocExe = "C\\tools\cloc.exe"
+                $paths.ClocScript = "C\\tools\cloc"
 
                 Mock -CommandName Test-Path -MockWith { $true }
                 $global:LASTEXITCODE = 0
@@ -535,6 +533,7 @@ Describe "run-cloc.ps1" {
                 $runner = {
                     param($Command, $Arguments)
                     $script:whichPath = $Command
+                    $null = $Arguments
                 }
 
                 Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner
@@ -542,11 +541,10 @@ Describe "run-cloc.ps1" {
             }
 
             It "uses cloc script on non-Windows platforms" {
-                $paths = @{
-                    Root       = "/home/repo"
-                    ClocExe    = "/home/tools/cloc.exe"
-                    ClocScript = "/home/tools/cloc"
-                }
+                $paths = @{}
+                $paths.Root = "/home/repo"
+                $paths.ClocExe = "/home/tools/cloc.exe"
+                $paths.ClocScript = "/home/tools/cloc"
 
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
                 Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
@@ -572,7 +570,7 @@ Describe "run-cloc.ps1" {
                 Mock -CommandName Resolve-Path -MockWith { param($Path) $null = $Path; [pscustomobject]@{ Path = "C:\repo" } }
                 Mock -CommandName Test-Path -MockWith { $false }
 
-                { & $scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
+                { & $script:scriptPath -Path "C:\repo" } | Should -Throw "Bundled cloc binary not found."
             }
 
             It "accepts custom path parameter" {
@@ -582,7 +580,7 @@ Describe "run-cloc.ps1" {
                 }
                 Mock -CommandName Test-Path -MockWith { $false }
 
-                { & $scriptPath -Path "C:\custom\path" } | Should -Throw
+                { & $script:scriptPath -Path "C:\custom\path" } | Should -Throw
             }
         }
     }
@@ -607,9 +605,9 @@ Describe "run-cloc.ps1" {
             }
 
             $output = Show-Tree -Path "C:\root" -ExcludeNames @(".git") -IncludeHiddenEntries -DirectoriesOnly:$false
-        ($output -join "`n") | Should -Not -Match "\.git"
-        ($output -join "`n") | Should -Match "visible.txt"
-        ($output -join "`n") | Should -Match "folder"
+            ($output -join "`n") | Should -Not -Match "\.git"
+            ($output -join "`n") | Should -Match "visible.txt"
+            ($output -join "`n") | Should -Match "folder"
         }
     }
 
@@ -659,4 +657,7 @@ Describe "run-cloc.ps1" {
     }
 
 }
+
+
+
 

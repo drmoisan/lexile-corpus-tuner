@@ -32,8 +32,24 @@
         }
 
         # Enforce consistent naming and indentation of assignments/whitespace.
-        PSAlignAssignmentStatement                     = @{ Enable = $true }
-        PSUseConsistentWhitespace                      = @{ Enable = $true }
+        # PSAlignAssignmentStatement aligns equals signs by adding extra spaces.
+        # PSUseConsistentWhitespace must allow this by NOT checking assignment operators.
+        PSAlignAssignmentStatement                     = @{
+            Enable         = $true
+            CheckHashtable = $true
+        }
+        PSUseConsistentWhitespace                      = @{
+            Enable                          = $true
+            CheckInnerBrace                 = $true
+            CheckOpenBrace                  = $true
+            CheckOpenParen                  = $true
+            CheckOperator                   = $false  # Allow aligned assignments
+            CheckPipe                       = $true
+            CheckPipeForRedundantWhitespace = $false
+            CheckSeparator                  = $true
+        }
     }
 }
+
+
 
