@@ -4,20 +4,28 @@ param(
 )
 
 function Test-ValidShortName {
+    [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
+        [Alias('Name')]
         [AllowEmptyString()]
-        [string] $Name
+        [string] $CandidateName
     )
+
     $shortPattern = '^[a-z0-9]+(-[a-z0-9]+)*$'
-    return $Name -cmatch $shortPattern
+    if ($CandidateName -cmatch $shortPattern) {
+        return $true
+    }
+
+    return $false
 }
 
 function Get-AuthorName {
     [CmdletBinding()]
     param(
         [scriptblock] $GetGitConfig = { param([string]$Key) git config $Key 2>$null },
-        [scriptblock] $GetEnvironmentVariable = { param([string]$Name) $env:USERNAME }
+        [scriptblock] $GetEnvironmentVariable = { param([string]$Name) [Environment]::GetEnvironmentVariable($Name) }
     )
 
     $author = & $GetGitConfig 'user.name'
@@ -76,7 +84,7 @@ if ([string]::IsNullOrWhiteSpace($ShortName)) {
     exit 1
 }
 
-if (-not (Test-ValidShortName -Name $ShortName)) {
+if (-not (Test-ValidShortName -CandidateName $ShortName)) {
     Write-Error "Aborted: '$ShortName' is invalid. Use kebab-case letters/numbers only (e.g., notes-feature)."
     exit 1
 }

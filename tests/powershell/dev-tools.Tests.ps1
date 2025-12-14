@@ -596,46 +596,48 @@ Describe "run-cloc.ps1" {
         }
     }
 
-Describe "load-openai-key.ps1" {
-    It "sets environment variable when secret is returned" {
-        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
-        $setCalls = New-Object System.Collections.Generic.List[hashtable]
+    Describe "load-openai-key.ps1" {
+        It "sets environment variable when secret is returned" {
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
+            $setCalls = New-Object System.Collections.Generic.List[hashtable]
 
-        # Import only the functions we need (gold-standard pattern)
-        . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LPassExe")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Get-LPassSecret")
-        . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LoadOpenAIKey")
+            # Import only the functions we need (gold-standard pattern)
+            . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LPassExe")
+            . (Import-ScriptFunction -Path $scriptPath -Name "Get-LPassSecret")
+            . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LoadOpenAIKey")
 
-        Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith {
-            [pscustomobject]@{ Name = "lpass" }
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith {
+                [pscustomobject]@{ Name = "lpass" }
+            }
+
+            # Mock the wrapper (NOT the native executable)
+            Mock -CommandName Invoke-LPassExe -MockWith {
+                param([string[]]$LpassArgs)
+
+                if ($LpassArgs) { $null = $LpassArgs.Count }
+
+                # Ensure script sees success
+                $global:LASTEXITCODE = 0
+
+                # Optional strictness: validate expected call shape
+                # ($LpassArgs -join ' ') | Should -BeExactly 'show Test Item --notes'
+
+                return "secret-value"
+            }
+
+            Mock -CommandName Set-Item -MockWith {
+                param($Path, $Value)
+                $setCalls.Add(@{ Path = $Path; Value = $Value })
+            }
+
+            # Call the function entrypoint (preferred for unit tests)
+            Invoke-LoadOpenAIKey -ItemName "Test Item" -EnvVar "TEST_ENV"
+
+            $setCalls.Count | Should -Be 1
+            $setCalls[0].Path | Should -Be "Env:TEST_ENV"
+            $setCalls[0].Value | Should -Be "secret-value"
         }
-
-        # Mock the wrapper (NOT the native executable)
-        Mock -CommandName Invoke-LPassExe -MockWith {
-            param([string[]]$Args)
-
-            # Ensure script sees success
-            $global:LASTEXITCODE = 0
-
-            # Optional strictness: validate expected call shape
-            # ($Args -join ' ') | Should -BeExactly 'show Test Item --notes'
-
-            return "secret-value"
-        }
-
-        Mock -CommandName Set-Item -MockWith {
-            param($Path, $Value)
-            $setCalls.Add(@{ Path = $Path; Value = $Value })
-        }
-
-        # Call the function entrypoint (preferred for unit tests)
-        Invoke-LoadOpenAIKey -ItemName "Test Item" -EnvVar "TEST_ENV"
-
-        $setCalls.Count | Should -Be 1
-        $setCalls[0].Path | Should -Be "Env:TEST_ENV"
-        $setCalls[0].Value | Should -Be "secret-value"
     }
-}
 
 
     Describe "Convert-PoshQCCoverageToRelative" {
@@ -667,6 +669,7 @@ Describe "load-openai-key.ps1" {
     }
 
 }
+
 
 
 

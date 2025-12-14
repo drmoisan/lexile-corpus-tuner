@@ -39,11 +39,12 @@ function Invoke-LPassExe {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string[]]$Args
+        [Alias('Args')]
+        [string[]]$LpassArgs
     )
 
     # Capture stdout+stderr; tests will mock this function (not the native exe).
-    lpass @Args 2>&1
+    lpass @LpassArgs 2>&1
 }
 
 function Get-LPassSecret {
@@ -77,9 +78,9 @@ function Get-LPassSecret {
 
     # Normalize output to a single string; some hosts return an array of lines.
     $text =
-        if ($null -eq $output) { '' }
-        elseif ($output -is [System.Array]) { ($output -join "`n") }
-        else { [string]$output }
+    if ($null -eq $output) { '' }
+    elseif ($output -is [System.Array]) { ($output -join "`n") }
+    else { [string]$output }
 
     $text = $text.Trim()
 
@@ -125,3 +126,4 @@ catch {
     Write-Error $_.Exception.Message
     exit 1
 }
+

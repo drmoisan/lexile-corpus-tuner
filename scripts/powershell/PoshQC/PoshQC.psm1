@@ -467,6 +467,7 @@ function Invoke-PoshQCTest {
         },
         [scriptblock] $Logger = {
             param([string] $Message)
+            # Use Write-Information so the replayed summary stays visible while respecting approved verbs.
             Write-Information $Message -InformationAction Continue
         },
         [scriptblock] $InvokePester = { param($Config) Invoke-Pester -Configuration $Config },
@@ -489,6 +490,15 @@ function Invoke-PoshQCTest {
     $config = & $ExpandRunPaths $config $Root $ExcludeDirs
     $config = & $EnsureResultPath $config $Root
     $config = & $ExpandCoveragePaths $config $Root
+
+    # Reduce console noise from Pester while we replay a concise summary at the end.
+    if ($config.Output -and $config.Output.Verbosity) {
+        $config.Output.Verbosity = 'Normal'
+    }
+
+    if (-not $config.Run.PassThru) {
+        $config.Run.PassThru = $true
+    }
 
     $coverageEnabled = $false
     if ($config.CodeCoverage) {
@@ -540,7 +550,7 @@ function Invoke-PoshQCTest {
         return
     }
 
-    & $InvokePester $config
+    $pesterResult = & $InvokePester $config
 
     $shouldEmitKoverageCopy = -not $DisableKoverageCopy
     if ($shouldEmitKoverageCopy -and $coverageEnabled -and $coverageOutputPath) {
@@ -558,6 +568,50 @@ function Invoke-PoshQCTest {
         }
 
         & $CopyCoverage $coverageOutputPath $Root $effectiveKoveragePath
+    }
+
+    if ($pesterResult) {
+        $durationSeconds = [math]::Round($pesterResult.Duration.TotalSeconds, 2)
+        $testsSummary = "Tests completed in {0:N2}s" -f $durationSeconds
+        $countsSummary = "Tests Passed: {0}, Failed: {1}, Skipped: {2}, Inconclusive: {3}, NotRun: {4}" -f `
+            $pesterResult.PassedCount, `
+            $pesterResult.FailedCount, `
+            $pesterResult.SkippedCount, `
+            $pesterResult.InconclusiveCount, `
+            $pesterResult.NotRunCount
+
+        $coverageLines = $null
+        if ($coverageEnabled -and $pesterResult.CodeCoverage) {
+            $coverageReport = $pesterResult.CodeCoverage.CoverageReport
+            if ($coverageReport -is [string] -and -not [string]::IsNullOrWhiteSpace($coverageReport)) {
+                $rawCoverageLines = @($coverageReport -split "`r?`n")
+                $trimmedCoverageLines = @()
+
+                foreach ($line in $rawCoverageLines) {
+                    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                    if ($line -match '^\s*Missed commands') { break }
+                    $trimmedCoverageLines += $line.TrimEnd()
+                }
+
+                if (-not $trimmedCoverageLines -and $rawCoverageLines) {
+                    $trimmedCoverageLines = @($rawCoverageLines[0])
+                }
+
+                if ($trimmedCoverageLines) {
+                    $coverageLines = $trimmedCoverageLines
+                }
+            }
+        }
+
+        & $Logger ''
+        & $Logger 'Pester summary (replayed for readability):'
+        & $Logger $testsSummary
+        & $Logger $countsSummary
+        if ($coverageLines) {
+            foreach ($line in $coverageLines) {
+                & $Logger $line
+            }
+        }
     }
 }
 

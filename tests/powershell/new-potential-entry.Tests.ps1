@@ -90,28 +90,28 @@ Describe "new-potential-entry.ps1 - Get-AuthorName" {
         }
 
         It "returns git config user.name when available" {
-            $result = Get-AuthorName -GetGitConfig { param($Key) "John Doe" }
+            $result = Get-AuthorName -GetGitConfig { param($Key) $null = $Key; "John Doe" }
             $result | Should -Be "John Doe"
         }
 
         It "falls back to USERNAME environment variable when git fails" {
             $result = Get-AuthorName `
-                -GetGitConfig { param($Key) $null } `
-                -GetEnvironmentVariable { param($Name) "WindowsUser" }
+                -GetGitConfig { param($Key) $null = $Key; $null } `
+                -GetEnvironmentVariable { param($Name) $null = $Name; "WindowsUser" }
             $result | Should -Be "WindowsUser"
         }
 
         It "returns 'Unknown' when git returns empty and no USERNAME" {
             $result = Get-AuthorName `
-                -GetGitConfig { param($Key) "" } `
-                -GetEnvironmentVariable { param($Name) $null }
+                -GetGitConfig { param($Key) $null = $Key; "" } `
+                -GetEnvironmentVariable { param($Name) $null = $Name; $null }
             $result | Should -Be "Unknown"
         }
 
         It "returns 'Unknown' when git returns whitespace only" {
             $result = Get-AuthorName `
-                -GetGitConfig { param($Key) "   " } `
-                -GetEnvironmentVariable { param($Name) $null }
+                -GetGitConfig { param($Key) $null = $Key; "   " } `
+                -GetEnvironmentVariable { param($Name) $null = $Name; $null }
             $result | Should -Be "Unknown"
         }
     }
@@ -182,15 +182,15 @@ Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
 
         It "returns true when code command is available" {
             $result = Invoke-VSCodeOpen -Files @("file1.md", "file2.md") `
-                -GetCommand { param($Name) [pscustomobject]@{ Name = "code" } } `
-                -StartProcess { param($FilePath, $ArgumentList) }
+                -GetCommand { param($Name) $null = $Name; [pscustomobject]@{ Name = "code" } } `
+                -StartProcess { param($FilePath, $ArgumentList) $null = $FilePath; $null = $ArgumentList }
 
             $result | Should -Be $true
         }
 
         It "returns false when code command is not available" {
             $result = Invoke-VSCodeOpen -Files @("file1.md", "file2.md") `
-                -GetCommand { param($Name) $null }
+                -GetCommand { param($Name) $null = $Name; $null }
 
             $result | Should -Be $false
         }
@@ -198,7 +198,7 @@ Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
         It "calls Start-Process with correct parameters" {
             $files = @("file1.md", "file2.md")
             $result = Invoke-VSCodeOpen -Files $files `
-                -GetCommand { param($Name) [pscustomobject]@{ Name = "code" } } `
+                -GetCommand { param($Name) $null = $Name; [pscustomobject]@{ Name = "code" } } `
                 -StartProcess { param($FilePath, $ArgumentList) $FilePath | Should -Be 'code'; $ArgumentList | Should -Be $files }
 
             $result | Should -Be $true

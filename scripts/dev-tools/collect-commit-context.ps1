@@ -37,6 +37,7 @@ function Invoke-GitExe {
 
 function Invoke-Git {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$GitArgs,
