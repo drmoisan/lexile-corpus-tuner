@@ -25,12 +25,17 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSStyle.OutputRendering = 'PlainText'
 }
 
+function Invoke-GitExe {
+    param([string[]]$GitArgs)
+    git @GitArgs 2>&1
+}
+
 function Invoke-Git {
     param(
         [Parameter(Mandatory = $true)][string[]]$Args,
         [switch]$AllowNonZeroExit
     )
-    $output = & git @Args 2>&1
+    $output = Invoke-GitExe -Args $Args
     $code = $LASTEXITCODE
     $lines = @()
     if ($null -ne $output) {

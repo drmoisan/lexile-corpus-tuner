@@ -44,36 +44,37 @@ Describe "collect-pull-request-context.ps1" {
     Context "Invoke-Git" {
         BeforeEach {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
         }
 
         It "executes git command successfully with string output" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "output" }
+            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; "output" }
             $result = Invoke-Git -Args @('status')
             $result.Out | Should -Be "output"
             $result.Code | Should -Be 0
         }
 
         It "executes git command successfully with array output" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; @("line1", "line2") }
+            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; @("line1", "line2") }
             $result = Invoke-Git -Args @('log')
             $result.Out | Should -Be "line1`nline2"
             $result.Code | Should -Be 0
         }
 
         It "handles null output" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; $null }
+            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; $null }
             $result = Invoke-Git -Args @('status')
             $result.Out | Should -Be ""
             $result.Code | Should -Be 0
         }
 
         It "throws on non-zero exit when AllowNonZeroExit is false" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 1; "error output" }
+            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 1; "error output" }
             { Invoke-Git -Args @('invalid') } | Should -Throw "git invalid failed*"
         }
 
         It "does not throw on non-zero exit when AllowNonZeroExit is true" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 1; "error output" }
+            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 1; "error output" }
             $result = Invoke-Git -Args @('invalid') -AllowNonZeroExit
             $result.Out | Should -Be "error output"
             $result.Code | Should -Be 1
@@ -127,11 +128,12 @@ Describe "collect-pull-request-context.ps1" {
     Context "Select-DefaultBase" {
         BeforeEach {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Select-DefaultBase")
         }
 
         It "returns first valid ref from candidate list" {
-            Mock -CommandName git -MockWith {
+            Mock -CommandName Invoke-GitExe -MockWith {
                 param($Command, $Args1, $Args2, $Args3)
                 $null = $Command, $Args1, $Args2
                 $global:LASTEXITCODE = if ($Args3 -eq 'origin/main') { 0 } else { 1 }
