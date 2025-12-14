@@ -28,38 +28,100 @@ param(
     [switch]$PrintOnly
 )
 
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSStyle.OutputRendering = 'PlainText'
 }
 
-function Write-ErrorAndExit {
-    param([string]$Message)
-    Write-Error $Message
+function Invoke-LPassExe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Args
+    )
+
+    # Capture stdout+stderr; tests will mock this function (not the native exe).
+    lpass @Args 2>&1
+}
+
+function Get-LPassSecret {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ItemName,
+
+        [Parameter(Mandatory)]
+        [switch]$UsePasswordField
+    )
+
+    if (-not (Get-Command -Name lpass -ErrorAction SilentlyContinue)) {
+        throw "LastPass CLI (lpass) is not installed or not in PATH."
+    }
+
+    $trimmedName = $ItemName.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmedName)) {
+        throw "ItemName must not be empty."
+    }
+
+    $argsList = @('show', $trimmedName)
+    if ($UsePasswordField) {
+        $argsList += '--password'
+    } else {
+        $argsList += '--notes'
+    }
+
+    $output = Invoke-LPassExe -Args $argsList
+    $code = $LASTEXITCODE
+
+    # Normalize output to a single string; some hosts return an array of lines.
+    $text =
+        if ($null -eq $output) { '' }
+        elseif ($output -is [System.Array]) { ($output -join "`n") }
+        else { [string]$output }
+
+    $text = $text.Trim()
+
+    if ($code -ne 0 -or [string]::IsNullOrWhiteSpace($text)) {
+        throw "Failed to fetch secret from LastPass item '$trimmedName'. Ensure you are logged in (run 'lpass login')."
+    }
+
+    return $text
+}
+
+function Invoke-LoadOpenAIKey {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [string]$ItemName = "Lexile OpenAI Key",
+
+        [Parameter()]
+        [string]$EnvVar = "OPENAI_API_KEY",
+
+        [Parameter()]
+        [switch]$UsePasswordField,
+
+        [Parameter()]
+        [switch]$PrintOnly
+    )
+
+    $secret = Get-LPassSecret -ItemName $ItemName -UsePasswordField:$UsePasswordField
+
+    if ($PrintOnly) {
+        Write-Output $secret
+        return
+    }
+
+    Set-Item -Path "Env:$EnvVar" -Value $secret
+    Write-Output "Set $EnvVar for this session from LastPass item '$ItemName'."
+}
+
+# Script entrypoint: preserve the prior behavior (write error + exit 1) while keeping functions testable.
+try {
+    Invoke-LoadOpenAIKey -ItemName $ItemName -EnvVar $EnvVar -UsePasswordField:$UsePasswordField -PrintOnly:$PrintOnly
+}
+catch {
+    Write-Error $_.Exception.Message
     exit 1
 }
-
-if (-not (Get-Command -Name lpass -ErrorAction SilentlyContinue)) {
-    Write-ErrorAndExit "LastPass CLI (lpass) is not installed or not in PATH."
-}
-
-$argsList = @("show", $ItemName.Trim())
-if ($UsePasswordField) {
-    $argsList += "--password"
-} else {
-    $argsList += "--notes"
-}
-
-$secret = & lpass @argsList 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($secret)) {
-    Write-ErrorAndExit "Failed to fetch secret from LastPass item '$ItemName'. Ensure you are logged in (run 'lpass login')."
-}
-
-$secret = $secret.Trim()
-
-if ($PrintOnly) {
-    Write-Output $secret
-    exit 0
-}
-
-Set-Item -Path "Env:$EnvVar" -Value $secret
-Write-Output "Set $EnvVar for this session from LastPass item '$ItemName'."

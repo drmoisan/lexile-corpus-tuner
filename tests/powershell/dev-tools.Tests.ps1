@@ -373,21 +373,16 @@ Describe "run-cloc.ps1" {
     }
 
     Context "Initialize-OutputRendering" {
-        It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" {
-            if ($PSVersionTable.PSVersion.Major -ge 7) {
-                . (Import-ScriptFunction -Path $script:scriptPath -Name "Initialize-OutputRendering")
-                $originalValue = $PSStyle.OutputRendering
-                try {
-                    $PSStyle.OutputRendering = 'Ansi'
-                    Initialize-OutputRendering
-                    $PSStyle.OutputRendering | Should -Be 'PlainText'
-                }
-                finally {
-                    $PSStyle.OutputRendering = $originalValue
-                }
+        It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+            $originalValue = $PSStyle.OutputRendering
+            try {
+                $PSStyle.OutputRendering = 'Ansi'
+                Initialize-OutputRendering
+                $PSStyle.OutputRendering | Should -Be 'PlainText'
             }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to PowerShell 7+"
+            finally {
+                $PSStyle.OutputRendering = $originalValue
             }
         }
 
@@ -398,26 +393,16 @@ Describe "run-cloc.ps1" {
     }
 
     Context "Test-IsWindows" {
-        It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-IsWindows")
-            if ($PSVersionTable.PSVersion.Major -lt 6) {
-                $result = Test-IsWindows
-                $result | Should -BeOfType [bool]
-            }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to Windows PowerShell 5.1"
-            }
+        It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" -Skip:($PSVersionTable.PSVersion.Major -ge 6) {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            $result = Test-IsWindows
+            $result | Should -BeOfType [bool]
         }
 
-        It "returns platform detection on PowerShell 6+" {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Test-IsWindows")
-            if ($PSVersionTable.PSVersion.Major -ge 6) {
-                $result = Test-IsWindows
-                $result | Should -Be $IsWindows
-            }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to PowerShell 6+"
-            }
+        It "returns platform detection on PowerShell 6+" -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
+            $result = Test-IsWindows
+            $result | Should -Be $IsWindows
         }
     }
 
@@ -611,22 +596,47 @@ Describe "run-cloc.ps1" {
         }
     }
 
-    Describe "load-openai-key.ps1" {
-        It "sets environment variable when secret is returned" {
-            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
-            $setCalls = New-Object System.Collections.Generic.List[hashtable]
+Describe "load-openai-key.ps1" {
+    It "sets environment variable when secret is returned" {
+        $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\src\lexile_corpus_tuner\lexile_scoring_model\pipeline_scripts\load-openai-key.ps1"
+        $setCalls = New-Object System.Collections.Generic.List[hashtable]
 
-            Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith { [pscustomobject]@{ Name = "lpass" } }
-            Mock -CommandName lpass -MockWith { $global:LASTEXITCODE = 0; "secret-value" }
-            Mock -CommandName Set-Item -MockWith { param($Path, $Value) $setCalls.Add(@{ Path = $Path; Value = $Value }) }
+        # Import only the functions we need (gold-standard pattern)
+        . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LPassExe")
+        . (Import-ScriptFunction -Path $scriptPath -Name "Get-LPassSecret")
+        . (Import-ScriptFunction -Path $scriptPath -Name "Invoke-LoadOpenAIKey")
 
-            & $scriptPath -ItemName "Test Item" -EnvVar "TEST_ENV"
-
-            $setCalls.Count | Should -Be 1
-            $setCalls[0].Path | Should -Be "Env:TEST_ENV"
-            $setCalls[0].Value | Should -Be "secret-value"
+        Mock -CommandName Get-Command -ParameterFilter { $Name -eq "lpass" } -MockWith {
+            [pscustomobject]@{ Name = "lpass" }
         }
+
+        # Mock the wrapper (NOT the native executable)
+        Mock -CommandName Invoke-LPassExe -MockWith {
+            param([string[]]$Args)
+
+            # Ensure script sees success
+            $global:LASTEXITCODE = 0
+
+            # Optional strictness: validate expected call shape
+            # ($Args -join ' ') | Should -BeExactly 'show Test Item --notes'
+
+            return "secret-value"
+        }
+
+        Mock -CommandName Set-Item -MockWith {
+            param($Path, $Value)
+            $setCalls.Add(@{ Path = $Path; Value = $Value })
+        }
+
+        # Call the function entrypoint (preferred for unit tests)
+        Invoke-LoadOpenAIKey -ItemName "Test Item" -EnvVar "TEST_ENV"
+
+        $setCalls.Count | Should -Be 1
+        $setCalls[0].Path | Should -Be "Env:TEST_ENV"
+        $setCalls[0].Value | Should -Be "secret-value"
     }
+}
+
 
     Describe "Convert-PoshQCCoverageToRelative" {
         It "strips repo root prefix from coverage content" {

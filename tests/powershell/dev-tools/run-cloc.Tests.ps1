@@ -9,21 +9,16 @@ Describe "run-cloc.ps1" {
     }
 
     Context "Initialize-OutputRendering" {
-        It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" {
-            if ($PSVersionTable.PSVersion.Major -ge 7) {
-                . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
-                $originalValue = $PSStyle.OutputRendering
-                try {
-                    $PSStyle.OutputRendering = 'Ansi'
-                    Initialize-OutputRendering
-                    $PSStyle.OutputRendering | Should -Be 'PlainText'
-                }
-                finally {
-                    $PSStyle.OutputRendering = $originalValue
-                }
+        It "sets PSStyle.OutputRendering to PlainText on PowerShell 7+" -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+            . (Import-ScriptFunction -Path $scriptPath -Name "Initialize-OutputRendering")
+            $originalValue = $PSStyle.OutputRendering
+            try {
+                $PSStyle.OutputRendering = 'Ansi'
+                Initialize-OutputRendering
+                $PSStyle.OutputRendering | Should -Be 'PlainText'
             }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to PowerShell 7+"
+            finally {
+                $PSStyle.OutputRendering = $originalValue
             }
         }
 
@@ -34,26 +29,16 @@ Describe "run-cloc.ps1" {
     }
 
     Context "Test-IsWindows" {
-        It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" {
+        It "returns true on Windows PowerShell 5.1 when OS is Windows_NT" -Skip:($PSVersionTable.PSVersion.Major -ge 6) {
             . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
-            if ($PSVersionTable.PSVersion.Major -lt 6) {
-                $result = Test-IsWindows
-                $result | Should -BeOfType [bool]
-            }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to Windows PowerShell 5.1"
-            }
+            $result = Test-IsWindows
+            $result | Should -BeOfType [bool]
         }
 
-        It "returns platform detection on PowerShell 6+" {
+        It "returns platform detection on PowerShell 6+" -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
             . (Import-ScriptFunction -Path $scriptPath -Name "Test-IsWindows")
-            if ($PSVersionTable.PSVersion.Major -ge 6) {
-                $result = Test-IsWindows
-                $result | Should -Be $IsWindows
-            }
-            else {
-                Set-ItResult -Skipped -Because "Test only applies to PowerShell 6+"
-            }
+            $result = Test-IsWindows
+            $result | Should -Be $IsWindows
         }
     }
 
