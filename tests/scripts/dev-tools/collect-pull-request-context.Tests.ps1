@@ -43,39 +43,39 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Invoke-Git" {
         BeforeEach {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
         }
 
         It "executes git command successfully with string output" {
-            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; "output" }
-            $result = Invoke-Git -Args @('status')
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; "output" }
+            $result = Invoke-Git -GitArgs @('status')
             $result.Out | Should -Be "output"
             $result.Code | Should -Be 0
         }
 
         It "executes git command successfully with array output" {
-            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; @("line1", "line2") }
-            $result = Invoke-Git -Args @('log')
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; @("line1", "line2") }
+            $result = Invoke-Git -GitArgs @('log')
             $result.Out | Should -Be "line1`nline2"
             $result.Code | Should -Be 0
         }
 
         It "handles null output" {
-            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 0; $null }
-            $result = Invoke-Git -Args @('status')
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; $null }
+            $result = Invoke-Git -GitArgs @('status')
             $result.Out | Should -Be ""
             $result.Code | Should -Be 0
         }
 
         It "throws on non-zero exit when AllowNonZeroExit is false" {
-            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 1; "error output" }
-            { Invoke-Git -Args @('invalid') } | Should -Throw "git invalid failed*"
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 1; "error output" }
+            { Invoke-Git -GitArgs @('invalid') } | Should -Throw "git invalid failed*"
         }
 
         It "does not throw on non-zero exit when AllowNonZeroExit is true" {
-            Mock -CommandName Invoke-GitExe -MockWith { $global:LASTEXITCODE = 1; "error output" }
-            $result = Invoke-Git -Args @('invalid') -AllowNonZeroExit
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 1; "error output" }
+            $result = Invoke-Git -GitArgs @('invalid') -AllowNonZeroExit
             $result.Out | Should -Be "error output"
             $result.Code | Should -Be 1
         }
@@ -127,35 +127,46 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Select-DefaultBase" {
         BeforeEach {
-            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Select-DefaultBase")
         }
 
         It "returns first valid ref from candidate list" {
             Mock -CommandName Invoke-GitExe -MockWith {
-                param($Command, $Args1, $Args2, $Args3)
-                $null = $Command, $Args1, $Args2
-                $global:LASTEXITCODE = if ($Args3 -eq 'origin/main') { 0 } else { 1 }
+                param([string[]]$GitArgs)
+
+                # Expected call shape: rev-parse --verify --quiet <ref>
+                $ref = $GitArgs[-1]
+                $global:LASTEXITCODE = if ($ref -eq 'origin/main') { 0 } else { 1 }
                 if ($global:LASTEXITCODE -eq 0) { "abc123" } else { "" }
             }
+
             $result = Select-DefaultBase
             $result | Should -Be "origin/main"
         }
 
         It "tries all candidates until one succeeds" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3)
-                $null = $Command, $Args1, $Args2
-                $global:LASTEXITCODE = if ($Args3 -eq 'main') { 0 } else { 1 }
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                $ref = $GitArgs[-1]
+                $global:LASTEXITCODE = if ($ref -eq 'main') { 0 } else { 1 }
                 if ($global:LASTEXITCODE -eq 0) { "abc123" } else { "" }
             }
+
             $result = Select-DefaultBase
             $result | Should -Be "main"
         }
 
         It "returns null when all candidates fail" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 1; "" }
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+                $null = $GitArgs
+                $global:LASTEXITCODE = 1
+                ""
+            }
+
             $result = Select-DefaultBase
             $result | Should -BeNullOrEmpty
         }
@@ -163,6 +174,7 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Get-Branch" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-Branch")
         }
@@ -173,13 +185,13 @@ Describe "collect-pull-request-context.ps1" {
         }
 
         It "resolves HEAD when ref is empty" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "main" }
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; "main" }
             $result = Get-Branch -Ref ""
             $result | Should -Be "main"
         }
 
         It "resolves HEAD when ref is whitespace" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "develop" }
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; "develop" }
             $result = Get-Branch -Ref "  "
             $result | Should -Be "develop"
         }
@@ -187,13 +199,19 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Get-RemoteSummary" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Write-Section")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-RemoteSummary")
         }
 
         It "includes section header and remote output" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "origin https://github.com/test/repo (fetch)" }
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+                $global:LASTEXITCODE = 0
+                if ($GitArgs[0] -eq 'remote') { "origin https://github.com/test/repo (fetch)" } else { "" }
+            }
+
             $result = Get-RemoteSummary
             $result | Should -Match "===== Repository remotes ====="
             $result | Should -Match "origin https://github.com/test/repo"
@@ -202,35 +220,43 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Get-BranchInfo" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Write-Section")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-BranchInfo")
         }
 
         It "displays current branch and upstream" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3)
-                $null = $Command, $Args1, $Args3
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                # rev-parse --abbrev-ref HEAD
+                # rev-parse --abbrev-ref --symbolic-full-name @{u}
                 $global:LASTEXITCODE = 0
-                if ($Args2 -eq 'HEAD') { "feature/test" } else { "origin/feature/test" }
+
+                if ($GitArgs[-1] -eq 'HEAD') { "feature/test" }
+                else { "origin/feature/test" }
             }
+
             $result = Get-BranchInfo
             $result | Should -Match "feature/test"
             $result | Should -Match "origin/feature/test"
         }
 
         It "displays (none) when no upstream is configured" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3)
-                $null = $Command, $Args1, $Args3
-                if ($Args2 -eq 'HEAD') {
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                if ($GitArgs[-1] -eq 'HEAD') {
                     $global:LASTEXITCODE = 0
                     "main"
-                } else {
+                }
+                else {
                     $global:LASTEXITCODE = 1
                     ""
                 }
             }
+
             $result = Get-BranchInfo
             $result | Should -Match "\(none\)"
         }
@@ -238,30 +264,48 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Get-RepoStatus" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Write-Section")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-RepoStatus")
         }
 
         It "includes untracked files by default" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1)
-                $null = $Args1
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
                 $global:LASTEXITCODE = 0
-                if ($Command -eq 'status') { "## main" } else { "untracked.txt" }
+
+                if ($GitArgs[0] -eq 'status') { "## main" }
+                elseif ($GitArgs[0] -eq 'ls-files') { "untracked.txt" }
+                else { "" }
             }
+
             $result = Get-RepoStatus
             $result | Should -Match "untracked.txt"
         }
 
         It "excludes untracked files when NoUntracked is specified" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "## main" }
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+                $null = $GitArgs
+                $global:LASTEXITCODE = 0
+                "## main"
+            }
+
             $result = Get-RepoStatus -NoUntracked
             $result | Should -Match "\(none\)"
         }
 
         It "displays placeholder when untracked output is empty" {
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "" }
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+                $global:LASTEXITCODE = 0
+
+                if ($GitArgs[0] -eq 'status') { "## main" }
+                elseif ($GitArgs[0] -eq 'ls-files') { "" }
+                else { "" }
+            }
+
             $result = Get-RepoStatus
             $result | Should -Match "\(none\)"
         }
@@ -269,21 +313,33 @@ Describe "collect-pull-request-context.ps1" {
 
     Context "Get-WorkingTreeDiffSummary" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Write-Section")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-WorkingTreeDiffSummary")
         }
 
         It "includes all four diff sections" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3)
-                $null = $Command, $Args3
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                # diff --cached --name-status
+                # diff --cached
+                # diff --name-status
+                # diff
                 $global:LASTEXITCODE = 0
-                if ($Args1 -eq '--cached' -and $Args2 -eq '--name-status') { "M file.txt" }
-                elseif ($Args1 -eq '--cached') { "diff --git a/file.txt" }
-                elseif ($Args1 -eq '--name-status') { "M other.txt" }
+
+                if ($GitArgs[0] -ne 'diff') { return "" }
+
+                $hasCached = ($GitArgs | Where-Object { $_ -eq '--cached' }).Count -gt 0
+                $hasNameStatus = ($GitArgs | Where-Object { $_ -eq '--name-status' }).Count -gt 0
+
+                if ($hasCached -and $hasNameStatus) { "M file.txt" }
+                elseif ($hasCached) { "diff --git a/file.txt" }
+                elseif ($hasNameStatus) { "M other.txt" }
                 else { "diff --git a/other.txt" }
             }
+
             $result = Get-WorkingTreeDiffSummary
             $result | Should -Match "===== Staged files"
             $result | Should -Match "===== Staged diff"
@@ -532,6 +588,7 @@ style(x): style
 
     Context "Get-PRContext" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Write-Section")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "ConvertFrom-Numstat")
@@ -544,21 +601,24 @@ style(x): style
         }
 
         It "generates complete PR context with valid base and head" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3, $Args4, $Args5)
-                $null = $Args3, $Args4, $Args5
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                $cmd = if ($GitArgs.Count -gt 0) { $GitArgs[0] } else { "" }
                 $global:LASTEXITCODE = 0
-                if ($Command -eq 'rev-parse') { "abc123" }
-                elseif ($Command -eq 'merge-base') { "def456" }
-                elseif ($Command -eq 'log' -and $Args2 -like '*%h*') { "abc123 2025-01-01 Author Test commit" }
-                elseif ($Command -eq 'log' -and $Args2 -like '*%s') { "feat: test" }
-                elseif ($Command -eq 'log' -and $Args2 -like '*%an*') { "Author <author@example.com>" }
-                elseif ($Command -eq 'diff' -and $Args1 -eq '--name-status') { "M file.txt" }
-                elseif ($Command -eq 'diff' -and $Args1 -eq '--numstat') { "1`t0`tfile.txt" }
-                elseif ($Command -eq 'diff' -and $Args1 -eq '--shortstat') { "1 file changed, 1 insertion(+)" }
-                elseif ($Command -eq 'diff' -and $Args1 -eq '--stat') { "file.txt | 1 +`n 1 file changed, 1 insertion(+)" }
+
+                if ($cmd -eq 'rev-parse') { "abc123" }
+                elseif ($cmd -eq 'merge-base') { "def456" }
+                elseif ($cmd -eq 'log' -and ($GitArgs | Where-Object { $_ -like '*%h*' }).Count -gt 0) { "abc123 2025-01-01 Author Test commit" }
+                elseif ($cmd -eq 'log' -and ($GitArgs | Where-Object { $_ -like '*%s' }).Count -gt 0) { "feat: test" }
+                elseif ($cmd -eq 'log' -and ($GitArgs | Where-Object { $_ -like '*%an*' }).Count -gt 0) { "Author <author@example.com>" }
+                elseif ($cmd -eq 'diff' -and ($GitArgs | Where-Object { $_ -eq '--name-status' }).Count -gt 0) { "M file.txt" }
+                elseif ($cmd -eq 'diff' -and ($GitArgs | Where-Object { $_ -eq '--numstat' }).Count -gt 0) { "1`t0`tfile.txt" }
+                elseif ($cmd -eq 'diff' -and ($GitArgs | Where-Object { $_ -eq '--shortstat' }).Count -gt 0) { "1 file changed, 1 insertion(+)" }
+                elseif ($cmd -eq 'diff' -and ($GitArgs | Where-Object { $_ -eq '--stat' }).Count -gt 0) { "file.txt | 1 +`n 1 file changed, 1 insertion(+)" }
                 else { "" }
             }
+
             $result = Get-PRContext -BaseRef "main" -HeadRef "feature"
             $result | Should -Match "===== PR Comparison ====="
             $result | Should -Match "Base: main"
@@ -569,29 +629,36 @@ style(x): style
         }
 
         It "includes issue references when found in commits" {
-            Mock -CommandName git -MockWith {
-                param($Command, $Args1, $Args2, $Args3, $Args4, $Args5)
-                $null = $Args3, $Args4, $Args5
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                $cmd = if ($GitArgs.Count -gt 0) { $GitArgs[0] } else { "" }
                 $global:LASTEXITCODE = 0
-                if ($Command -eq 'rev-parse') { "abc123" }
-                elseif ($Command -eq 'merge-base') { "def456" }
-                elseif ($Command -eq 'log' -and $Args2 -like '*%s') { "fix: #42 resolved" }
-                elseif ($Command -eq 'log') { "abc123 2025-01-01 Author Fix #42" }
-                elseif ($Command -eq 'diff' -and $Args1 -eq '--numstat') { "1`t0`tfile.txt" }
+
+                if ($cmd -eq 'rev-parse') { "abc123" }
+                elseif ($cmd -eq 'merge-base') { "def456" }
+                elseif ($cmd -eq 'log' -and ($GitArgs | Where-Object { $_ -like '*%s' }).Count -gt 0) { "fix: #42 resolved" }
+                elseif ($cmd -eq 'log') { "abc123 2025-01-01 Author Fix #42" }
+                elseif ($cmd -eq 'diff' -and ($GitArgs | Where-Object { $_ -eq '--numstat' }).Count -gt 0) { "1`t0`tfile.txt" }
                 else { "" }
             }
+
             $result = Get-PRContext -BaseRef "main" -HeadRef "feature"
             $result | Should -Match "#42"
         }
 
         It "displays placeholders for empty results" {
-            Mock -CommandName git -MockWith {
-                param($Command)
+            Mock -CommandName Invoke-GitExe -MockWith {
+                param([string[]]$GitArgs)
+
+                $cmd = if ($GitArgs.Count -gt 0) { $GitArgs[0] } else { "" }
                 $global:LASTEXITCODE = 0
-                if ($Command -eq 'rev-parse') { "abc123" }
-                elseif ($Command -eq 'merge-base') { "def456" }
+
+                if ($cmd -eq 'rev-parse') { "abc123" }
+                elseif ($cmd -eq 'merge-base') { "def456" }
                 else { "" }
             }
+
             $result = Get-PRContext -BaseRef "main" -HeadRef "feature"
             $result | Should -Match "\(none\)"
         }
@@ -599,6 +666,7 @@ style(x): style
 
     Context "Resolve-Repo" {
         BeforeEach {
+            . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-GitExe")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Invoke-Git")
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Resolve-Repo")
         }
@@ -613,7 +681,8 @@ style(x): style
             Mock -CommandName Test-Path -MockWith { $false }
             Mock -CommandName Push-Location -MockWith { }
             Mock -CommandName Pop-Location -MockWith { }
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; "/repo/root" }
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 0; "/repo/root" }
+
             { Resolve-Repo -Root "." } | Should -Not -Throw
         }
 
@@ -621,7 +690,8 @@ style(x): style
             Mock -CommandName Test-Path -MockWith { $false }
             Mock -CommandName Push-Location -MockWith { }
             Mock -CommandName Pop-Location -MockWith { }
-            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 1; "" }
+            Mock -CommandName Invoke-GitExe -MockWith { param([string[]]$GitArgs) $null = $GitArgs; $global:LASTEXITCODE = 1; "" }
+
             { Resolve-Repo -Root "." } | Should -Throw "*git*failed*"
         }
     }
