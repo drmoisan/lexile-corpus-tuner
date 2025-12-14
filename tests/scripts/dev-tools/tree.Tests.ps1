@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 
-. (Join-Path $PSScriptRoot '..\..\powershell\Support\TestHelpers.ps1' -Resolve)
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../../powershell/Support/TestHelpers.ps1"))
 
 BeforeAll {
     $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\tree.ps1"
