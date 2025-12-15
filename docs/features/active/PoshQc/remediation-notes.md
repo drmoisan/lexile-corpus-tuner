@@ -51,3 +51,37 @@
 - Repair dev-tools test harnesses by fixing helper imports (`Import-ScriptFunction`) and correcting script paths for nested test folders so the helper can locate source scripts.
 - Add deterministic, injectable path resolution and command execution to `run-cloc.ps1` to avoid hitting missing Windows drives, cloc/perl binaries, or the call operator during tests; update the paired tests to use the new injection points instead of real process launches.
 - Record missing external tools from the latest test run (`lpass`, `cloc`/`perl`) for dependency reporting.
+
+## Phase 2 – Injection & Testability Design
+- **Dependency map (PoshQC functions):**
+  - `Get-PoshQCFileList` now runs entirely through injected delegates: path resolver, file enumerator, exclusion predicate, and extension filter, with stable sort on `FullName` and a controlled throw on resolution failure.
+  - `Install-PoshQCTool` gates TLS enablement, PSGallery detection/registration, trust toggling, module discovery/install, and logging through injectable delegates so tests can simulate success/failure without touching PowerShellGet or the network.
+  - `Invoke-PoshQCFormat` and `Invoke-PoshQCAnalyze` depend on injected module check/import, settings existence, file enumeration, formatter/analyzer delegates, file IO, and loggers; both early-return when file lists are empty to keep tests side-effect-free.
+  - `Convert-PoshQCCoverageToRelative` uses injected path resolve/join/test/read/write plus default-output and logger hooks; it short-circuits cleanly when neither `InputPath` nor `InputContent` is provided and supports in-memory pass-thru.
+  - `Invoke-PoshQCTest` injects module guard, settings loader, config builder, run/coverage path expanders, result-path ensure, test enumerator, Pester invoker, logger, and coverage-copy hook so Pester never executes in unit tests unless explicitly requested.
+- **Injection defaults and usage rules:**
+  - Keep all delegates as scriptblock parameters with defaults mirroring current behavior; tests override delegates instead of mocking core cmdlets/executables.
+  - Loggers remain injectable and default to `Write-Information`; tests capture messages via stub loggers for early-return and warning scenarios.
+  - Module guards (`EnsureModule`) should throw the provided error message to simulate missing dependencies deterministically.
+- **Deterministic ordering/normalization decisions:**
+  - File and test enumerations are sorted with `Sort-Object -Property FullName -Stable` after filtering so ordering is invariant to filesystem state.
+  - Coverage copy derives `.koverage.xml` from the resolved coverage path (or repo root) when callers omit `OutputPath`; newlines are normalized before formatting to avoid OS-dependent diffs.
+  - Path expansion in `Invoke-PoshQCTest` joins relative `Run.Path`/`ExcludeDirs` entries against the provided root and preserves any caller-supplied `ExcludePath` values in order.
+
+## Phase 7 – Non-PoshQC Testability & Injection Design
+- **Dependency maps (dev-tools + helper scripts):**
+  - `collect-commit-context.ps1`: wraps git CLI for rev-parse/status/diff, writes report sections to disk, relies on repo-root resolution; inject git runner, path resolver, and writer to avoid real git/state.
+  - `collect-pull-request-context.ps1`: heavy git usage (merge-base, diff/numstat/log), parses rename brace syntax, summarizes extensions/issues; inject git runner, diff/numstat providers, and writer to keep calculations in-memory.
+  - `run-actionlint.ps1`: resolves repo paths, locates actionlint on PATH or downloads via `Invoke-WebRequest`/`Expand-Archive`, adjusts PATH, then executes; inject locator, downloader, extractor, and runner with deterministic errors when binaries are missing.
+  - `run-cloc.ps1`: chooses cloc.exe vs perl script, checks git-aware counts, resolves target root; inject Join/Resolve/Test path helpers, command finder, and process runner so tests never call git/perl/cloc.
+  - `fix-all.ps1`: orchestrates poetry invocations for Black/Ruff/Pyright/Pytest with retries; inject command runner/logger and make exit propagation explicit and deterministic.
+  - `link-feature-docs.ps1`: reads GitHub issue body via `gh`, edits markdown sections, writes via temp file; inject gh runner, file reader/writer, and section updater so no temp files or network calls are needed in tests.
+  - `link-parent-child.ps1`: prompts for issue numbers, calls `gh issue view/edit/comment`; inject input provider, gh runner, and body updater with deterministic validation paths.
+  - `new-active-feature-folder.ps1`: copies templates, normalizes checklists, seeds from potential files, optional gh issue metadata; inject filesystem reader/writer/creator, template loader, and placeholder replacer; deterministic checklist ordering.
+  - `new-potential-entry.ps1`: validates short-name pattern, builds dated path, reads/writes template, optionally opens VS Code; inject validator, date/provider, author lookup (git config/env), file IO, and opener.
+  - `potential-to-issue.ps1`: reads potential file, extracts sections, calls `gh issue create/view`, updates metadata, moves file; inject resolver, file reader/writer/mover, gh runner, and section extractor.
+  - `sync-agents-from-instructions.ps1`: reads multiple instruction files, builds AGENTS.md, optionally checks git state; inject repo root resolver, file reader, content builder, git status/diff provider, and writer.
+  - `tree.ps1`: enumerates filesystem, filters hidden/excluded entries, renders tree; inject enumerator/attribute provider and output sink with stable sort.
+  - `scripts/powershell/PoshQC/convert-poshqc-coverage.ps1`: resolves repo root, derives default paths, calls module function; inject resolver, writer, and module invoker for pass-thru/skip scenarios.
+- **Shared helpers to define:** lightweight fake process runners, in-memory file maps, and clock/date providers to avoid touching disk/host tools; standard logger delegate to capture info/warn/error without console noise.
+- **Deterministic rules:** always sort enumerated paths (FullName) before returning; prefer explicit join-path resolution over relative assumptions; make early-return paths explicit when inputs are empty/missing so tests can assert outcomes without filesystem or network access.

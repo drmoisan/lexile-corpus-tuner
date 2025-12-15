@@ -618,6 +618,7 @@ function Invoke-PoshQCTest {
 Set-Alias -Name Install-PoshQCTools -Value Install-PoshQCTool
 
 Export-ModuleMember -Function @(
+    'Get-PoshQCFileList',
     'Install-PoshQCTool',
     'Invoke-PoshQCFormat',
     'Invoke-PoshQCAnalyze',

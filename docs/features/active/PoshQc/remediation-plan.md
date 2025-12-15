@@ -17,9 +17,9 @@ Plan to fix failing Pester tests in `tests/powershell/PoshQC.Tests.ps1`, refacto
 - [x] [P1-T3] Document policy violations observed in current tests (e.g., missing edge scenarios, reliance on real filesystem/network, unclear assertions) in the work log.
 
 **Phase 2 — Injection & Testability Design**
-- [ ] [P2-T1] Draft a dependency map showing for each PoshQC function which external commands need wrappers/injection (Resolve-Path, Get-ChildItem, Set-Content, PSScriptAnalyzer, Pester, PSRepository/module install commands, logging).
-- [ ] [P2-T2] Define a set of injectable delegates/parameters (with defaults) for filesystem access, module presence checks, module import, formatting/analyzer execution, and logging; record in a short design note to keep refactors consistent.
-- [ ] [P2-T3] Decide on deterministic ordering/normalization rules for file lists and coverage paths to keep tests stable; note decisions in the design note.
+- [x] [P2-T1] Draft a dependency map showing for each PoshQC function which external commands need wrappers/injection (Resolve-Path, Get-ChildItem, Set-Content, PSScriptAnalyzer, Pester, PSRepository/module install commands, logging).
+- [x] [P2-T2] Define a set of injectable delegates/parameters (with defaults) for filesystem access, module presence checks, module import, formatting/analyzer execution, and logging; record in a short design note to keep refactors consistent.
+- [x] [P2-T3] Decide on deterministic ordering/normalization rules for file lists and coverage paths to keep tests stable; note decisions in the design note.
 
 **Phase 3 — Code Refactors & Behavioral Fixes**
 - [x] [P3-T1] Add injectable path resolver to `Get-PoshQCFileList` with default bound to `Resolve-Path` and keep existing resolution semantics.
@@ -59,32 +59,32 @@ Plan to fix failing Pester tests in `tests/powershell/PoshQC.Tests.ps1`, refacto
 - [x] [P3-T35] Wire new helper parameters into `Export-ModuleMember` and alias definitions to preserve the public surface with default injections.
 
 **Phase 4 — Test Expansion (Scenario-Driven, >90% Coverage)**
-- [ ] [P4-T1] Add Pester test for `Get-PoshQCFileList` returning an empty array when the injected file enumerator yields no PowerShell files in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T2] Add Pester test for `Get-PoshQCFileList` excluding files under directories listed in `ExcludeDirs` via injected exclusion predicate in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T3] Add Pester test for `Get-PoshQCFileList` throwing the expected error when root resolution fails in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T4] Add Pester test for `Get-PoshQCFileList` filtering out non-PowerShell extensions using an injected predicate in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T5] Add Pester test for `Get-PoshQCFileList` resolving relative roots to absolute paths using the injected resolver in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T6] Add Pester test for `Install-PoshQCTool` registering PSGallery when absent using injected repository provider in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T7] Add Pester test for `Install-PoshQCTool` setting repository to Trusted when untrusted and emitting warning on failure using injected hooks in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T8] Add Pester test for `Install-PoshQCTool` skipping installs when required modules are already present via injected module inventory in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T9] Add Pester test for `Install-PoshQCTool` throwing when an injected install operation fails in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T10] Add Pester test for `Invoke-PoshQCFormat` throwing when PSScriptAnalyzer is missing using injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T11] Add Pester test for `Invoke-PoshQCFormat` throwing when the settings file is missing using injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T12] Add Pester test for `Invoke-PoshQCFormat` logging info and returning when file list is empty using injected logger in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T13] Add Pester test for `Invoke-PoshQCFormat` writing formatted content when the formatter changes text using injected file IO and formatter in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T14] Add Pester test for `Invoke-PoshQCFormat` performing no writes when content is unchanged using injected file IO and formatter in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T15] Add Pester test for `Invoke-PoshQCAnalyze` throwing when PSScriptAnalyzer is missing via injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T16] Add Pester test for `Invoke-PoshQCAnalyze` throwing when settings file is missing via injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T17] Add Pester test for `Invoke-PoshQCAnalyze` logging info and returning when file list is empty via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T18] Add Pester test for `Invoke-PoshQCAnalyze` throwing after analyzer returns findings via injected analyzer results in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T19] Add Pester test for `Convert-PoshQCCoverageToRelative` returning without writing when `InputPath` is missing via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T20] Add Pester test for `Convert-PoshQCCoverageToRelative` deriving default output path when only `InputPath` is provided using injected reader/writer in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T21] Add Pester test for `Convert-PoshQCCoverageToRelative` converting paths correctly with trailing separator roots when `-PassThru` is used in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T22] Add Pester test for `Invoke-PoshQCTest` throwing when Pester is missing via injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T23] Add Pester test for `Invoke-PoshQCTest` throwing when the settings file is missing via injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T24] Add Pester test for `Invoke-PoshQCTest` expanding `Run.Path` and merging `ExcludeDirs` into `ExcludePath` deterministically using injected test enumerator in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T25] Add Pester test for `Invoke-PoshQCTest` logging info and returning when no test files are found via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
-- [ ] [P4-T26] Add Pester test for `Invoke-PoshQCTest` invoking coverage copy when coverage is enabled and `-DisableKoverageCopy` is not set using injected coverage hook in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T1] Add Pester test for `Get-PoshQCFileList` returning an empty array when the injected file enumerator yields no PowerShell files in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T2] Add Pester test for `Get-PoshQCFileList` excluding files under directories listed in `ExcludeDirs` via injected exclusion predicate in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T3] Add Pester test for `Get-PoshQCFileList` throwing the expected error when root resolution fails in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T4] Add Pester test for `Get-PoshQCFileList` filtering out non-PowerShell extensions using an injected predicate in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T5] Add Pester test for `Get-PoshQCFileList` resolving relative roots to absolute paths using the injected resolver in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T6] Add Pester test for `Install-PoshQCTool` registering PSGallery when absent using injected repository provider in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T7] Add Pester test for `Install-PoshQCTool` setting repository to Trusted when untrusted and emitting warning on failure using injected hooks in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T8] Add Pester test for `Install-PoshQCTool` skipping installs when required modules are already present via injected module inventory in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T9] Add Pester test for `Install-PoshQCTool` throwing when an injected install operation fails in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T10] Add Pester test for `Invoke-PoshQCFormat` throwing when PSScriptAnalyzer is missing using injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T11] Add Pester test for `Invoke-PoshQCFormat` throwing when the settings file is missing using injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T12] Add Pester test for `Invoke-PoshQCFormat` logging info and returning when file list is empty using injected logger in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T13] Add Pester test for `Invoke-PoshQCFormat` writing formatted content when the formatter changes text using injected file IO and formatter in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T14] Add Pester test for `Invoke-PoshQCFormat` performing no writes when content is unchanged using injected file IO and formatter in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T15] Add Pester test for `Invoke-PoshQCAnalyze` throwing when PSScriptAnalyzer is missing via injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T16] Add Pester test for `Invoke-PoshQCAnalyze` throwing when settings file is missing via injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T17] Add Pester test for `Invoke-PoshQCAnalyze` logging info and returning when file list is empty via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T18] Add Pester test for `Invoke-PoshQCAnalyze` throwing after analyzer returns findings via injected analyzer results in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T19] Add Pester test for `Convert-PoshQCCoverageToRelative` returning without writing when `InputPath` is missing via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T20] Add Pester test for `Convert-PoshQCCoverageToRelative` deriving default output path when only `InputPath` is provided using injected reader/writer in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T21] Add Pester test for `Convert-PoshQCCoverageToRelative` converting paths correctly with trailing separator roots when `-PassThru` is used in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T22] Add Pester test for `Invoke-PoshQCTest` throwing when Pester is missing via injected module checker in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T23] Add Pester test for `Invoke-PoshQCTest` throwing when the settings file is missing via injected file-exists hook in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T24] Add Pester test for `Invoke-PoshQCTest` expanding `Run.Path` and merging `ExcludeDirs` into `ExcludePath` deterministically using injected test enumerator in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T25] Add Pester test for `Invoke-PoshQCTest` logging info and returning when no test files are found via injected logger in `tests/powershell/PoshQC.Tests.ps1`.
+- [x] [P4-T26] Add Pester test for `Invoke-PoshQCTest` invoking coverage copy when coverage is enabled and `-DisableKoverageCopy` is not set using injected coverage hook in `tests/powershell/PoshQC.Tests.ps1`.
 
 **Phase 5 — Toolchain & Documentation**
 - [ ] [P5-T1] Run PoshQC formatter and analyzer tasks (`Invoke-PoshQCFormat`, `Invoke-PoshQCAnalyze`) against the PowerShell files to ensure policy compliance after changes.
@@ -98,9 +98,9 @@ Plan to fix failing Pester tests in `tests/powershell/PoshQC.Tests.ps1`, refacto
 - [x] [P6-T4] Capture current coverage for `scripts/dev-tools/*.ps1` and `scripts/powershell/**/*.ps1` (excluding PoshQC) from the Pester report, listing functions below 90% coverage.
 
 **Phase 7 — Non-PoshQC Testability & Injection Design**
-- [ ] [P7-T1] Draft dependency maps per non-PoshQC script showing external commands, environment inputs, and filesystem touches that need injection or wrapping.
-- [ ] [P7-T2] Define shared test helpers (mock runners, in-memory file maps, clock/random seeds) to replace external calls across dev-tools tests.
-- [ ] [P7-T3] Specify deterministic ordering/normalization rules for file enumerations and output paths to stabilize assertions across scripts.
+- [x] [P7-T1] Draft dependency maps per non-PoshQC script showing external commands, environment inputs, and filesystem touches that need injection or wrapping.
+- [x] [P7-T2] Define shared test helpers (mock runners, in-memory file maps, clock/random seeds) to replace external calls across dev-tools tests.
+- [x] [P7-T3] Specify deterministic ordering/normalization rules for file enumerations and output paths to stabilize assertions across scripts.
 
 **Phase 8 — Non-PoshQC Script Refactors**
 - [ ] [P8-T1] `collect-commit-context.ps1`: inject file writer and command runner; guard git failures with deterministic errors.

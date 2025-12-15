@@ -6,6 +6,7 @@ Describe "run-cloc.ps1" {
         . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../Support/TestHelpers.ps1"))
 
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\run-cloc.ps1"
+        [void]$script:scriptPath
     }
 
     Context "Initialize-OutputRendering" {
@@ -47,7 +48,7 @@ Describe "run-cloc.ps1" {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-ClocPath")
             $resolver = {
                 param($InputPath)
-                [pscustomobject]@{ Path = "C\\resolved\\$InputPath" }
+                [pscustomobject]@{ Path = "C\\resolved\\$InputPath"; Input = $InputPath }
             }
 
             $result = Get-ClocPath -ScriptRoot "C\\script" -TargetPath "target" -ResolvePath $resolver -TestPath { $true }
@@ -59,10 +60,8 @@ Describe "run-cloc.ps1" {
         It "resolves relative target paths" {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-ClocPath")
             $resolver = {
-                [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
                 param($InputPath)
-                $null = $InputPath
-                [pscustomobject]@{ Path = "C\\absolute\\path" }
+                [pscustomobject]@{ Path = "C\\absolute\\path"; Input = $InputPath }
             }
 
             $result = Get-ClocPath -ScriptRoot "C\\base" -TargetPath "../relative" -ResolvePath $resolver -TestPath { $true }
@@ -79,10 +78,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "runs cloc.exe on Windows when it exists" {
-            $paths = @{}
-            $paths.Root = "C\\repo"
-            $paths.ClocExe = "C\\tools\cloc.exe"
-            $paths.ClocScript = "C\\tools\cloc"
+            $paths = @{ Root = 'C\repo'; ClocExe = 'C\tools\cloc.exe'; ClocScript = 'C\tools\cloc' }
 
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $true }
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $false }
@@ -99,10 +95,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "runs cloc script with perl when cloc.exe not found" {
-            $paths = @{}
-            $paths.Root = "C\\repo"
-            $paths.ClocExe = "C\\tools\cloc.exe"
-            $paths.ClocScript = "C\\tools\cloc"
+            $paths = @{ Root = 'C\repo'; ClocExe = 'C\tools\cloc.exe'; ClocScript = 'C\tools\cloc' }
 
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
@@ -123,10 +116,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "throws when perl is not found for cloc script" {
-            $paths = @{}
-            $paths.Root = "C\\repo"
-            $paths.ClocExe = "C\\tools\cloc.exe"
-            $paths.ClocScript = "C\\tools\cloc"
+            $paths = @{ Root = 'C\repo'; ClocExe = 'C\tools\cloc.exe'; ClocScript = 'C\tools\cloc' }
 
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }
@@ -136,10 +126,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "throws when no cloc binary found" {
-            $paths = @{}
-            $paths.Root = "C\\repo"
-            $paths.ClocExe = "C\\tools\cloc.exe"
-            $paths.ClocScript = "C\\tools\cloc"
+            $paths = @{ Root = 'C\repo'; ClocExe = 'C\tools\cloc.exe'; ClocScript = 'C\tools\cloc' }
 
             Mock -CommandName Test-Path -MockWith { $false }
 
@@ -147,10 +134,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "prefers cloc.exe on Windows even when cloc script exists" {
-            $paths = @{}
-            $paths.Root = "C\\repo"
-            $paths.ClocExe = "C\\tools\cloc.exe"
-            $paths.ClocScript = "C\\tools\cloc"
+            $paths = @{ Root = 'C\repo'; ClocExe = 'C\tools\cloc.exe'; ClocScript = 'C\tools\cloc' }
 
             Mock -CommandName Test-Path -MockWith { $true }
             $global:LASTEXITCODE = 0
@@ -159,7 +143,7 @@ Describe "run-cloc.ps1" {
             $runner = {
                 param($Command, $Arguments)
                 $script:whichPath = $Command
-                $null = $Arguments
+                $script:executedArgs = $Arguments
             }
 
             Invoke-ClocCount -Paths $paths -IsWindows $true -InvokeProcess $runner
@@ -167,10 +151,7 @@ Describe "run-cloc.ps1" {
         }
 
         It "uses cloc script on non-Windows platforms" {
-            $paths = @{}
-            $paths.Root = "/home/repo"
-            $paths.ClocExe = "/home/tools/cloc.exe"
-            $paths.ClocScript = "/home/tools/cloc"
+            $paths = @{ Root = '/home/repo'; ClocExe = '/home/tools/cloc.exe'; ClocScript = '/home/tools/cloc' }
 
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocExe } -MockWith { $false }
             Mock -CommandName Test-Path -ParameterFilter { $Path -eq $paths.ClocScript } -MockWith { $true }

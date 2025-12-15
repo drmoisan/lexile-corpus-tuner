@@ -94,6 +94,20 @@ function Add-DirectoryToPath {
     }
 }
 
+function Invoke-ActionlintExe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CommandPath,
+
+        [Parameter()]
+        [string[]]$ActionlintArgs = @()
+    )
+
+    & $CommandPath @ActionlintArgs
+    return $LASTEXITCODE
+}
+
 function Invoke-ActionlintCommand {
     [CmdletBinding()]
     param(
@@ -101,18 +115,22 @@ function Invoke-ActionlintCommand {
         [string]$CommandPath,
 
         [Parameter(Mandatory = $false)]
-        [string[]]$Arguments = @()
+        [string[]]$Arguments = @(),
+
+        [Parameter()]
+        [scriptblock]$InvokeProcess = { param([string]$ActionlintCommand, [string[]]$ActionlintArgs) Invoke-ActionlintExe -CommandPath $ActionlintCommand -ActionlintArgs $ActionlintArgs }
     )
 
     Write-Information 'Running actionlint...' -InformationAction Continue
 
-    & $CommandPath @Arguments
+    $null = & $InvokeProcess $CommandPath $Arguments
     $exitCode = $LASTEXITCODE
 
     if ($exitCode -ne 0) {
         Write-Error "actionlint exited with code $exitCode"
-        exit $exitCode
     }
+
+    return $exitCode
 }
 
 # Main script execution
@@ -136,7 +154,15 @@ if (-not $actionlintCmd) {
 Add-DirectoryToPath -Directory $paths.BinDir
 
 # Pass through all arguments to actionlint
-Invoke-ActionlintCommand -CommandPath $actionlintCmd -Arguments $args
+$invokeResult = Invoke-ActionlintCommand -CommandPath $actionlintCmd -Arguments $args
+if ($invokeResult -ne 0) {
+    exit $invokeResult
+}
+
+
+
+
+
 
 
 

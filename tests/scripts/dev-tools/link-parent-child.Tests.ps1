@@ -4,10 +4,6 @@ BeforeAll {
     $env:POSHQC_SKIP_SCRIPT_EXECUTION = '1'
     $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\link-parent-child.ps1"
     . $script:scriptPath
-    function global:gh {
-        param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-        $null = $Args
-    }
 }
 
 Describe "link-parent-child.ps1 - Read-IssueNumber" {
@@ -65,9 +61,11 @@ Describe "link-parent-child.ps1 - Test-GhCli" {
 Describe "link-parent-child.ps1 - Get-Issue" {
     It "returns parsed JSON when gh succeeds" {
         $mockJson = '{"number":42,"title":"Test Issue","url":"https://github.com/test/repo/issues/42","body":"Issue body"}'
-        Mock -CommandName gh -MockWith {
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            [void] $GhArgs
             $global:LASTEXITCODE = 0
-            return $mockJson
+            return @{ Output = $mockJson; ExitCode = 0 }
         }
 
         $result = Get-Issue -IssueNumber "42" -Label "test"
@@ -81,9 +79,11 @@ Describe "link-parent-child.ps1 - Get-Issue" {
     It "errors when gh command fails" {
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
-        Mock -CommandName gh -MockWith {
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            [void] $GhArgs
             $global:LASTEXITCODE = 1
-            return ""
+            return @{ Output = ""; ExitCode = 1 }
         }
 
         Get-Issue -IssueNumber "999" -Label "parent"
@@ -94,9 +94,11 @@ Describe "link-parent-child.ps1 - Get-Issue" {
     It "errors when gh returns empty output" {
         $script:errors = New-Object System.Collections.Generic.List[string]
         Mock -CommandName Write-ScriptError -MockWith { param($Message) $script:errors.Add($Message) }
-        Mock -CommandName gh -MockWith {
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            [void] $GhArgs
             $global:LASTEXITCODE = 0
-            return ""
+            return @{ Output = ""; ExitCode = 0 }
         }
 
         Get-Issue -IssueNumber "555" -Label "child"
@@ -121,15 +123,18 @@ Describe "link-parent-child.ps1 - Invoke-LinkParentChild" {
         }
         Mock -CommandName Set-Content -MockWith { param($Path, $Value, $Encoding) $script:lastWrite = @{ Path = $Path; Value = $Value; Encoding = $Encoding } }
         Mock -CommandName Remove-Item -MockWith { }
-        Mock -CommandName gh -MockWith {
-            $null = $Args
-            $script:ghCalls += , @($args)
-            $operation = if ($args -contains 'edit') { 'edit' } elseif ($args -contains 'comment') { 'comment' } else { $args[1] }
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            [void] $GhArgs
+            $script:ghCalls += , $GhArgs
+            $operation = if ($GhArgs -contains 'edit') { 'edit' } elseif ($GhArgs -contains 'comment') { 'comment' } else { $GhArgs[1] }
             if ($script:ghExitByVerb.ContainsKey($operation)) {
                 $global:LASTEXITCODE = $script:ghExitByVerb[$operation]
             } else {
                 $global:LASTEXITCODE = 0
             }
+
+            return @{ Output = ""; ExitCode = $global:LASTEXITCODE }
         }
     }
 
@@ -181,7 +186,12 @@ Describe "link-parent-child.ps1 - Invoke-LinkParentChild" {
     It "throws when gh edit fails" {
         Mock -CommandName Get-Issue -ParameterFilter { $IssueNumber -eq '1' } -MockWith { [pscustomobject]@{ number = 1; title = 'Child title'; url = 'https://example.com/1'; body = 'child body' } }
         Mock -CommandName Get-Issue -ParameterFilter { $IssueNumber -eq '10' } -MockWith { [pscustomobject]@{ number = 10; title = 'Parent title'; url = 'https://example.com/10'; body = "## Child Issues`n" } }
-        Mock -CommandName gh -MockWith { $global:LASTEXITCODE = 1 }
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            [void] $GhArgs
+            $global:LASTEXITCODE = 1
+            return @{ Output = ""; ExitCode = 1 }
+        }
 
         $action = { Invoke-LinkParentChild -ChildIssueNumberParam '1' -ParentIssueNumberParam '10' }
         Should -ActualValue $action -Throw -ExceptionType ([System.InvalidOperationException]) -ExpectedMessage 'Failed to update parent issue #10.'
@@ -190,15 +200,16 @@ Describe "link-parent-child.ps1 - Invoke-LinkParentChild" {
     It "throws when adding comment fails" {
         Mock -CommandName Get-Issue -ParameterFilter { $IssueNumber -eq '1' } -MockWith { [pscustomobject]@{ number = 1; title = 'Child title'; url = 'https://example.com/1'; body = 'child body' } }
         Mock -CommandName Get-Issue -ParameterFilter { $IssueNumber -eq '10' } -MockWith { [pscustomobject]@{ number = 10; title = 'Parent title'; url = 'https://example.com/10'; body = "## Child Issues`n" } }
-        Mock -CommandName gh -MockWith {
-            param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-            $null = $Args
-            $script:ghCalls += , $Args
-            if ($Args -contains 'comment') {
-                Set-Variable -Scope Global -Name LASTEXITCODE -Value 1
+        Mock -CommandName Invoke-GhCli -MockWith {
+            param([string[]]$GhArgs)
+            $script:ghCalls += , $GhArgs
+            if ($GhArgs -contains 'comment') {
+                $global:LASTEXITCODE = 1
             } else {
-                Set-Variable -Scope Global -Name LASTEXITCODE -Value 0
+                $global:LASTEXITCODE = 0
             }
+
+            return @{ Output = ""; ExitCode = $global:LASTEXITCODE }
         }
 
         $threw = $false

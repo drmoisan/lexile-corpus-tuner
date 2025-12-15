@@ -14,6 +14,23 @@ function Write-ScriptError {
     throw [System.InvalidOperationException]::new($Message)
 }
 
+function Invoke-GhCli {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $GhArgs,
+
+        [Parameter()]
+        [scriptblock] $InvokeProcess = { param([string[]] $GhArgs) & gh @GhArgs 2>&1 }
+    )
+
+    $result = & $InvokeProcess $GhArgs
+    $exitCode = $LASTEXITCODE
+
+    return @{ Output = $result; ExitCode = $exitCode }
+}
+
 function Build-FeatureDocumentationBlock {
     [CmdletBinding()]
     [OutputType([string])]
@@ -60,7 +77,8 @@ function Invoke-LinkFeatureDocument {
     [CmdletBinding()]
     param(
         [string] $IssueNumberParam,
-        [string] $FeatureNameParam
+        [string] $FeatureNameParam,
+        [scriptblock] $InvokeGh = { param([string[]] $GhArgs) Invoke-GhCli -GhArgs $GhArgs }
     )
 
     if ([string]::IsNullOrWhiteSpace($IssueNumberParam)) {
@@ -75,12 +93,12 @@ function Invoke-LinkFeatureDocument {
         Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
     }
 
-    $issueJson = & gh issue view $IssueNumberParam --json body
-    if ($LASTEXITCODE -ne 0 -or -not $issueJson) {
+    $issueResult = & $InvokeGh @('issue', 'view', $IssueNumberParam, '--json', 'body')
+    if ($issueResult.ExitCode -ne 0 -or -not $issueResult.Output) {
         Write-ScriptError "Unable to fetch issue #$IssueNumberParam. Check the number and gh auth."
     }
 
-    $issue = $issueJson | ConvertFrom-Json
+    $issue = $issueResult.Output | ConvertFrom-Json
     $body = $issue.body
     if ([string]::IsNullOrWhiteSpace($body)) {
         Write-ScriptError "Issue #$IssueNumberParam has an empty body; aborting to avoid overwriting content."
@@ -95,8 +113,8 @@ function Invoke-LinkFeatureDocument {
     $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
     Set-Content -Path $tmp -Value $newBody -Encoding UTF8
 
-    & gh issue edit $IssueNumberParam --body-file $tmp
-    $exit = $LASTEXITCODE
+    $editResult = & $InvokeGh @('issue', 'edit', $IssueNumberParam, '--body-file', $tmp)
+    $exit = $editResult.ExitCode
     Remove-Item $tmp -ErrorAction SilentlyContinue
 
     if ($exit -eq 0) {

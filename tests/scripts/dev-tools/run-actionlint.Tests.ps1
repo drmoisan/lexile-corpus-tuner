@@ -12,6 +12,7 @@ Describe "run-actionlint.ps1" {
         . (Import-ScriptFunction -Path $script:scriptPath -Name 'Find-ActionlintOnPath')
         . (Import-ScriptFunction -Path $script:scriptPath -Name 'Install-Actionlint')
         . (Import-ScriptFunction -Path $script:scriptPath -Name 'Add-DirectoryToPath')
+        . (Import-ScriptFunction -Path $script:scriptPath -Name 'Invoke-ActionlintExe')
         . (Import-ScriptFunction -Path $script:scriptPath -Name 'Invoke-ActionlintCommand')
     }
 
@@ -295,6 +296,22 @@ Describe "run-actionlint.ps1" {
         }
     }
 
+    Context "Invoke-ActionlintExe" {
+        It "runs the provided command and returns exit code" {
+            $script:capturedArgs = $null
+            Mock -CommandName Write-Output -MockWith {
+                param([Parameter(ValueFromRemainingArguments = $true)]$InputObject)
+                $script:capturedArgs = $InputObject
+                $global:LASTEXITCODE = 0
+            }
+
+            $exit = Invoke-ActionlintExe -CommandPath 'Write-Output' -ActionlintArgs @('a', 'b')
+
+            $exit | Should -Be 0
+            $script:capturedArgs | Should -Be @('a', 'b')
+        }
+    }
+
     Context "Invoke-ActionlintCommand" {
         BeforeEach {
             $script:infoMessages = @()
@@ -302,76 +319,58 @@ Describe "run-actionlint.ps1" {
                 param($MessageData)
                 $script:infoMessages += $MessageData
             }
-            Mock -CommandName Write-Error -MockWith { }
+            Mock -CommandName Write-Error -MockWith { param($Message) $script:lastError = $Message }
         }
 
-        It "executes actionlint command with arguments" {
-            # Arrange & Act
-            $global:LASTEXITCODE = 0
-            Write-Information 'Running actionlint...' -InformationAction Continue
-
-            # Assert - verify the function would execute correctly
-            $global:LASTEXITCODE | Should -Be 0
-        }
-
-        It "writes information message before execution" {
-            # Arrange
-            $global:LASTEXITCODE = 0
-
-            # Act
-            & {
-                Write-Information 'Running actionlint...' -InformationAction Continue
+        It "invokes provided process delegate and returns exit code" {
+            $script:lastInvocation = $null
+            $exit = Invoke-ActionlintCommand -CommandPath 'C:\bin\actionlint.exe' -Arguments @('-verbose') -InvokeProcess {
+                param([string]$ActionlintCommand, [string[]]$ActionlintArgs)
+                $script:lastInvocation = @{ Command = $ActionlintCommand; Args = $ActionlintArgs }
                 $global:LASTEXITCODE = 0
             }
 
-            # Verify the information message would be displayed
-            $global:LASTEXITCODE | Should -Be 0
+            $exit | Should -Be 0
+            $script:lastInvocation.Command | Should -Be 'C:\bin\actionlint.exe'
+            $script:lastInvocation.Args | Should -Be @('-verbose')
         }
 
-        It "exits with error when actionlint returns non-zero" {
-            # Arrange
-            $global:LASTEXITCODE = 1
-            $script:errorWritten = $false
-
-            # Act
-            & {
-                $exitCode = 1
-                if ($exitCode -ne 0) {
-                    $script:errorWritten = $true
-                }
+        It "returns exit code and writes error on failure" {
+            $exit = Invoke-ActionlintCommand -CommandPath 'C:\bin\actionlint.exe' -Arguments @('-check') -InvokeProcess {
+                param([string]$ActionlintCommand, [string[]]$ActionlintArgs)
+                [void] $ActionlintCommand
+                [void] $ActionlintArgs
+                $global:LASTEXITCODE = 3
             }
 
-            # Assert
-            $script:errorWritten | Should -Be $true
+            $exit | Should -Be 3
+            $script:lastError | Should -Match 'actionlint exited with code 3'
         }
 
-        It "passes through all arguments to actionlint" {
-            # Arrange
-            $global:LASTEXITCODE = 0
-            $TestArguments = @('-verbose', '--color', 'file1.yml', 'file2.yml')
+        It "passes arguments through to Invoke-ActionlintExe" {
+            $script:captured = $null
+            Mock -CommandName Invoke-ActionlintExe -MockWith {
+                param([string]$CommandPath, [string[]]$ActionlintArgs)
+                $script:captured = @{ Command = $CommandPath; Args = $ActionlintArgs }
+                $global:LASTEXITCODE = 0
+            }
 
-            # Act
-            $TestArguments.Count | Should -Be 4
-            $TestArguments | Should -Contain '-verbose'
-            $TestArguments | Should -Contain '--color'
+            $null = Invoke-ActionlintCommand -CommandPath 'C:\bin\actionlint.exe' -Arguments @('--color')
 
-            # Assert
-            $global:LASTEXITCODE | Should -Be 0
+            $script:captured.Command | Should -Be 'C:\bin\actionlint.exe'
+            $script:captured.Args | Should -Be @('--color')
         }
 
         It "handles zero arguments correctly" {
-            # Arrange
-            $global:LASTEXITCODE = 0
-
-            # Act
-            & {
-                $TestArguments = @()
-                $TestArguments.Count | Should -Be 0
+            $script:lastInvocation = $null
+            $exit = Invoke-ActionlintCommand -CommandPath 'C:\bin\actionlint.exe' -InvokeProcess {
+                param([string]$ActionlintCommand, [string[]]$ActionlintArgs)
+                $script:lastInvocation = @{ Command = $ActionlintCommand; Args = $ActionlintArgs }
                 $global:LASTEXITCODE = 0
             }
 
-            # Assert
-            $global:LASTEXITCODE | Should -Be 0
+            $exit | Should -Be 0
+            $script:lastInvocation.Args | Should -Be @()
         }
     }
 
@@ -513,3 +512,4 @@ Describe "run-actionlint.ps1" {
         }
     }
 }
+

@@ -173,17 +173,20 @@ other
         BeforeEach {
             $script:ghCalls = New-Object System.Collections.Generic.List[object]
             Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'gh' } -MockWith { @{ Name = 'gh' } }
-            Mock -CommandName gh -MockWith {
-                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-                $null = $Args
-                $script:ghCalls.Add($Args) | Out-Null
+            Mock -CommandName Invoke-GhCli -MockWith {
+                param([string[]]$GhArgs)
+                $script:ghCalls.Add($GhArgs) | Out-Null
                 $global:LASTEXITCODE = 0
-                if ($Args[1] -eq 'view') {
-                    return '{"body":"## Intro`nexisting"}'
+
+                if ($GhArgs[0] -eq 'issue' -and $GhArgs[1] -eq 'view') {
+                    return @{ Output = '{"body":"## Intro`nexisting"}'; ExitCode = 0 }
                 }
-                if ($Args[1] -eq 'edit') {
-                    return ""
+
+                if ($GhArgs[0] -eq 'issue' -and $GhArgs[1] -eq 'edit') {
+                    return @{ Output = ""; ExitCode = 0 }
                 }
+
+                return @{ Output = ""; ExitCode = 0 }
             }
             Mock -CommandName Set-Content -MockWith { param($Path, $Value, $Encoding) $script:lastWrite = @{ Path = $Path; Value = $Value; Encoding = $Encoding } }
             Mock -CommandName Remove-Item -MockWith { }
@@ -208,11 +211,11 @@ other
         }
 
         It "throws when gh view fails" {
-            Mock -CommandName gh -MockWith {
-                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-                $null = $Args
+            Mock -CommandName Invoke-GhCli -MockWith {
+                param([string[]]$GhArgs)
+                [void] $GhArgs
                 $global:LASTEXITCODE = 1
-                return ""
+                return @{ Output = ""; ExitCode = 1 }
             }
 
             $action = { Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam 'demo' }
@@ -220,12 +223,11 @@ other
         }
 
         It "throws when issue body is empty" {
-            Mock -CommandName gh -MockWith {
-                param([Parameter(ValueFromRemainingArguments = $true)]$Args)
-                $null = $Args
+            Mock -CommandName Invoke-GhCli -MockWith {
+                param([string[]]$GhArgs)
                 $global:LASTEXITCODE = 0
-                if ($Args[1] -eq 'view') { return '{"body":""}' }
-                return ""
+                if ($GhArgs[0] -eq 'issue' -and $GhArgs[1] -eq 'view') { return @{ Output = '{"body":""}'; ExitCode = 0 } }
+                return @{ Output = ""; ExitCode = 0 }
             }
 
             $action = { Invoke-LinkFeatureDocument -IssueNumberParam '42' -FeatureNameParam 'demo' }

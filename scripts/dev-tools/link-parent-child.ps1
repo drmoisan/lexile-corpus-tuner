@@ -12,6 +12,23 @@ function Write-ScriptError {
     throw [System.InvalidOperationException]::new($Message)
 }
 
+function Invoke-GhCli {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $GhArgs,
+
+        [Parameter()]
+        [scriptblock] $InvokeProcess = { param([string[]] $GhArgs) & gh @GhArgs 2>&1 }
+    )
+
+    $result = & $InvokeProcess $GhArgs
+    $exitCode = $LASTEXITCODE
+
+    return @{ Output = $result; ExitCode = $exitCode }
+}
+
 function Test-GhCli {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
@@ -33,19 +50,26 @@ function Read-IssueNumber {
 }
 
 function Get-Issue {
-    param([string] $IssueNumber, [string] $Label)
-    $json = & gh issue view $IssueNumber --json number, title, url, body
-    if ($LASTEXITCODE -ne 0 -or -not $json) {
+    param(
+        [string] $IssueNumber,
+        [string] $Label,
+        [scriptblock] $InvokeGh = { param([string[]] $GhArgs) Invoke-GhCli -GhArgs $GhArgs }
+    )
+
+    $result = & $InvokeGh @('issue', 'view', $IssueNumber, '--json', 'number', 'title', 'url', 'body')
+    if ($result.ExitCode -ne 0 -or -not $result.Output) {
         Write-ScriptError "Unable to fetch $Label issue #$IssueNumber. Check the number and gh auth."
     }
-    return $json | ConvertFrom-Json
+
+    return $result.Output | ConvertFrom-Json
 }
 
 function Invoke-LinkParentChild {
     [CmdletBinding()]
     param(
         [string] $ChildIssueNumberParam,
-        [string] $ParentIssueNumberParam
+        [string] $ParentIssueNumberParam,
+        [scriptblock] $InvokeGh = { param([string[]] $GhArgs) Invoke-GhCli -GhArgs $GhArgs }
     )
 
     Test-GhCli
@@ -53,8 +77,8 @@ function Invoke-LinkParentChild {
     $ChildIssueNumberParam = Read-IssueNumber -Label "child" -Value $ChildIssueNumberParam
     $ParentIssueNumberParam = Read-IssueNumber -Label "parent" -Value $ParentIssueNumberParam
 
-    $childIssue = Get-Issue -IssueNumber $ChildIssueNumberParam -Label "child"
-    $parentIssue = Get-Issue -IssueNumber $ParentIssueNumberParam -Label "parent"
+    $childIssue = Get-Issue -IssueNumber $ChildIssueNumberParam -Label "child" -InvokeGh $InvokeGh
+    $parentIssue = Get-Issue -IssueNumber $ParentIssueNumberParam -Label "parent" -InvokeGh $InvokeGh
 
     $parentBody = $parentIssue.body
     if ([string]::IsNullOrWhiteSpace($parentBody)) {
@@ -106,8 +130,8 @@ function Invoke-LinkParentChild {
         $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
         Set-Content -Path $tmp -Value $parentBody -Encoding UTF8
 
-        & gh issue edit $ParentIssueNumberParam --body-file $tmp
-        $editExit = $LASTEXITCODE
+        $editResult = & $InvokeGh @('issue', 'edit', $ParentIssueNumberParam, '--body-file', $tmp)
+        $editExit = $editResult.ExitCode
         Remove-Item $tmp -ErrorAction SilentlyContinue
 
         if ($editExit -ne 0) {
@@ -125,8 +149,8 @@ function Invoke-LinkParentChild {
     }
 
     $comment = "Linked to parent tracking issue #$($parentIssue.number) - $($parentIssue.title)"
-    & gh issue comment $ChildIssueNumberParam --body $comment
-    if ($LASTEXITCODE -ne 0) {
+    $commentResult = & $InvokeGh @('issue', 'comment', $ChildIssueNumberParam, '--body', $comment)
+    if ($commentResult.ExitCode -ne 0) {
         Write-ScriptError "Failed to add parent link comment to child issue #$ChildIssueNumberParam."
     }
 
