@@ -22,11 +22,21 @@
 				
 				// Git
 				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				"graphite.gti-vscode",
 				"github.vscode-pull-request-github",
 				
 				// Utilities
 				"editorconfig.editorconfig",
-				"streetsidesoftware.code-spell-checker"
+				"streetsidesoftware.code-spell-checker",
+
+				// Testing
+				"ryanluker.vscode-coverage-gutters",
+				"tenninebt.vscode-koverage",
+				"pspester.pester-test",
+
+				// Container tools
+				"ms-azuretools.vscode-containers"
 			],
 			
 			// VS Code settings

@@ -21,7 +21,7 @@ RUN wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-p
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN pip install --no-cache-dir poetry==1.8.3
+RUN pip install --no-cache-dir poetry==2.2.1
 
 # Configure Poetry to create virtual environments in project directory
 RUN poetry config virtualenvs.in-project true

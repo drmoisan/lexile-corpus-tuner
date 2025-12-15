@@ -6,7 +6,13 @@ echo "Post-Create Container Setup"
 echo "==================================="
 
 # Ensure we're in the workspace directory
-cd /workspace
+WORKSPACE_DIR="${WORKSPACE_FOLDER:-/workspaces/lexile-corpus-tuner}"
+if [ ! -d "$WORKSPACE_DIR" ]; then
+    echo "Warning: workspace directory $WORKSPACE_DIR not found; using current directory $(pwd)" 
+    WORKSPACE_DIR="$(pwd)"
+fi
+cd "$WORKSPACE_DIR"
+export WORKSPACE_DIR
 
 # Install/update Python dependencies with Poetry
 echo "Installing Python dependencies with Poetry..."
@@ -75,7 +81,7 @@ echo "Importing PoshQC module..."
 pwsh -NoLogo -NoProfile -Command - <<'PWSH'
 $ErrorActionPreference = 'Stop'
 $candidates = @(
-    '/workspace/scripts/powershell/PoshQC/PoshQC.psd1',
+    "$env:WORKSPACE_DIR/scripts/powershell/PoshQC/PoshQC.psd1",
     '/workspaces/lexile-corpus-tuner/scripts/powershell/PoshQC/PoshQC.psd1'
 )
 
