@@ -7,6 +7,88 @@ Describe "potential-to-issue.ps1" {
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\potential-to-issue.ps1"
     }
 
+    Context "Invoke-PotentialToIssue function" {
+        BeforeAll {
+            Mock -CommandName Resolve-Path -MockWith { return [pscustomobject]@{ Path = 'C:\potential.md' } }
+            Mock -CommandName Move-Item -MockWith {
+                param($Path, $Destination)
+                $script:moveCalls += @(@{
+                        Path        = $Path
+                        Destination = $Destination
+                    })
+            }
+            Mock -CommandName New-Item -MockWith { return $true }
+            Mock -CommandName Test-Path -MockWith { return $true }
+
+            . $script:scriptPath
+        }
+
+        BeforeEach {
+            $script:ghCalls = @()
+            $script:setContentCalls = @()
+            $script:moveCalls = @()
+        }
+
+        It "creates issue metadata and moves file using gh wrapper" {
+            $contentReader = {
+                param([string] $Path)
+                $null = $Path
+                $contentLines = @(
+                    '# Feature Title'
+                    '## Problem / Why'
+                    'why'
+                    '## Proposed Behavior'
+                    'behave'
+                    '## Acceptance Criteria (early draft)'
+                    'criteria'
+                    '## Constraints & Risks'
+                    'risk'
+                    '## Test Conditions to Consider'
+                    'tests'
+                )
+
+                return $contentLines -join "`n"
+            }
+
+            $setContent = {
+                param([string]$Path, [object[]]$Value, [string]$Encoding)
+                $script:setContentCalls += @(@{
+                        Path     = $Path
+                        Value    = $Value
+                        Encoding = $Encoding
+                    })
+            }
+
+            $ghInvoker = {
+                param([string[]]$GhArgs)
+                $script:ghCalls += , $GhArgs
+                $global:LASTEXITCODE = 0
+                if ($GhArgs[0] -eq 'issue' -and $GhArgs[1] -eq 'create') {
+                    return 'Created: https://example.com/issues/123'
+                }
+                if ($GhArgs[0] -eq 'issue' -and $GhArgs[1] -eq 'view') {
+                    return '{"number":123,"title":"t","url":"https://example.com/issues/123","author":{"login":"me"},"updatedAt":"2024-01-02T00:00:00Z"}'
+                }
+                return ''
+            }
+
+            $allOutput = Invoke-PotentialToIssue -PotentialPath 'C:\potential.md' -PromotionType 'feature' -GhInvoker $ghInvoker -ContentReader $contentReader -SetContent $setContent
+            $exitCode = ($allOutput | Select-Object -Last 1)
+
+            $exitCode | Should -Be 0
+            $script:ghCalls.Count | Should -Be 2
+
+            $metadataCall = $script:setContentCalls | Where-Object { $_.Path -eq 'C:\potential.md' }
+            $metadataCall | Should -Not -BeNullOrEmpty
+            ($metadataCall.Value | Where-Object { $_ -like '- Issue:*' }) | Should -Contain '- Issue: #123'
+            ($metadataCall.Value | Where-Object { $_ -like '- Issue URL:*' }) | Should -Contain '- Issue URL: https://example.com/issues/123'
+            ($metadataCall.Value | Where-Object { $_ -like '- Status:*' }) | Should -Contain '- Status: Promoted -> docs/features/active/Feature_Title/ (Issue #123)'
+
+            $script:moveCalls.Count | Should -Be 1
+            $script:moveCalls[0].Path | Should -Be 'C:\potential.md'
+        }
+    }
+
     Context "Get-FeatureName function" {
         BeforeEach {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-FeatureName")
@@ -223,9 +305,12 @@ Describe "potential-to-issue.ps1" {
             $scriptContent | Should -Match "function Write-ScriptError[\s\S]+?Write-Error.*Message"
         }
 
-        It "calls exit 1 in the function body" {
+        It "throws after writing the error" {
             $scriptContent = Get-Content -Path $script:scriptPath -Raw
-            $scriptContent | Should -Match "function Write-ScriptError[\s\S]+?exit 1"
+            $scriptContent | Should -Match "function Write-ScriptError[\s\S]+?throw"
         }
     }
 }
+
+
+
