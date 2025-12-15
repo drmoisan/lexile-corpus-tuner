@@ -50,9 +50,10 @@ USER vscode
 # Set up PowerShell profile location for vscode user
 RUN mkdir -p ~/.config/powershell
 
-# Install actionlint for GitHub Actions workflow linting
+# Install actionlint for GitHub Actions workflow linting (pin to latest)
 USER root
-RUN wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- -d /usr/local/bin
+RUN wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+    | bash -s -- latest /usr/local/bin
 USER vscode
 
 # Set default shell to PowerShell for convenience

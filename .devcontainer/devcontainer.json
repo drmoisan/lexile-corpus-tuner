@@ -71,7 +71,7 @@
 	
 	// Mount the workspace folder and Docker socket
 	"mounts": [
-		"source=${localWorkspaceFolder}/.venv,target=/workspace/.venv,type=bind,consistency=cached"
+		"source=lexile-corpus-tuner-venv,target=/workspace/.venv,type=volume"
 	],
 	
 	// Run arguments for the container
