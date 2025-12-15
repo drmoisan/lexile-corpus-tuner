@@ -36,10 +36,58 @@ pwsh -NoLogo -NoProfile -Command "
     Get-Module -ListAvailable PSScriptAnalyzer, Pester | Format-Table Name, Version
 "
 
+# Ensure PowerShell QC dependencies are present before importing PoshQC
+echo ""
+echo "Ensuring PowerShell QC dependencies..."
+pwsh -NoLogo -NoProfile -Command - <<'PWSH'
+$ErrorActionPreference = 'Stop'
+$required = @(
+    @{ Name = 'PSScriptAnalyzer'; Version = '1.22.0' },
+    @{ Name = 'Pester'; Version = '5.6.1' }
+)
+
+$gallery = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
+if (-not $gallery) {
+    Register-PSRepository -Default -InstallationPolicy Trusted
+} elseif ($gallery.InstallationPolicy -ne 'Trusted') {
+    try {
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+    } catch {
+        Write-Warning 'Could not set PSGallery to Trusted automatically; you may see prompts during install.'
+    }
+}
+
+foreach ($module in $required) {
+    $installed = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
+    if ($installed) {
+        Write-Host "Found $($module.Name) $($installed.Version)"
+        continue
+    }
+
+    Write-Host "Installing $($module.Name) $($module.Version) (CurrentUser scope)..."
+    Install-Module -Name $module.Name -RequiredVersion $module.Version -Scope CurrentUser -AllowClobber -Force -ErrorAction Stop
+}
+PWSH
+
 # Import PoshQC module (will be available from mounted workspace)
 echo ""
 echo "Importing PoshQC module..."
-pwsh -NoLogo -NoProfile -Command "Import-Module /workspace/scripts/powershell/PoshQC -ErrorAction SilentlyContinue"
+pwsh -NoLogo -NoProfile -Command - <<'PWSH'
+$ErrorActionPreference = 'Stop'
+$candidates = @(
+    '/workspace/scripts/powershell/PoshQC/PoshQC.psd1',
+    '/workspaces/lexile-corpus-tuner/scripts/powershell/PoshQC/PoshQC.psd1'
+)
+
+$modulePath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $modulePath) {
+    Write-Error "PoshQC module not found. Checked: $($candidates -join ', ')"
+    exit 1
+}
+
+Import-Module $modulePath -Force -ErrorAction Stop
+Write-Host "Imported PoshQC from $modulePath"
+PWSH
 
 # Set up git configuration (if not already configured)
 if [ ! -f ~/.gitconfig ]; then

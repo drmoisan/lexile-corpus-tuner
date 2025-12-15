@@ -401,10 +401,10 @@ class StubTk(StubWidget):
 
 
 def _build_tk_module() -> tuple[ModuleType, ModuleType, ModuleType, ModuleType]:
-    tk_mod = cast(Any, ModuleType("tkinter"))
-    ttk_mod = cast(Any, ModuleType("tkinter.ttk"))
-    filedialog_mod = cast(Any, ModuleType("tkinter.filedialog"))
-    messagebox_mod = cast(Any, ModuleType("tkinter.messagebox"))
+    tk_mod = cast("Any", ModuleType("tkinter"))
+    ttk_mod = cast("Any", ModuleType("tkinter.ttk"))
+    filedialog_mod = cast("Any", ModuleType("tkinter.filedialog"))
+    messagebox_mod = cast("Any", ModuleType("tkinter.messagebox"))
 
     # tk module
     tk_mod.Widget = StubWidget
@@ -466,7 +466,7 @@ def _build_tk_module() -> tuple[ModuleType, ModuleType, ModuleType, ModuleType]:
 
 
 def _build_pandas_module() -> ModuleType:
-    pandas_mod = cast(Any, ModuleType("pandas"))
+    pandas_mod = cast("Any", ModuleType("pandas"))
 
     class StubDataFrame(MagicMock):
         pass
