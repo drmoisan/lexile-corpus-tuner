@@ -1,5 +1,6 @@
 {
 	"name": "Lexile Corpus Tuner Dev Container",
+	"workspaceFolder": "/workspaces/lexile-corpus-tuner",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"context": ".."
