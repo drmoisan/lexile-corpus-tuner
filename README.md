@@ -160,6 +160,12 @@ lexile-tuner rewrite --input-path <...> --output-path <out> [--config ...] \
   - PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
   - PowerShell tests (Pester): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
 
+### Adapted Copilot agents
+
+- Adapted agent prompts live in [.github/agents](.github/agents) with provenance headers; attribution is recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- Guardrail checks: run the VS Code task **PoshQC: 4 test (Pester)** or `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."` to verify required headers stay in place.
+- Adding upstream agents: follow [docs/features/active/awesome-copilot-adapted/add-agent-checklist.md](docs/features/active/awesome-copilot-adapted/add-agent-checklist.md) and update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) when new files are imported.
+
 ## Examples
 
 - `examples/example_corpus/chapter1.txt`

@@ -2,7 +2,7 @@
 
 - Issue: #42
 - Owner: drmoisan
-- Status: In Progress
+- Status: Done
 - Last Updated: 2025-12-15
 
 ## Story Statement
@@ -42,11 +42,11 @@ The `awesome-copilot` project provides a curated set of open-source agent defini
 
 ## Acceptance Criteria
 
-- [ ] At least one upstream agent is imported and adapted under `.github/agents/`.
-- [ ] Each adapted agent explicitly states that repo policy documents are authoritative (and lists the relevant ones).
-- [ ] Conflicting instructions in adapted agents are resolved in favor of repo policy (e.g., no auto-creating `.env`, no secrets in repo).
-- [ ] MIT attribution is present and discoverable in the repo (e.g., `THIRD_PARTY_NOTICES.md`/`NOTICE.md`, plus per-file notes).
-- [ ] A short set of “How to add another upstream agent” steps exists (doc or checklist) so future updates are consistent.
+- [x] At least one upstream agent is imported and adapted under `.github/agents/`.
+- [x] Each adapted agent explicitly states that repo policy documents are authoritative (and lists the relevant ones).
+- [x] Conflicting instructions in adapted agents are resolved in favor of repo policy (e.g., no auto-creating `.env`, no secrets in repo).
+- [x] MIT attribution is present and discoverable in the repo (e.g., `THIRD_PARTY_NOTICES.md`/`NOTICE.md`, plus per-file notes).
+- [x] A short set of “How to add another upstream agent” steps exists (doc or checklist) so future updates are consistent.
 
 
 ## Non-Goals

@@ -14,29 +14,29 @@
 
 ## Implementation Plan (Atomic Tasks)
 
-> **Instructions for this section:**
-> - Break work into **Phases** (broad buckets) and **Atomic Tasks** (binary, 5-30 min units).
-> - Use `- []` for every task (no `- [ ]`).
-> - Start every task with a **strong verb** (Implement, Create, Update, Verify).
-> - No "bucket" tasks like "Refactor module" or "Write tests"; split them into specific, verifiable steps.
+### Phase 0 — Context & Inputs
+- [x] [P0-T1] Read repo policy files listed in "Required References" and note any agent-specific constraints (temp files, toolchain loop, secrets)
+- [x] [P0-T2] Review upstream awesome-copilot agent repository index to identify candidate agents and confirm license (MIT)
 
-### Phase 1: Source & Attribution Blueprint
-- [ ] Inventory upstream `awesome-copilot` agents to target (names, paths, licenses)
-- [ ] Capture upstream MIT license text and source URLs for each selected agent
-- [ ] Draft THIRD_PARTY_NOTICES entry format for adapted agents (repo + file paths + commit/URL)
-- [ ] Define per-agent header snippet for provenance + repo-policy precedence
+### Phase 1 — Source & Attribution Blueprint
+- [x] [P1-T1] List selected upstream agents with source paths and retrieval commit/URL in a working note
+- [x] [P1-T2] Copy the MIT license text and source URL for awesome-copilot into the working note for reuse in notices
+- [x] [P1-T3] Decide THIRD_PARTY_NOTICES location/format for this repo and record the decision (include adapted file paths and source URL/SHA)
+- [x] [P1-T4] Draft a standard per-agent provenance header snippet referencing THIRD_PARTY_NOTICES and upstream source
 
-### Phase 2: Adapt Pilot Agents with Guardrails
-- [ ] Import one pilot agent into `.github/agents/` (no behavior changes yet)
-- [ ] Apply repo-policy compliance section and remove conflicting instructions (no auto `.env`, no temp files in tests, enforce toolchain loop)
-- [ ] Add provenance note (“Adapted from awesome-copilot …”) to the pilot agent
-- [ ] Document a short “Add another upstream agent” checklist in `docs/features/active/awesome-copilot-adapted/`
+### Phase 2 — Adapt Pilot Agents with Guardrails
+- [x] [P2-T1] Import one pilot agent from awesome-copilot into `.github/agents/` preserving upstream content
+- [x] [P2-T2] Insert repo-policy precedence section into the pilot agent referencing required instruction files
+- [x] [P2-T3] Remove or override upstream instructions that conflict with repo policy (e.g., auto `.env`, temp files in tests, skipping toolchain loop) and summarize changes
+- [x] [P2-T4] Add the provenance header snippet with source path, retrieval date, and link to THIRD_PARTY_NOTICES
+- [x] [P2-T5] Document an “Add another upstream agent” checklist in `docs/features/active/awesome-copilot-adapted/` for repeatable imports
 
-### Phase 3: Validate & Roll Out
-- [ ] Add Pester checks ensuring adapted agents include repo-policy precedence and provenance note
-- [ ] Verify potential-to-issue workflow still promotes potential docs after agent updates
-- [ ] Update active feature docs (spec, user-story) with owner/status/links; ensure backlog and potential references point to issue #42
-- [ ] Present rollout notes (where to place new agents, how to run checks) in README/docs reference section
+### Phase 3 — Validate & Roll Out
+- [x] [P3-T1] Add a Pester test that fails if any adapted agent file lacks the repo-policy precedence block
+- [x] [P3-T2] Add a Pester test that fails if any adapted agent file lacks the provenance header pointing to THIRD_PARTY_NOTICES and the upstream source
+- [x] [P3-T3] Dry-run `potential-to-issue.ps1` on a sample potential file to confirm promotion still works after agent changes (stubbed gh, verified cleanup)
+- [x] [P3-T4] Update active docs (spec, user-story, plan) to reflect completed attribution work and ensure backlog/potential entries reference issue #42
+- [x] [P3-T5] Add rollout notes in README or docs referencing where to place adapted agents and how to run the Pester checks
 
 ## Test Plan
 

@@ -55,6 +55,7 @@ At a high level:
 - Agent files live in `.github/agents/`; adapted files gain provenance header and repo-policy precedence section
 - Attribution lives in THIRD_PARTY_NOTICES/NOTICE (exact file to be chosen) referencing upstream repo/paths
 - Active feature docs stored under `docs/features/active/awesome-copilot-adapted/` (spec, plan, user-story)
+- Tracking: work is active under issue #42; no separate backlog/potential entries remain open for this feature
 
 ## Constraints & Risks
 
@@ -66,10 +67,10 @@ At a high level:
 
 ## Definition of Done
 
-- [ ] Behavior matches acceptance criteria
-- [ ] Tests updated/added (Pester checks for agent headers and workflow invariants)
-- [ ] Docs updated (README pointer to attribution + adaptation checklist; active docs kept current)
-- [ ] Telemetry/logging (if applicable)
+- [x] Behavior matches acceptance criteria
+- [x] Tests updated/added (Pester checks for agent headers and workflow invariants)
+- [x] Docs updated (README pointer to attribution + adaptation checklist; active docs kept current)
+- [x] Telemetry/logging (if applicable)
 
 ## Seeded Test Conditions (from potential)
 - [ ] Agents that touch Python enforce: Black → Ruff → Pyright → Pytest.

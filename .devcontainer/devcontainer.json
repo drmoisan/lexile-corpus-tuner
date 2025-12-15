@@ -18,6 +18,7 @@
 				"charliermarsh.ruff",
 				"AdamViola.parquet-explorer",
 				"zeshuaro.vscode-python-poetry",
+				"ms-vscode.live-server",
 				
 				// PowerShell
 				"ms-vscode.powershell",
