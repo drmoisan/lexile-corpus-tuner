@@ -6,19 +6,36 @@ param(
     [string] $ParentIssueNumber
 )
 
-function Stop-ScriptWithError {
-    param([string] $Message)
-    Write-Host $Message
-    exit 1
+function Write-ScriptError {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string] $Message)
+    throw [System.InvalidOperationException]::new($Message)
 }
 
-function Ensure-Gh {
+function Invoke-GhCli {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $GhArgs,
+
+        [Parameter()]
+        [scriptblock] $InvokeProcess = { param([string[]] $GhArgs) & gh @GhArgs 2>&1 }
+    )
+
+    $result = & $InvokeProcess $GhArgs
+    $exitCode = $LASTEXITCODE
+
+    return @{ Output = $result; ExitCode = $exitCode }
+}
+
+function Test-GhCli {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-        Stop-ScriptWithError "gh CLI not found on PATH. Install gh and authenticate first."
+        Write-ScriptError "gh CLI not found on PATH. Install gh and authenticate first."
     }
 }
 
-function Prompt-ForIssue {
+function Read-IssueNumber {
     param(
         [string] $Label,
         [string] $Value
@@ -27,102 +44,125 @@ function Prompt-ForIssue {
         $Value = Read-Host "Enter $Label issue number"
     }
     if ([string]::IsNullOrWhiteSpace($Value)) {
-        Stop-ScriptWithError "$Label issue number is required."
+        Write-ScriptError "$Label issue number is required."
     }
     return $Value.Trim()
 }
 
 function Get-Issue {
-    param([string] $IssueNumber, [string] $Label)
-    $json = & gh issue view $IssueNumber --json number,title,url,body
-    if ($LASTEXITCODE -ne 0 -or -not $json) {
-        Stop-ScriptWithError "Unable to fetch $Label issue #$IssueNumber. Check the number and gh auth."
+    param(
+        [string] $IssueNumber,
+        [string] $Label,
+        [scriptblock] $InvokeGh = { param([string[]] $GhArgs) Invoke-GhCli -GhArgs $GhArgs }
+    )
+
+    $result = & $InvokeGh @('issue', 'view', $IssueNumber, '--json', 'number', 'title', 'url', 'body')
+    if ($result.ExitCode -ne 0 -or -not $result.Output) {
+        Write-ScriptError "Unable to fetch $Label issue #$IssueNumber. Check the number and gh auth."
     }
-    return $json | ConvertFrom-Json
+
+    return $result.Output | ConvertFrom-Json
 }
 
-Ensure-Gh
+function Invoke-LinkParentChild {
+    [CmdletBinding()]
+    param(
+        [string] $ChildIssueNumberParam,
+        [string] $ParentIssueNumberParam,
+        [scriptblock] $InvokeGh = { param([string[]] $GhArgs) Invoke-GhCli -GhArgs $GhArgs }
+    )
 
-$ChildIssueNumber = Prompt-ForIssue -Label "child" -Value $ChildIssueNumber
-$ParentIssueNumber = Prompt-ForIssue -Label "parent" -Value $ParentIssueNumber
+    Test-GhCli
 
-$childIssue = Get-Issue -IssueNumber $ChildIssueNumber -Label "child"
-$parentIssue = Get-Issue -IssueNumber $ParentIssueNumber -Label "parent"
+    $ChildIssueNumberParam = Read-IssueNumber -Label "child" -Value $ChildIssueNumberParam
+    $ParentIssueNumberParam = Read-IssueNumber -Label "parent" -Value $ParentIssueNumberParam
 
-$parentBody = $parentIssue.body
-if ([string]::IsNullOrWhiteSpace($parentBody)) {
-    Stop-ScriptWithError "Parent issue #$ParentIssueNumber has an empty body; aborting to avoid overwriting content."
-}
+    $childIssue = Get-Issue -IssueNumber $ChildIssueNumberParam -Label "child" -InvokeGh $InvokeGh
+    $parentIssue = Get-Issue -IssueNumber $ParentIssueNumberParam -Label "parent" -InvokeGh $InvokeGh
 
-# Match existing tracking patterns: checkbox, #<number>, dash, title (no explicit link needed)
-$childEntry = "- [ ] #$($childIssue.number) - $($childIssue.title)"
+    $parentBody = $parentIssue.body
+    if ([string]::IsNullOrWhiteSpace($parentBody)) {
+        Write-ScriptError "Parent issue #$ParentIssueNumberParam has an empty body; aborting to avoid overwriting content."
+    }
 
-$headingPattern = "(?ims)^##\s+Child Issues\s*\r?\n(.*?)(?=^\#\#\s+|\z)"
-$regexOptions = [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::Singleline
-$headingRegex = [System.Text.RegularExpressions.Regex]::new($headingPattern, $regexOptions)
+    $childEntry = "- [ ] #$($childIssue.number) - $($childIssue.title)"
 
-$match = $headingRegex.Match($parentBody)
-$parentUpdated = $false
-$step5Succeeded = $false
+    $headingPattern = "(?ims)^##\s+Child Issues\s*\r?\n(.*?)(?=^\#\#\s+|\z)"
+    $regexOptions = [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::Singleline
+    $headingRegex = [System.Text.RegularExpressions.Regex]::new($headingPattern, $regexOptions)
 
-if ($match.Success) {
-    $step5Succeeded = $true
-    $sectionContent = $match.Groups[1].Value
-    $alreadyListed = $sectionContent -match [regex]::Escape($childIssue.url) -or $sectionContent -match ("#"+[regex]::Escape($childIssue.number))
-    if ($alreadyListed) {
-        Write-Host "Parent issue already references child #$($childIssue.number); no body update needed."
-        $parentUpdated = $false
-    } else {
-        $existingLines = $sectionContent.TrimEnd()
-        if ([string]::IsNullOrWhiteSpace($existingLines)) {
-            $newSection = "## Child Issues`n$childEntry`n"
+    $match = $headingRegex.Match($parentBody)
+    $parentUpdated = $false
+    $step5Succeeded = $false
+
+    if ($match.Success) {
+        $step5Succeeded = $true
+        $sectionContent = $match.Groups[1].Value
+        $alreadyListed = $sectionContent -match [regex]::Escape($childIssue.url) -or $sectionContent -match ("#" + [regex]::Escape($childIssue.number))
+        if ($alreadyListed) {
+            Write-Output "Parent issue already references child #$($childIssue.number); no body update needed."
+            $parentUpdated = $false
         } else {
-            $newSection = "## Child Issues`n$existingLines`n$childEntry`n"
+            $existingLines = $sectionContent.TrimEnd()
+            if ([string]::IsNullOrWhiteSpace($existingLines)) {
+                $newSection = "## Child Issues`n$childEntry`n"
+            } else {
+                $newSection = "## Child Issues`n$existingLines`n$childEntry`n"
+            }
+            $parentBody = $headingRegex.Replace($parentBody, $newSection.TrimEnd() + "`n")
+            $parentUpdated = $true
         }
-        $parentBody = $headingRegex.Replace($parentBody, $newSection.TrimEnd() + "`n")
+    } else {
+        $response = Read-Host "Parent #$ParentIssueNumberParam has no 'Child Issues' section. Convert to tracking issue and add one? (y/n)"
+        if ($response -notin @("y", "Y", "yes", "Yes")) {
+            Write-ScriptError "Aborting: parent issue lacks a 'Child Issues' section and conversion was declined."
+        }
+        $step5Succeeded = $true
+        $parentBody = $parentBody.TrimEnd() + "`n`n## Child Issues`n$childEntry`n"
         $parentUpdated = $true
     }
-} else {
-    $response = Read-Host "Parent #$ParentIssueNumber has no 'Child Issues' section. Convert to tracking issue and add one? (y/n)"
-    if ($response -notin @("y", "Y", "yes", "Yes")) {
-        Stop-ScriptWithError "Aborting: parent issue lacks a 'Child Issues' section and conversion was declined."
+
+    if (-not $step5Succeeded) {
+        Write-ScriptError "Unable to process parent issue body."
     }
-    $step5Succeeded = $true
-    $parentBody = $parentBody.TrimEnd() + "`n`n## Child Issues`n$childEntry`n"
-    $parentUpdated = $true
-}
 
-if (-not $step5Succeeded) {
-    Stop-ScriptWithError "Unable to process parent issue body."
-}
+    if ($parentUpdated) {
+        $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
+        Set-Content -Path $tmp -Value $parentBody -Encoding UTF8
 
-if ($parentUpdated) {
-    $tmp = [System.IO.Path]::ChangeExtension([System.IO.Path]::GetTempFileName(), '.md')
-    Set-Content -Path $tmp -Value $parentBody -Encoding UTF8
+        $editResult = & $InvokeGh @('issue', 'edit', $ParentIssueNumberParam, '--body-file', $tmp)
+        $editExit = $editResult.ExitCode
+        Remove-Item $tmp -ErrorAction SilentlyContinue
 
-    & gh issue edit $ParentIssueNumber --body-file $tmp
-    $editExit = $LASTEXITCODE
-    Remove-Item $tmp -ErrorAction SilentlyContinue
-
-    if ($editExit -ne 0) {
-        Stop-ScriptWithError "Failed to update parent issue #$ParentIssueNumber."
+        if ($editExit -ne 0) {
+            Write-ScriptError "Failed to update parent issue #$ParentIssueNumberParam."
+        }
+        Write-Output "Updated parent issue #$ParentIssueNumberParam with child link."
+    } else {
+        Write-Output "No parent body changes were required."
     }
-    Write-Host "Updated parent issue #$ParentIssueNumber with child link."
-} else {
-    Write-Host "No parent body changes were required."
+
+    $childAlreadyLinked = $childIssue.body -match [regex]::Escape($parentIssue.url) -or $childIssue.body -match ("#" + [regex]::Escape($parentIssue.number))
+    if ($childAlreadyLinked) {
+        Write-Output "Child issue already references parent #$($parentIssue.number); no comment added."
+        return
+    }
+
+    $comment = "Linked to parent tracking issue #$($parentIssue.number) - $($parentIssue.title)"
+    $commentResult = & $InvokeGh @('issue', 'comment', $ChildIssueNumberParam, '--body', $comment)
+    if ($commentResult.ExitCode -ne 0) {
+        Write-ScriptError "Failed to add parent link comment to child issue #$ChildIssueNumberParam."
+    }
+
+    Write-Output "Added parent link comment to child issue #$ChildIssueNumberParam."
 }
 
-# Step 6: add link back to parent on the child issue (comment) if not already present.
-$childAlreadyLinked = $childIssue.body -match [regex]::Escape($parentIssue.url) -or $childIssue.body -match ("#"+[regex]::Escape($parentIssue.number))
-if ($childAlreadyLinked) {
-    Write-Host "Child issue already references parent #$($parentIssue.number); no comment added."
-    exit 0
+if ($MyInvocation.InvocationName -eq '.') {
+    return
 }
 
-$comment = "Linked to parent tracking issue #$($parentIssue.number) - $($parentIssue.title)"
-& gh issue comment $ChildIssueNumber --body $comment
-if ($LASTEXITCODE -ne 0) {
-    Stop-ScriptWithError "Failed to add parent link comment to child issue #$ChildIssueNumber."
+if ($env:POSHQC_SKIP_SCRIPT_EXECUTION) {
+    return
 }
 
-Write-Host "Added parent link comment to child issue #$ChildIssueNumber."
+Invoke-LinkParentChild -ChildIssueNumberParam $ChildIssueNumber -ParentIssueNumberParam $ParentIssueNumber

@@ -1,0 +1,107 @@
+{
+	"name": "Lexile Corpus Tuner Dev Container",
+	"workspaceFolder": "/workspaces/lexile-corpus-tuner",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": ".."
+	},
+	
+	// Configure tool-specific properties
+	"customizations": {
+		"vscode": {
+			// VS Code extensions to install
+			"extensions": [
+				// Python
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ms-python.black-formatter",
+				"charliermarsh.ruff",
+				
+				// PowerShell
+				"ms-vscode.powershell",
+				
+				// Git
+				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				"graphite.gti-vscode",
+				"github.vscode-pull-request-github",
+				
+				// Utilities
+				"editorconfig.editorconfig",
+
+				// Testing
+				"ryanluker.vscode-coverage-gutters",
+				"tenninebt.vscode-koverage",
+				"pspester.pester-test",
+
+				// Container tools
+				"ms-azuretools.vscode-containers"
+			],
+			
+			// VS Code settings
+			"settings": {
+				"python.defaultInterpreterPath": "/workspace/.venv/bin/python",
+				"python.formatting.provider": "none",
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.fixAll": "explicit",
+						"source.organizeImports": "explicit"
+					}
+				},
+				"black-formatter.args": ["--config", "${workspaceFolder}/pyproject.toml"],
+				"python.testing.pytestEnabled": true,
+				"python.testing.unittestEnabled": false,
+				"python.analysis.typeCheckingMode": "strict",
+				"powershell.codeFormatting.preset": "OTBS",
+				"powershell.scriptAnalysis.enable": true,
+				"powershell.scriptAnalysis.settingsPath": "${workspaceFolder}/scripts/powershell/PoshQC/settings/pssa.settings.psd1",
+				"terminal.integrated.defaultProfile.linux": "pwsh",
+				"terminal.integrated.profiles.linux": {
+					"pwsh": {
+						"path": "/usr/bin/pwsh",
+						"icon": "terminal-powershell"
+					},
+					"bash": {
+						"path": "/bin/bash",
+						"icon": "terminal-bash"
+					}
+				}
+			}
+		}
+	},
+	
+	// Use 'forwardPorts' to make a list of ports inside the container available locally
+	"forwardPorts": [],
+	
+	// Use 'postCreateCommand' to run commands after the container is created
+	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	
+	// Mount the workspace folder and Docker socket
+	"mounts": [
+		"source=lexile-corpus-tuner-venv,target=/workspace/.venv,type=volume",
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	],
+	
+	// Run arguments for the container
+	"runArgs": [
+		"--name=lexile-corpus-tuner-dev"
+	],
+	
+	// Set `remoteUser` to `vscode` to use the non-root user
+	"remoteUser": "vscode",
+	
+	// Features to install
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"version": "latest"
+		}
+	}
+}

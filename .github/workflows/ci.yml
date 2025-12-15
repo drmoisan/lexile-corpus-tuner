@@ -166,6 +166,99 @@ jobs:
           lexile-tuner --help
           text-difficulty-pipeline --help
 
+  poshqc:
+    name: PowerShell QC
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell:
+          - powershell   # Windows PowerShell 5.1
+          - pwsh         # PowerShell 7.x
+        include:
+          - shell: powershell
+            displayName: Windows PowerShell 5.1
+          - shell: pwsh
+            displayName: PowerShell 7.x
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PoshQC tooling (Windows PowerShell 5.1)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Install-PoshQCTools
+
+      - name: Install PoshQC tooling (PowerShell 7.x)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Install-PoshQCTools
+
+      - name: Format PowerShell (Windows PowerShell 5.1)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCFormat -Root "${{ github.workspace }}"
+          $diff = git status --porcelain
+          if ($diff) {
+            Write-Error "PowerShell files were reformatted. Run Invoke-PoshQCFormat locally and commit the changes."
+          }
+
+      - name: Format PowerShell (PowerShell 7.x)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCFormat -Root "${{ github.workspace }}"
+          $diff = git status --porcelain
+          if ($diff) {
+            Write-Error "PowerShell files were reformatted. Run Invoke-PoshQCFormat locally and commit the changes."
+          }
+
+      - name: Analyze PowerShell (Windows PowerShell 5.1)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCAnalyze -Root "${{ github.workspace }}"
+
+      - name: Analyze PowerShell (PowerShell 7.x)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCAnalyze -Root "${{ github.workspace }}"
+
+      - name: Test PowerShell (Windows PowerShell 5.1)
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCTest -Root "${{ github.workspace }}"
+
+      - name: Test PowerShell (PowerShell 7.x)
+        if: matrix.shell == 'pwsh'
+        shell: pwsh
+        run: |
+          Import-Module "${{ github.workspace }}/scripts/powershell/PoshQC/PoshQC.psm1"
+          Invoke-PoshQCTest -Root "${{ github.workspace }}"
+
+      - name: Upload PowerShell test artifacts (pwsh)
+        if: matrix.shell == 'pwsh'
+        uses: actions/upload-artifact@v4
+        with:
+          name: poshqc-test-results
+          path: |
+            artifacts/pester/pester-junit.xml
+            artifacts/pester/powershell-coverage.xml
+            artifacts/pester/powershell-coverage.koverage.xml
+          if-no-files-found: ignore
+
 
 
 
