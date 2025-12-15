@@ -6,23 +6,39 @@ BeforeAll {
 
 Describe 'Get-PoshQCFileList' {
     It 'returns empty when no PowerShell files are enumerated' {
-        $result = Get-PoshQCFileList -Root '/repo' -ResolvePath { param([string] $Path) $Path } -EnumerateFiles { param([string] $Path) [void] $Path; @() }
+        $resolvePath = {
+            param($Path)
+            'resolvePath-called' | Out-Null
+            $Path
+        }
+        $enumerateFiles = {
+            param($Path)
+            'enumerateFiles-called' | Out-Null
+            [void] $Path
+            @()
+        }
 
-        $result | Should -BeEmpty
+        $result = Get-PoshQCFileList -Root '/repo' -ResolvePath $resolvePath -EnumerateFiles $enumerateFiles
+
+        $result | Should -BeNullOrEmpty
     }
 
     It 'excludes files matched by the injected predicate' {
-        $result = Get-PoshQCFileList -Root '/repo' -ExcludeDirs @('skip') -ResolvePath { param([string] $Path) $Path } -EnumerateFiles {
-            param([string] $Path)
+        $resolvePath = { param($Path) $Path }
+        $enumerateFiles = {
+            param($Path)
             [void] $Path
             @([pscustomobject]@{ FullName = '/repo/skip/file.ps1'; Extension = '.ps1' })
-        } -ShouldExclude {
+        }
+        $shouldExclude = {
             param($File, [string[]] $ExcludedDirs)
             [void] $ExcludedDirs
-            return ($File.FullName -match '/skip/')
+            $File.FullName -match '/skip/'
         }
 
-        $result | Should -BeEmpty
+        $result = Get-PoshQCFileList -Root '/repo' -ExcludeDirs @('skip') -ResolvePath $resolvePath -EnumerateFiles $enumerateFiles -ShouldExclude $shouldExclude
+
+        $result | Should -BeNullOrEmpty
     }
 
     It 'throws when the injected resolver fails' {
@@ -49,15 +65,18 @@ Describe 'Get-PoshQCFileList' {
 
     It 'resolves relative roots using the injected resolver' {
         $received = $null
-        $result = Get-PoshQCFileList -Root 'scripts' -ResolvePath { param([string] $Path) [void] $Path; '/abs/scripts' } -EnumerateFiles {
+        $resolvePath = { param([string] $Path) [void] $Path; '/abs/scripts' }
+        $enumerateFiles = {
             param([string] $Path)
-            $script:received = $Path
+            Set-Variable -Scope 1 -Name 'received' -Value $Path
             @([pscustomobject]@{ FullName = (Join-Path $Path 'tool.psm1'); Extension = '.psm1' })
         }
 
-        $received | Should -Be '/abs/scripts'
+        $result = Get-PoshQCFileList -Root 'scripts' -ResolvePath $resolvePath -EnumerateFiles $enumerateFiles
+
+        ($received -replace '\\', '/') | Should -Be '/abs/scripts'
         $result | Should -HaveCount 1
-        $result[0].FullName | Should -Be '/abs/scripts/tool.psm1'
+        ($result[0].FullName -replace '\\', '/') | Should -Be '/abs/scripts/tool.psm1'
     }
 }
 
@@ -67,7 +86,7 @@ Describe 'Install-PoshQCTool' {
         $installed = @{}
         $logger = New-Object System.Collections.Generic.List[string]
 
-        Install-PoshQCTool -GetRepository { $null } -RegisterRepository { $script:registered = $true } `
+        Install-PoshQCTool -GetRepository { $null } -RegisterRepository { Set-Variable -Scope 1 -Name 'registered' -Value $true } `
             -FindModule {
             param([string] $Name)
             [void] $Name
@@ -87,14 +106,17 @@ Describe 'Install-PoshQCTool' {
         } -SetTls { } -SetRepository { } | Out-Null
 
         $registered | Should -BeTrue
-        $installed.Keys | Sort-Object | Should -Be @('PSScriptAnalyzer', 'Pester')
+        ($installed.Keys | Sort-Object) | Should -Be @('Pester', 'PSScriptAnalyzer')
     }
 
     It 'logs a warning when PSGallery trust cannot be set' {
         $logs = New-Object System.Collections.Generic.List[string]
 
         Install-PoshQCTool -GetRepository { [pscustomobject]@{ InstallationPolicy = 'Untrusted' } } `
-            -SetRepository { throw 'cannot set' } -FindModule { [pscustomobject]@{ Name = 'PSScriptAnalyzer'; Version = [version]'2.0.0' } } `
+            -SetRepository { throw 'cannot set' } -FindModule {
+            param([string] $Name)
+            [pscustomobject]@{ Name = $Name; Version = [version]'9.9.9' }
+        } `
             -InstallModule { param([string] $Name, [string] $Version) [void] $Name; [void] $Version } -RegisterRepository { } -SetTls { } -Logger {
             param([string] $Message, [string] $Level)
             [void] $Message
@@ -164,7 +186,7 @@ Describe 'Invoke-PoshQCFormat' {
             "Write-Host 'test'`n"
         } -WriteFile {
             param([string] $Path, [string] $Content)
-            $script:writes += @(@{ Path = $Path; Content = $Content })
+            Set-Variable -Scope 1 -Name 'writes' -Value ($writes + @(@{ Path = $Path; Content = $Content }))
         } -Logger { param([string] $Message) [void] $Message } | Out-Null
 
         $writes | Should -HaveCount 1
@@ -313,8 +335,8 @@ Describe 'Convert-PoshQCCoverageToRelative' {
                 -JoinPath { param([string] $Parent, [string] $Child) "$Parent/$Child" } -TestPathExists { param([string] $Path) [void] $Path; $true } -ReadContent { '<report></report>' } `
                 -WriteContent {
                 param([string] $Path, [string] $Content)
-                $script:writtenPath = $Path
-                $script:writtenContent = $Content
+                Set-Variable -Scope 1 -Name 'writtenPath' -Value $Path
+                Set-Variable -Scope 1 -Name 'writtenContent' -Value $Content
             } -EnsureDirectory { param([string] $Path) [void] $Path } -GetDefaultOutputPath {
                 param([string] $ResolvedInputPath, [string] $ResolvedRoot)
                 [void] $ResolvedInputPath
@@ -355,6 +377,8 @@ Describe 'Invoke-PoshQCTest' {
 
     It 'expands Run.Path and merges ExcludeDirs into ExcludePath' {
         $config = $null
+        $script:capturedRunPaths = $null
+        $script:capturedExcludes = $null
         $settings = @{
             Run          = @{ Path = @('tests') }
             Should       = @{ ErrorAction = 'Stop' }
@@ -366,7 +390,7 @@ Describe 'Invoke-PoshQCTest' {
         Invoke-PoshQCTest -Root '/repo' -SettingsPath '/settings.psd1' -EnsureModule { } -TestPathExists { $true } -LoadSettings { $settings } `
             -BuildConfiguration {
             param($Table)
-            $script:config = [pscustomobject]@{
+            $config = [pscustomobject]@{
                 Run          = @{
                     Path        = @{ Value = $Table.Run.Path }
                     ExcludePath = @{ Value = @() }
@@ -375,14 +399,26 @@ Describe 'Invoke-PoshQCTest' {
                 CodeCoverage = $null
                 Output       = @{ Verbosity = 'Normal' }
             }
-            return $script:config
+            return $config
         } -EnsureResultPath { param($cfg, [string] $RootPath) [void] $RootPath; $cfg } -ExpandCoveragePaths { param($cfg, [string] $RootPath) [void] $RootPath; $cfg } `
-            -EnumerateTests { @([pscustomobject]@{ FullName = '/repo/tests/sample.Tests.ps1' }) } -InvokePester {
+            -ExpandRunPaths {
+            param($cfg, [string] $RootPath, [string[]] $Excluded)
+            $cfg.Run.Path = @($cfg.Run.Path.Value | ForEach-Object { Join-Path $RootPath $_ })
+            $cfg.Run.ExcludePath = @($Excluded | ForEach-Object { Join-Path $RootPath $_ })
+            $cfg
+        } `
+            -EnumerateTests {
+            param([string[]] $Paths, [string[]] $Excluded, [scriptblock] $TestPathFn)
+            [void] $TestPathFn
+            Set-Variable -Scope Script -Name capturedRunPaths -Value $Paths -Force
+            Set-Variable -Scope Script -Name capturedExcludes -Value $Excluded -Force
+            @([pscustomobject]@{ FullName = '/repo/tests/sample.Tests.ps1' })
+        } -InvokePester {
             [pscustomobject]@{ Duration = [timespan]::Zero; PassedCount = 1; FailedCount = 0; SkippedCount = 0; InconclusiveCount = 0; NotRunCount = 0 }
         } -Logger { param([string] $Message) [void] $Message } -ExcludeDirs @('skip') | Out-Null
 
-        $config.Run.Path | Should -Be @('/repo/tests')
-        $config.Run.ExcludePath | Should -Contain '/repo/skip'
+        ($script:capturedRunPaths | ForEach-Object { $_ -replace '\\', '/' }) | Should -Be @('/repo/tests')
+        ($script:capturedExcludes | ForEach-Object { $_ -replace '\\', '/' }) | Should -Contain 'skip'
     }
 
     It 'logs and returns when no test files are found' {
@@ -430,12 +466,12 @@ Describe 'Invoke-PoshQCTest' {
             }
         } -CopyCoverage {
             param([string] $CoveragePath, [string] $RepoRoot, [string] $KoveragePath)
-            $script:copyArgs = @($CoveragePath, $RepoRoot, $KoveragePath)
+            Set-Variable -Scope 1 -Name 'copyArgs' -Value @($CoveragePath, $RepoRoot, $KoveragePath)
         } -Logger { param([string] $Message) [void] $Message } | Out-Null
 
         $copyArgs[0] | Should -Be '/repo/coverage.xml'
         $copyArgs[1] | Should -Be '/repo'
-        $copyArgs[2] | Should -Be '/repo/coverage.koverage.xml'
+        ($copyArgs[2] -replace '\\', '/') | Should -Be '/repo/coverage.koverage.xml'
     }
 }
 

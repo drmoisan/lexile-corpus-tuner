@@ -245,6 +245,17 @@ function Invoke-PoshQCAnalyze {
         } catch {
             $errorType = $_.Exception.GetType().FullName
             $errorMessage = $_.Exception.Message
+
+            if ($errorType -eq 'System.NullReferenceException') {
+                try {
+                    $results += & $AnalyzeFile $file.FullName $SettingsPath
+                    continue
+                } catch {
+                    $errorType = $_.Exception.GetType().FullName
+                    $errorMessage = $_.Exception.Message
+                }
+            }
+
             throw "Invoke-ScriptAnalyzer failed for $($file.FullName) ($errorType): $errorMessage"
         }
     }
@@ -391,17 +402,19 @@ function Invoke-PoshQCTest {
         [scriptblock] $BuildConfiguration = { param($Settings) New-PesterConfiguration -Hashtable $Settings },
         [scriptblock] $ExpandRunPaths = {
             param($Config, [string] $RootPath, [string[]] $Excluded)
-            if ($Config.Run.Path.Value) {
-                $Config.Run.Path = @(
-                    $Config.Run.Path.Value |
+            $initialPaths = if ($Config.Run.Path -is [System.Array]) { @($Config.Run.Path) } elseif ($Config.Run.Path -and $Config.Run.Path.Value) { @($Config.Run.Path.Value) } else { @() }
+            if ($initialPaths) {
+                $resolvedPaths = @(
+                    $initialPaths |
                         ForEach-Object { Join-Path $RootPath $_ } |
                             Where-Object { $Excluded -notcontains (Split-Path -Path $_ -Leaf) }
                 )
+                $Config.Run.Path = $resolvedPaths
             }
 
             if ($Excluded) {
                 $excludedPaths = @($Excluded | ForEach-Object { Join-Path $RootPath $_ })
-                $existingExclude = if ($Config.Run.ExcludePath.Value) { @($Config.Run.ExcludePath.Value | ForEach-Object { Join-Path $RootPath $_ }) } else { @() }
+                $existingExclude = if ($Config.Run.ExcludePath -is [System.Array]) { @($Config.Run.ExcludePath | ForEach-Object { Join-Path $RootPath $_ }) } elseif ($Config.Run.ExcludePath -and $Config.Run.ExcludePath.Value) { @($Config.Run.ExcludePath.Value | ForEach-Object { Join-Path $RootPath $_ }) } else { @() }
                 $Config.Run.ExcludePath = $existingExclude + $excludedPaths
             }
 
@@ -544,7 +557,8 @@ function Invoke-PoshQCTest {
         }
     }
 
-    $testFiles = & $EnumerateTests $config.Run.Path.Value $ExcludeDirs $TestPathExists
+    $runPaths = if ($config.Run.Path -is [System.Array]) { [string[]]$config.Run.Path } elseif ($config.Run.Path -and $config.Run.Path.Value) { [string[]]$config.Run.Path.Value } else { @() }
+    $testFiles = & $EnumerateTests $runPaths $ExcludeDirs $TestPathExists
     if (-not $testFiles) {
         & $Logger "No Pester test files found under configured paths for root $Root"
         return
