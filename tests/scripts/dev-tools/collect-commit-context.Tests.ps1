@@ -3,7 +3,7 @@
 Describe "collect-commit-context.ps1" {
     BeforeAll {
         $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-        . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../Support/TestHelpers.ps1"))
+        . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../powershell/Support/TestHelpers.ps1"))
 
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\collect-commit-context.ps1"
     }

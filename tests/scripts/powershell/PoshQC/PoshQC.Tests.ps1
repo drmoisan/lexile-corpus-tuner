@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot '../../scripts/powershell/PoshQC/PoshQC.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot '../../../../scripts/powershell/PoshQC/PoshQC.psm1') -Force
 }
 
 Describe 'Get-PoshQCFileList' {

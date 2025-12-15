@@ -5,14 +5,14 @@
 The following test files were updated to be compatible with Pester v5:
 
 1. **Pester v4 to v5 Migration** (19 total replacements):
-   - `tests/powershell/PoshQC.Comprehensive.Tests.ps1` (11 instances)
+  - `tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1` (11 instances)
    - `tests/scripts/dev-tools/fix-all.Tests.ps1` (2 instances)
    - `tests/scripts/dev-tools/link-parent-child.Tests.ps1` (3 instances)
    - `tests/scripts/dev-tools/sync-agents-from-instructions.Tests.ps1` (3 instances)
 
 2. **Import-ScriptFunction Standardization** (3 files):
-   - `tests/powershell/dev-tools/run-cloc.Tests.ps1`
-   - `tests/powershell/new-potential-entry.Tests.ps1`
+  - `tests/scripts/dev-tools/run-cloc.Tests.ps1`
+  - `tests/scripts/dev-tools/new-potential-entry.Tests.ps1`
    - `tests/scripts/dev-tools/tree.Tests.ps1`
 
 ## How to Validate
@@ -28,11 +28,11 @@ pwsh -NoProfile -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-Posh
 
 ```powershell
 # Test the originally failing files mentioned in the request
-Invoke-Pester -Path "tests/powershell/dev-tools/collect-commit-context.Tests.ps1" -Output Detailed
+Invoke-Pester -Path "tests/scripts/dev-tools/collect-commit-context.Tests.ps1" -Output Detailed
 Invoke-Pester -Path "tests/powershell/dev-tools.Tests.ps1" -Output Detailed
-Invoke-Pester -Path "tests/powershell/PoshQC.Comprehensive.Tests.ps1" -Output Detailed
+Invoke-Pester -Path "tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1" -Output Detailed
 Invoke-Pester -Path "tests/scripts/dev-tools/run-actionlint.Tests.ps1" -Output Detailed
-Invoke-Pester -Path "tests/powershell/dev-tools/run-cloc.Tests.ps1" -Output Detailed
+Invoke-Pester -Path "tests/scripts/dev-tools/run-cloc.Tests.ps1" -Output Detailed
 ```
 
 ### 3. Run Additional Fixed Files
@@ -42,7 +42,7 @@ Invoke-Pester -Path "tests/powershell/dev-tools/run-cloc.Tests.ps1" -Output Deta
 Invoke-Pester -Path "tests/scripts/dev-tools/fix-all.Tests.ps1" -Output Detailed
 Invoke-Pester -Path "tests/scripts/dev-tools/link-parent-child.Tests.ps1" -Output Detailed
 Invoke-Pester -Path "tests/scripts/dev-tools/sync-agents-from-instructions.Tests.ps1" -Output Detailed
-Invoke-Pester -Path "tests/powershell/new-potential-entry.Tests.ps1" -Output Detailed
+Invoke-Pester -Path "tests/scripts/dev-tools/new-potential-entry.Tests.ps1" -Output Detailed
 Invoke-Pester -Path "tests/scripts/dev-tools/tree.Tests.ps1" -Output Detailed
 ```
 
@@ -110,16 +110,16 @@ All tests should pass with:
 
 ## Files Modified
 
-1. `tests/powershell/dev-tools/run-cloc.Tests.ps1`
-2. `tests/powershell/PoshQC.Comprehensive.Tests.ps1`
+1. `tests/scripts/dev-tools/run-cloc.Tests.ps1`
+2. `tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1`
 3. `tests/scripts/dev-tools/fix-all.Tests.ps1`
 4. `tests/scripts/dev-tools/link-parent-child.Tests.ps1`
 5. `tests/scripts/dev-tools/sync-agents-from-instructions.Tests.ps1`
-6. `tests/powershell/new-potential-entry.Tests.ps1`
+6. `tests/scripts/dev-tools/new-potential-entry.Tests.ps1`
 7. `tests/scripts/dev-tools/tree.Tests.ps1`
 
 ## Files Analyzed (No Changes Required)
 
 1. `tests/scripts/dev-tools/run-actionlint.Tests.ps1` - Already using Pester v5 syntax
 2. `tests/powershell/dev-tools.Tests.ps1` - No issues found
-3. `tests/powershell/dev-tools/collect-commit-context.Tests.ps1` - No issues found
+3. `tests/scripts/dev-tools/collect-commit-context.Tests.ps1` - No issues found

@@ -7,7 +7,7 @@ Fixed failing unit tests in PowerShell test files to be compatible with Pester v
 
 ## Files Modified
 
-### 1. tests/powershell/dev-tools/run-cloc.Tests.ps1
+### 1. tests/scripts/dev-tools/run-cloc.Tests.ps1
 **Problem:** Had its own duplicate implementation of `Import-ScriptFunction` that used `[scriptblock]::Create()` instead of using the shared `TestHelpers.ps1` implementation.
 
 **Fix:** Replaced the duplicate function definition with a proper import of the shared TestHelpers.ps1 file.
@@ -17,10 +17,10 @@ Fixed failing unit tests in PowerShell test files to be compatible with Pester v
 - Added lines 3-4:
   ```powershell
   $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-  . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "..\Support\TestHelpers.ps1"))
+  . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "..\powershell\Support\TestHelpers.ps1"))
   ```
 
-### 2. tests/powershell/PoshQC.Comprehensive.Tests.ps1
+### 2. tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1
 **Problem:** Used Pester v4 syntax (`Assert-MockCalled`) which is not compatible with Pester v5+.
 
 **Fix:** Replaced all 11 instances of `Assert-MockCalled` with the Pester v5 equivalent `Should -Invoke`.
@@ -42,7 +42,7 @@ Fixed failing unit tests in PowerShell test files to be compatible with Pester v
 
 **Fix:** Replaced 3 instances of `Assert-MockCalled` with `Should -Invoke`.
 
-### 6. tests/powershell/new-potential-entry.Tests.ps1
+### 6. tests/scripts/dev-tools/new-potential-entry.Tests.ps1
 **Problem:** Had a fallback `Import-ScriptFunction` implementation using `[scriptblock]::Create()`.
 
 **Fix:** Removed the fallback implementation since TestHelpers.ps1 is already imported.
@@ -57,24 +57,24 @@ Fixed failing unit tests in PowerShell test files to be compatible with Pester v
 **Fix:** Added TestHelpers.ps1 import and removed the custom function.
 
 **Changes:**
-- Added line 3: `. (Join-Path $PSScriptRoot '..\..\powershell\Support\TestHelpers.ps1' -Resolve)`
+- Added line 3: `. (Join-Path $PSScriptRoot '..\powershell\Support\TestHelpers.ps1' -Resolve)`
 - Removed the custom `Import-ScriptFunction` from BeforeAll block (lines 4-34)
 
 ## Verification Status
 
 ### All test files fixed:
-1. ✅ tests/powershell/dev-tools/run-cloc.Tests.ps1
-2. ✅ tests/powershell/PoshQC.Comprehensive.Tests.ps1
+1. ✅ tests/scripts/dev-tools/run-cloc.Tests.ps1
+2. ✅ tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1
 3. ✅ tests/scripts/dev-tools/fix-all.Tests.ps1
 4. ✅ tests/scripts/dev-tools/link-parent-child.Tests.ps1
 5. ✅ tests/scripts/dev-tools/sync-agents-from-instructions.Tests.ps1
-6. ✅ tests/powershell/new-potential-entry.Tests.ps1
+6. ✅ tests/scripts/dev-tools/new-potential-entry.Tests.ps1
 7. ✅ tests/scripts/dev-tools/tree.Tests.ps1
 
 ### Tests that were already compatible:
 1. ✅ tests/scripts/dev-tools/run-actionlint.Tests.ps1 (already using Pester v5 syntax)
 2. ✅ tests/powershell/dev-tools.Tests.ps1 (no issues)
-3. ✅ tests/powershell/dev-tools/collect-commit-context.Tests.ps1 (no issues)
+3. ✅ tests/scripts/dev-tools/collect-commit-context.Tests.ps1 (no issues)
 
 ## Technical Details
 
@@ -108,9 +108,9 @@ To verify the fixes:
 pwsh -NoProfile -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."
 
 # Run specific test files
-Invoke-Pester -Path "tests/powershell/dev-tools/run-cloc.Tests.ps1"
-Invoke-Pester -Path "tests/powershell/PoshQC.Comprehensive.Tests.ps1"
+Invoke-Pester -Path "tests/scripts/dev-tools/run-cloc.Tests.ps1"
+Invoke-Pester -Path "tests/scripts/powershell/PoshQC/PoshQC.Comprehensive.Tests.ps1"
 Invoke-Pester -Path "tests/scripts/dev-tools/run-actionlint.Tests.ps1"
 Invoke-Pester -Path "tests/powershell/dev-tools.Tests.ps1"
-Invoke-Pester -Path "tests/powershell/dev-tools/collect-commit-context.Tests.ps1"
+Invoke-Pester -Path "tests/scripts/dev-tools/collect-commit-context.Tests.ps1"
 ```

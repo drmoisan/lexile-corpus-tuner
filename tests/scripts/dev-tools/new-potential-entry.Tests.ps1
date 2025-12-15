@@ -2,12 +2,12 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
     $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-    . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support\TestHelpers.ps1"))
+    . (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../powershell/Support/TestHelpers.ps1"))
 }
 
 Describe "new-potential-entry.ps1 - Test-ValidShortName" {
     BeforeAll {
-        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
     }
 
     Context "Valid short names" {
@@ -81,7 +81,7 @@ Describe "new-potential-entry.ps1 - Test-ValidShortName" {
 
 Describe "new-potential-entry.ps1 - Get-AuthorName" {
     BeforeAll {
-        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
     }
 
     Context "Author name retrieval" {
@@ -119,7 +119,7 @@ Describe "new-potential-entry.ps1 - Get-AuthorName" {
 
 Describe "new-potential-entry.ps1 - Convert-TemplateContent" {
     BeforeAll {
-        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
     }
 
     Context "Template content replacement" {
@@ -172,7 +172,7 @@ Describe "new-potential-entry.ps1 - Convert-TemplateContent" {
 
 Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
     BeforeAll {
-        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+        $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
     }
 
     Context "VS Code command detection and execution" {
@@ -209,7 +209,7 @@ Describe "new-potential-entry.ps1 - Invoke-VSCodeOpen" {
 Describe "new-potential-entry.ps1 - Integration validation" {
     Context "Script structure validation" {
         It "contains all expected function definitions" {
-            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
             $scriptContent = Get-Content -Path $scriptPath -Raw
 
             $scriptContent | Should -Match "function Test-ValidShortName"
@@ -219,7 +219,7 @@ Describe "new-potential-entry.ps1 - Integration validation" {
         }
 
         It "validates parameter declaration" {
-            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\scripts\dev-tools\new-potential-entry.ps1"
+            $scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "../../../scripts/dev-tools/new-potential-entry.ps1"
             $scriptContent = Get-Content -Path $scriptPath -Raw
 
             $scriptContent | Should -Match "param\(\s*\[string\]\s*\`$ShortName\s*\)"

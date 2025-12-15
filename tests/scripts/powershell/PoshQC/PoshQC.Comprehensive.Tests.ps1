@@ -5,7 +5,7 @@ param()
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    $modulePath = Join-Path $PSScriptRoot '../../scripts/powershell/PoshQC/PoshQC.psm1'
+    $modulePath = Join-Path $PSScriptRoot '../../../../scripts/powershell/PoshQC/PoshQC.psm1'
     Import-Module -Name $modulePath -Force
     $moduleInfo = Get-Module PoshQC
     $moduleRoot = Split-Path -Parent $moduleInfo.Path

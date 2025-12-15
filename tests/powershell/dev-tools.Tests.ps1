@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "Support/TestHelpers.ps1"))
+. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../scripts/powershell/Support/TestHelpers.ps1"))
 
 Describe "collect-pull-request-context.ps1 helpers" {
     It "formats brace rename paths" {
