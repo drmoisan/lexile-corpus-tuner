@@ -442,9 +442,15 @@ Describe 'Invoke-PoshQCTest' {
 
     It 'invokes coverage copy when coverage is enabled and not disabled' {
         $copyArgs = $null
+        $repoRoot = Join-Path ([IO.Path]::GetTempPath()) 'repo'
+        $coveragePath = Join-Path $repoRoot 'coverage.xml'
+        $coverageSrcPath = Join-Path $repoRoot 'src'
+        $expectedCoveragePath = $coveragePath
+        $expectedRepoRoot = $repoRoot
+        $expectedKoveragePath = Join-Path $repoRoot 'coverage.koverage.xml'
 
-        Invoke-PoshQCTest -Root '/repo' -SettingsPath '/settings.psd1' -EnsureModule { } -TestPathExists { $true } -LoadSettings {
-            @{ Run = @{ Path = @('tests') }; Should = @{ ErrorAction = 'Stop' }; Output = @{ Verbosity = 'Detailed' }; TestResult = @{ Enabled = $false }; CodeCoverage = @{ Enabled = $true; Path = @('/repo/src'); OutputPath = '/repo/coverage.xml' } }
+        Invoke-PoshQCTest -Root $repoRoot -SettingsPath '/settings.psd1' -EnsureModule { } -TestPathExists { $true } -LoadSettings {
+            @{ Run = @{ Path = @('tests') }; Should = @{ ErrorAction = 'Stop' }; Output = @{ Verbosity = 'Detailed' }; TestResult = @{ Enabled = $false }; CodeCoverage = @{ Enabled = $true; Path = @($coverageSrcPath); OutputPath = $coveragePath } }
         } -BuildConfiguration {
             param($Table)
             [pscustomobject]@{
@@ -469,9 +475,9 @@ Describe 'Invoke-PoshQCTest' {
             Set-Variable -Scope 1 -Name 'copyArgs' -Value @($CoveragePath, $RepoRoot, $KoveragePath)
         } -Logger { param([string] $Message) [void] $Message } | Out-Null
 
-        $copyArgs[0] | Should -Be '/repo/coverage.xml'
-        $copyArgs[1] | Should -Be '/repo'
-        ($copyArgs[2] -replace '\\', '/') | Should -Be '/repo/coverage.koverage.xml'
+        ($copyArgs[0] -replace '\\', '/') | Should -Be ($expectedCoveragePath -replace '\\', '/')
+        ($copyArgs[1] -replace '\\', '/') | Should -Be ($expectedRepoRoot -replace '\\', '/')
+        ($copyArgs[2] -replace '\\', '/') | Should -Be ($expectedKoveragePath -replace '\\', '/')
     }
 }
 

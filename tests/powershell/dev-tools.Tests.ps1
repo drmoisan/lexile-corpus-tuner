@@ -408,8 +408,9 @@ Describe "run-cloc.ps1" {
         It "constructs correct paths from script root and target path" {
             . (Import-ScriptFunction -Path $script:scriptPath -Name "Get-ClocPath")
             $resolver = { param($InputPath) [pscustomobject]@{ Path = "C\resolved\$InputPath" } }
+            $joiner = { param($Parent, $Child) "$Parent\$Child" }
 
-            $result = Get-ClocPath -ScriptRoot "C\script" -TargetPath "target" -ResolvePath $resolver -TestPath { $true }
+            $result = Get-ClocPath -ScriptRoot "C\script" -TargetPath "target" -ResolvePath $resolver -JoinPath $joiner -TestPath { $true }
 
             $result.Root | Should -Be "C\resolved\target"
             $result.ClocExe | Should -Match "tools\\cloc\.exe$"

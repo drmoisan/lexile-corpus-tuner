@@ -67,9 +67,10 @@ Describe "collect-commit-context.ps1" {
             $dirExists = $true
             $fileExists = $false
 
-            $expectedRoot = "C:\repo-root"
-            $outputPath = "C:\repo-root\artifacts\commit_context.txt"
-            $outputDir = "C:\repo-root\artifacts"
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $expectedRoot = if ($dirSep -eq '\\') { "C:\repo-root" } else { "/repo-root" }
+            $outputDir = "${expectedRoot}${dirSep}artifacts"
+            $outputPath = "${outputDir}${dirSep}commit_context.txt"
 
             Mock -CommandName Invoke-GitExe -MockWith {
                 param([string[]]$GitArgs)
@@ -141,7 +142,8 @@ Describe "collect-commit-context.ps1" {
         }
 
         It "writes report sections using git output" {
-            $outputText = Invoke-CollectCommitContext -Output "artifacts/commit_context.txt" 2>$null | Out-String
+            $outputRelative = "artifacts${dirSep}commit_context.txt"
+            $outputText = Invoke-CollectCommitContext -Output $outputRelative 2>$null | Out-String
 
             $setLocations | Should -Contain $expectedRoot
             ($addContentCalls | ForEach-Object { $_.Path } | Select-Object -Unique) | Should -Be @($outputPath)

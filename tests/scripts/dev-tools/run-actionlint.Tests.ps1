@@ -234,21 +234,25 @@ Describe "run-actionlint.ps1" {
 
         It "adds directory to PATH when not present" {
             # Arrange
-            $env:PATH = 'C:\existing1;C:\existing2'
-            $newDir = 'C:\new\directory'
+            $separator = [IO.Path]::PathSeparator
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $env:PATH = "existing1${separator}existing2"
+            $newDir = "new${dirSep}directory"
 
             # Act
             Add-DirectoryToPath -Directory $newDir
 
             # Assert
             $env:PATH | Should -Match ([regex]::Escape($newDir))
-            $env:PATH | Should -Match "^$([regex]::Escape($newDir))"
+            $env:PATH | Should -Match "^$([regex]::Escape($newDir))$([regex]::Escape($separator))"
         }
 
         It "does not add directory to PATH when already present" {
             # Arrange
-            $existingDir = 'C:\existing\dir'
-            $env:PATH = "C:\before;$existingDir;C:\after"
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $existingDir = "existing${dirSep}dir"
+            $separator = [IO.Path]::PathSeparator
+            $env:PATH = "before${separator}$existingDir${separator}after"
             $pathBefore = $env:PATH
 
             # Act
@@ -260,20 +264,23 @@ Describe "run-actionlint.ps1" {
 
         It "prepends directory to the beginning of PATH" {
             # Arrange
-            $env:PATH = 'C:\dir1;C:\dir2'
-            $newDir = 'C:\new'
+            $separator = [IO.Path]::PathSeparator
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $env:PATH = "dir1${separator}dir2"
+            $newDir = "new${dirSep}dir"
 
             # Act
             Add-DirectoryToPath -Directory $newDir
 
             # Assert
-            $env:PATH | Should -Match "^$([regex]::Escape($newDir));"
+            $env:PATH | Should -Match "^$([regex]::Escape($newDir))$([regex]::Escape($separator))"
         }
 
         It "handles empty PATH" {
             # Arrange
             $env:PATH = ''
-            $newDir = 'C:\new'
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $newDir = "new${dirSep}dir"
 
             # Act
             Add-DirectoryToPath -Directory $newDir
@@ -284,8 +291,9 @@ Describe "run-actionlint.ps1" {
 
         It "uses correct path separator" {
             # Arrange
-            $env:PATH = 'C:\existing'
-            $newDir = 'C:\new'
+            $dirSep = [IO.Path]::DirectorySeparatorChar
+            $env:PATH = "existing${dirSep}dir"
+            $newDir = "new${dirSep}dir"
             $separator = [IO.Path]::PathSeparator
 
             # Act

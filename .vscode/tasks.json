@@ -54,7 +54,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "test",
@@ -69,7 +70,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "build",
@@ -84,7 +86,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "test",
@@ -99,7 +102,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "test",
@@ -114,7 +118,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "test",
@@ -136,7 +141,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "build",
@@ -159,7 +165,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "build",
@@ -182,7 +189,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "build",
@@ -205,7 +213,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
                 "kind": "test",
@@ -228,7 +237,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
               "kind": "build",
@@ -250,7 +260,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "group": {
               "kind": "build",
@@ -272,7 +283,8 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "new"
+                "panel": "new",
+                "showReuseMessage": false
             },
             "detail": "Collects git diff and status information for commit message generation"
         },
