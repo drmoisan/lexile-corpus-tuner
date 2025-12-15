@@ -64,7 +64,8 @@ data/model/
 data/meta/*
 !data/meta/corpus_sources.json
 
-
+# Tools
+tools/actionlint
 
 
 

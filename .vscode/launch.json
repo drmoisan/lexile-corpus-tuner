@@ -47,6 +47,18 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "PowerShell: Convert PoshQC Coverage to Relative",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/scripts/powershell/PoshQC/convert-poshqc-coverage.ps1",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "-InputPath", "${workspaceFolder}/artifacts/pester/powershell-coverage.xml",
+                "-OutputPath", "${workspaceFolder}/artifacts/pester/powershell-coverage.koverage.xml",
+                "-RepoRoot", "${workspaceFolder}"
+            ]
+        },
+        {
             "name": "Python: Analyze chapter1.txt",
             "type": "debugpy",
             "request": "launch",

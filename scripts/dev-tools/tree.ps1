@@ -8,13 +8,16 @@ param(
 function Show-Tree {
     param(
         [string]$Path,
-        [string]$Indent = ""
+        [string]$Indent = "",
+        [string[]]$ExcludeNames,
+        [switch]$IncludeHiddenEntries,
+        [switch]$DirectoriesOnly
     )
 
     $items = Get-ChildItem -LiteralPath $Path -Force | Sort-Object Name | Where-Object {
         $isHidden = ($_.Attributes -band [IO.FileAttributes]::Hidden)
-        if (-not $IncludeHidden -and $isHidden) { return $false }
-        if ($Exclude -contains $_.Name) { return $false }
+        if (-not $IncludeHiddenEntries -and $isHidden) { return $false }
+        if ($ExcludeNames -contains $_.Name) { return $false }
         return $true
     }
 
@@ -30,7 +33,7 @@ function Show-Tree {
         }
 
         if ($item.PSIsContainer) {
-            Show-Tree -Path $item.FullName -Indent ($Indent + "    ")
+            Show-Tree -Path $item.FullName -Indent ($Indent + "    ") -ExcludeNames $ExcludeNames -IncludeHiddenEntries:$IncludeHiddenEntries -DirectoriesOnly:$DirectoriesOnly
         }
     }
 }
@@ -39,4 +42,4 @@ $rootPath = (Resolve-Path $Root).Path
 $repoName = Split-Path -Path $rootPath -Leaf
 $modeSuffix = if ($DirectoriesOnly) { " (directories only)" } else { "" }
 Write-Output "Tree for $repoName$modeSuffix"
-Show-Tree -Path $rootPath
+Show-Tree -Path $rootPath -ExcludeNames $Exclude -IncludeHiddenEntries:$IncludeHidden -DirectoriesOnly:$DirectoriesOnly
