@@ -28,7 +28,6 @@
 				
 				// Utilities
 				"editorconfig.editorconfig",
-				"streetsidesoftware.code-spell-checker",
 
 				// Testing
 				"ryanluker.vscode-coverage-gutters",
@@ -52,7 +51,6 @@
 					}
 				},
 				"black-formatter.args": ["--config", "${workspaceFolder}/pyproject.toml"],
-				"ruff.lint.args": ["--config", "${workspaceFolder}/pyproject.toml"],
 				"python.testing.pytestEnabled": true,
 				"python.testing.unittestEnabled": false,
 				"python.analysis.typeCheckingMode": "strict",
@@ -82,7 +80,8 @@
 	
 	// Mount the workspace folder and Docker socket
 	"mounts": [
-		"source=lexile-corpus-tuner-venv,target=/workspace/.venv,type=volume"
+		"source=lexile-corpus-tuner-venv,target=/workspace/.venv,type=volume",
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
 	],
 	
 	// Run arguments for the container
@@ -99,6 +98,9 @@
 			"version": "latest"
 		},
 		"ghcr.io/devcontainers/features/github-cli:1": {
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
 			"version": "latest"
 		}
 	}
