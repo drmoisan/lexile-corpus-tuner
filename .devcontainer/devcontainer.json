@@ -16,6 +16,9 @@
 				"ms-python.vscode-pylance",
 				"ms-python.black-formatter",
 				"charliermarsh.ruff",
+				"AdamViola.parquet-explorer",
+				"zeshuaro.vscode-python-poetry",
+				"ms-vscode.live-server",
 				
 				// PowerShell
 				"ms-vscode.powershell",
@@ -28,6 +31,8 @@
 				
 				// Utilities
 				"editorconfig.editorconfig",
+				"humao.rest-client",
+				"spmeesseman.vscode-taskexplorer",
 
 				// Testing
 				"ryanluker.vscode-coverage-gutters",
@@ -35,7 +40,16 @@
 				"pspester.pester-test",
 
 				// Container tools
-				"ms-azuretools.vscode-containers"
+				"ms-azuretools.vscode-containers",
+
+				// File Viewers
+				"bierner.markdown-preview-github-styles",
+				"bierner.markdown-mermaid",
+				"mechatroner.rainbow-csv",
+
+				// Agents
+				"openai.chatgpt",
+				"github.vscode-github-actions"
 			],
 			
 			// VS Code settings
