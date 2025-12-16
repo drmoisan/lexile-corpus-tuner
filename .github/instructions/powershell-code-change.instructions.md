@@ -36,7 +36,7 @@ If you encounter any conflicting instructions, **halt and notify the user.**
 
 3) **Compatibility**
 
-- Keep scripts compatible with **Windows PowerShell 5.1** and **PowerShell 7.5+** (enforced via PSScriptAnalyzer settings).
+- Keep scripts compatible with **PowerShell 7+** (enforced via PSScriptAnalyzer settings).
 
 > Testing tools are defined in the PowerShell unit test policy; do not redefine them here.
 

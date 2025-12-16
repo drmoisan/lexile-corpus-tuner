@@ -54,12 +54,7 @@ function Get-PoshQCFileList {
         $file
     }
 
-    # -Stable parameter requires PowerShell 6.2.0+
-    if ($PSVersionTable.PSVersion.Major -ge 7 -or ($PSVersionTable.PSVersion.Major -eq 6 -and $PSVersionTable.PSVersion.Minor -ge 2)) {
-        return @($result | Sort-Object -Property FullName -Stable)
-    } else {
-        return @($result | Sort-Object -Property FullName)
-    }
+    return @($result | Sort-Object -Property FullName -Stable)
 }
 
 <#
