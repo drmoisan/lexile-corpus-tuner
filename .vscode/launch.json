@@ -16,6 +16,19 @@
             "cwd": "${workspaceFolder}"
         },
         {
+            "name": "Python: Promote Potential -> Issue (bug)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.dev_tools.potential_to_issue",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--potential-path",
+                "docs/features/potential/2025-12-15-fix-all-script.md",
+                "--promotion-type",
+                "bug"
+            ]
+        },
+        {
             "name": "PowerShell: Load OpenAI Key",
             "type": "PowerShell",
             "request": "launch",

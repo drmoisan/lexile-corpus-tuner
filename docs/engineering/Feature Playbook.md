@@ -8,9 +8,9 @@ Key paths:
 - Active features: `docs/features/active/<feature>/` (templates live in `docs/features/templates/feature/`)
 - Archive: `docs/features/archive/<YYYY-MM-DD>-<feature>/`
 
-Key scripts (PowerShell, in `scripts/`):
+Key scripts (PowerShell unless noted):
 - `new-potential-entry.ps1` – create a dated potential file and open backlog.
-- `potential-to-issue.ps1` – promote a potential to a GitHub issue, mark as promoted, move to promoted folder.
+- `scripts/dev_tools/potential_to_issue.py` – promote a potential to a GitHub issue, mark as promoted, move to promoted folder (Python).
 - `new-active-feature-folder.ps1` – create/seed `docs/features/active/<feature>/` from templates and matching potential/promoted doc; auto-fill issue/owner/last updated.
 - `link-feature-docs.ps1` – add/update “Feature Docs” links in a GitHub issue (user-story/spec/plan).
 
@@ -24,7 +24,7 @@ VS Code tasks wrap these scripts: see `.vscode/tasks.json` (e.g., “Feature: Ne
 - Keep it light; no formal spec yet.
 
 ## 1. Promote to GitHub issue
-- Use `scripts/potential-to-issue.ps1 -PotentialPath <file>` (or VS Code task “GitHub: Feature Issue from Potential”).
+- Use `poetry run python -m scripts.dev_tools.potential_to_issue --potential-path <file>` (or VS Code task “GitHub: Feature Issue from Potential”).
 - This creates the issue via `gh`, records the issue number in the potential file, and moves it to `docs/features/potential/promoted/`.
 - Issue body should include: Problem/Why, Proposed Behavior, Acceptance Criteria, Constraints/Risks, Test Conditions, and a link to the potential/promoted doc.
 

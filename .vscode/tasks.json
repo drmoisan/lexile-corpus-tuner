@@ -344,17 +344,15 @@
     {
       "label": "Dev: 2 Promote Potential to GitHub Issue",
       "type": "shell",
-      "command": "pwsh",
+      "command": "poetry",
       "args": [
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/scripts/dev-tools/potential-to-issue.ps1",
-        "-PotentialPath",
+        "run",
+        "python",
+        "-m",
+        "scripts.dev_tools.potential_to_issue",
+        "--potential-path",
         "${input:PotentialFilePath}",
-        "-PromotionType",
+        "--promotion-type",
         "${input:PotentialPromotionType}"
       ],
       "options": {
@@ -365,7 +363,7 @@
         "reveal": "always",
         "panel": "new"
       },
-      "detail": "Creates a feature issue from a potential file using gh issue create (non-interactive)."
+      "detail": "Creates a feature issue from a potential file using gh issue create (non-interactive) via Python."
     },
     {
       "label": "Dev: 5 Link Feature Docs to GitHub",
@@ -493,15 +491,12 @@
     {
       "label": "Dev: 1A New Potential Bug",
       "type": "shell",
-      "command": "pwsh",
+      "command": "poetry",
       "args": [
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/scripts/dev-tools/new-potential-bug-entry.ps1",
-        "-ShortName",
+        "run",
+        "python",
+        "${workspaceFolder}/scripts/dev_tools/new_potential_bug_entry.py",
+        "--short-name",
         "${input:PotentialBugShortName}"
       ],
       "options": {
