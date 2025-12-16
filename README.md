@@ -2,7 +2,7 @@
 
 Lexile Corpus Tuner is a toolkit for measuring, constraining, and rewriting a corpus based on the text difficulty level. It was designed to expand the availability of high / low reading material for struggling readers. It pairs a Lexile-style rewriting pipeline with a Lexile-approximation scoring model to produce texts that are calibrated to a reader's skill level. Since Lexile is a proprietary and closed system, a scoring model was developed to approximate lexile scores. This includes a corpus/analyzer/calibration stack that curates a custom mega-corpus, analyzes word frequency and sentence length, and then calibrates an overal score against known lexile measurements. 
 
-## What You Can Do
+## What It Does
 
 - Identify portions of a text that exceed a configurable maximium difficulty level.
 - Determine key words and sentences that trigger the violation
