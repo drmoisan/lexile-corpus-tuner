@@ -22,6 +22,22 @@ Language-specific standards (e.g. for Python) are defined in additional instruct
 
 ---
 
+## Bugfix Workflow (all languages)
+
+1. **Create a failing regression test first**
+   - Add the smallest deterministic test that reproduces the bug using the project’s standard test layout (prefer the module’s existing test file; use `tests/bugs/<YYYY>/<issue>-<desc>.py` only when no clear home exists).
+   - Ensure the test fails before the fix and will pass after; avoid external services or temporary files.
+
+2. **Implement the minimal, targeted fix**
+   - Change only what is needed to make the failing test pass; keep boundaries intact and avoid opportunistic refactors.
+   - If you uncover deeper design problems, open a new issue instead of widening scope; add logging only when it materially aids diagnosis.
+
+3. **Verify locally before review**
+   - Re-run the original repro and the new regression test.
+   - Run the full toolchain in order (format → lint → type-check → test) using the repo-standard commands or tasks; rerun from the start if any step changes files or fails.
+
+---
+
 ## 1. Design Principles
 
 High-level design priorities (applies to all languages):

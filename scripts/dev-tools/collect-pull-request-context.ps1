@@ -1,6 +1,5 @@
-
 <#PSScriptInfo
-.VERSION 2.0.5
+.VERSION 2.0.6
 .GUID 7e3e9a2a-2d5a-4b0a-8d39-1e0cbe2f9c11
 .AUTHOR ChatGPT (per user request)
 .DESCRIPTION
@@ -25,40 +24,59 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     $PSStyle.OutputRendering = 'PlainText'
 }
 
+function Invoke-GitExe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$GitArgs
+    )
+
+    git @GitArgs 2>&1
+}
+
 function Invoke-Git {
     param(
-        [Parameter(Mandatory=$true)][string[]]$Args,
+        [Parameter(Mandatory = $true)]
+        [string[]]$GitArgs,
+
         [switch]$AllowNonZeroExit
     )
-    $output = & git @Args 2>&1
+
+    $output = Invoke-GitExe -GitArgs $GitArgs
     $code = $LASTEXITCODE
+
     $lines = @()
     if ($null -ne $output) {
         if ($output -is [System.Array]) {
             $lines = @($output)
-        } else {
+        }
+        else {
             $lines = @([string]$output)
         }
     }
+
     $stdout = ($lines -join "`n")
+
     if (-not $AllowNonZeroExit -and $code -ne 0) {
-        $argLine = ($Args -join ' ')
+        $argLine = ($GitArgs -join ' ')
         throw ("git {0} failed ({1}): {2}" -f $argLine, $code, $stdout)
     }
+
     return @{ Out = $stdout; Err = ""; Code = $code }
 }
 
 function Resolve-Repo {
     param([string]$Root)
+
     Push-Location $Root
     try {
         if (-not (Test-Path ".git")) {
-            $top = (Invoke-Git @('rev-parse','--show-toplevel')).Out
+            $top = (Invoke-Git -GitArgs @('rev-parse', '--show-toplevel')).Out
             if (-not $top) { throw "Not a git repo: $Root" }
             Pop-Location
             Push-Location $top
         }
-    } catch {
+    }
+    catch {
         Pop-Location
         throw
     }
@@ -68,11 +86,10 @@ function Write-Section { param([string]$Title) "`n===== $Title =====`n" }
 
 function Get-ItemCount { param($x) if ($null -eq $x) { 0 } else { @($x).Count } }
 
-
 function Select-DefaultBase {
-    $candidates = @('origin/main','origin/master','main','master','origin/develop','develop')
+    $candidates = @('origin/main', 'origin/master', 'main', 'master', 'origin/develop', 'develop')
     foreach ($ref in $candidates) {
-        $res = Invoke-Git -Args @('rev-parse','--verify','--quiet',$ref) -AllowNonZeroExit
+        $res = Invoke-Git -GitArgs @('rev-parse', '--verify', '--quiet', $ref) -AllowNonZeroExit
         if ($res.Code -eq 0 -and $res.Out) { return $ref }
     }
     return $null
@@ -80,24 +97,27 @@ function Select-DefaultBase {
 
 function Get-Branch {
     param([string]$Ref)
+
     if ([string]::IsNullOrWhiteSpace($Ref)) {
-        return (Invoke-Git -Args @('rev-parse','--abbrev-ref','HEAD')).Out
+        return (Invoke-Git -GitArgs @('rev-parse', '--abbrev-ref', 'HEAD')).Out
     }
+
     return $Ref
 }
 
 function Get-RemoteSummary {
-@"
+    @"
 $(Write-Section "Repository remotes")
-$((Invoke-Git -Args @('remote','-v')).Out)
+$((Invoke-Git -GitArgs @('remote','-v')).Out)
 "@
 }
 
-function Get-BranchMetadata {
-    $current = (Invoke-Git -Args @('rev-parse','--abbrev-ref','HEAD')).Out
-    $upstream = (Invoke-Git -Args @('rev-parse','--abbrev-ref','--symbolic-full-name','@{u}') -AllowNonZeroExit).Out
+function Get-BranchInfo {
+    $current = (Invoke-Git -GitArgs @('rev-parse', '--abbrev-ref', 'HEAD')).Out
+    $upstream = (Invoke-Git -GitArgs @('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}') -AllowNonZeroExit).Out
     $upDisplay = if (-not [string]::IsNullOrWhiteSpace($upstream)) { $upstream } else { '(none)' }
-@"
+
+    @"
 $(Write-Section "Current branch")
 $current
 
@@ -108,13 +128,17 @@ $upDisplay
 
 function Get-RepoStatus {
     param([switch]$NoUntracked)
-    $short = (Invoke-Git -Args @('status','-sb')).Out
+
+    $short = (Invoke-Git -GitArgs @('status', '-sb')).Out
     $untracked = $null
+
     if (-not $NoUntracked) {
-        $untracked = (Invoke-Git -Args @('ls-files','--others','--exclude-standard')).Out
+        $untracked = (Invoke-Git -GitArgs @('ls-files', '--others', '--exclude-standard')).Out
     }
+
     $unDisplay = if (-not [string]::IsNullOrWhiteSpace($untracked)) { $untracked } else { "(none)" }
-@"
+
+    @"
 $(Write-Section "Status (short)")
 $short
 
@@ -123,12 +147,13 @@ $unDisplay
 "@
 }
 
-function Get-WorkingTreeDiffDetails {
-    $stagedNameStatus = (Invoke-Git -Args @('diff','--cached','--name-status') -AllowNonZeroExit).Out
-    $stagedDiff       = (Invoke-Git -Args @('diff','--cached') -AllowNonZeroExit).Out
-    $unstagedNameStat = (Invoke-Git -Args @('diff','--name-status') -AllowNonZeroExit).Out
-    $unstagedDiff     = (Invoke-Git -Args @('diff') -AllowNonZeroExit).Out
-@"
+function Get-WorkingTreeDiffSummary {
+    $stagedNameStatus = (Invoke-Git -GitArgs @('diff', '--cached', '--name-status') -AllowNonZeroExit).Out
+    $stagedDiff = (Invoke-Git -GitArgs @('diff', '--cached') -AllowNonZeroExit).Out
+    $unstagedNameStat = (Invoke-Git -GitArgs @('diff', '--name-status') -AllowNonZeroExit).Out
+    $unstagedDiff = (Invoke-Git -GitArgs @('diff') -AllowNonZeroExit).Out
+
+    @"
 $(Write-Section "Staged files (name-status)")
 $($stagedNameStatus)
 
@@ -145,112 +170,138 @@ $($unstagedDiff)
 
 function ConvertFrom-Numstat {
     param([string]$NumstatText)
+
     $adds = 0
     $dels = 0
     $files = @()
-    foreach ($line in ($NumstatText -split "`n")) {
+
+    foreach ($line in ($NumstatText -split '\r?\n')) {
         if (-not $line) { continue }
         $parts = $line -split "`t"
         if ($parts.Count -ge 3) {
-            $a = $parts[0]; $d = $parts[1]; $f = $parts[2]
+            $a = $parts[0]
+            $d = $parts[1]
+            $f = $parts[2]
+
             if ($a -match '^\d+$') { $adds += [int]$a }
             if ($d -match '^\d+$') { $dels += [int]$d }
             $files += $f
         }
     }
+
     return @{ Additions = $adds; Deletions = $dels; Files = $files }
 }
 
 function Format-DiffPath {
     param([string]$PathText)
+
     if ([string]::IsNullOrWhiteSpace($PathText)) { return $PathText }
+
     $t = $PathText.Trim('"').Trim()
     # Handle brace rename syntax: dir/{old => new}/file -> dir/new/file
     $t = [regex]::Replace($t, '\{[^{}]*\s=>\s([^{}]*)\}', '$1')
+
     # Handle simple rename: old => new  (take right side)
     if ($t -match '^\s*(.+?)\s=>\s(.+?)\s*$') { $t = $matches[2] }
+
     return $t
 }
 
 function Get-ExtensionSummary {
     param([string[]]$Files)
+
     $map = @{}
+
     foreach ($f in $Files) {
         $name = Format-DiffPath -PathText $f
         $ext = "(unknown)"
+
         try {
             $e = [System.IO.Path]::GetExtension($name)
             if ([string]::IsNullOrEmpty($e)) { $ext = "(noext)" } else { $ext = $e }
-        } catch {
+        }
+        catch {
             # Fallback: regex for trailing dot-segment
             if ($name -match '\.([A-Za-z0-9_]+)$') { $ext = ".$($matches[1])" } else { $ext = "(unknown)" }
         }
+
         if (-not $map.ContainsKey($ext)) { $map[$ext] = 0 }
         $map[$ext]++
     }
+
     $pairs = $map.GetEnumerator() | Sort-Object Name
     $lines = foreach ($p in $pairs) { "{0,8}  {1}" -f $p.Value, $p.Key }
     return ($lines -join "`n")
 }
 
-function Get-IssueReferences {
+function Get-IssueReference {
     param([string]$Text)
+
     $set = New-Object System.Collections.Generic.HashSet[string]
     if ($Text) {
         $m = [regex]::Matches($Text, '(?<!\w)#\d+|\b[A-Z][A-Z0-9]+-\d+\b')
         foreach ($x in $m) { [void]$set.Add($x.Value) }
     }
+
     return ($set | Sort-Object)
 }
 
 function Get-ConventionalCommitSummary {
     param([string]$SubjectsText)
-    $counts = [ordered]@{ feat=0; fix=0; refactor=0; perf=0; docs=0; test=0; chore=0; build=0; ci=0; style=0; other=0 }
+
+    $counts = [ordered]@{
+        feat = 0; fix = 0; refactor = 0; perf = 0; docs = 0; test = 0; chore = 0; build = 0; ci = 0; style = 0; other = 0
+    }
+
     foreach ($line in ($SubjectsText -split "`n")) {
         if (-not [string]::IsNullOrWhiteSpace($line)) {
             if ($line -match '^\s*(feat|fix|refactor|perf|docs|test|chore|build|ci|style)(\(|!|:)\b') {
                 $t = $matches[1]
-            } else {
+            }
+            else {
                 $t = 'other'
             }
             $counts[$t]++
         }
     }
+
     $pairs = $counts.GetEnumerator() | Where-Object { $_.Value -gt 0 }
     if (-not $pairs) { return "(no recognizable conventional commit types)" }
+
     ($pairs | ForEach-Object { "{0,-9} : {1}" -f $_.Name, $_.Value }) -join "`n"
 }
 
 function Get-PRContext {
     param([string]$BaseRef, [string]$HeadRef)
 
-    $base = (Invoke-Git -Args @('rev-parse','--verify',$BaseRef)).Out
-    $head = (Invoke-Git -Args @('rev-parse','--verify',$HeadRef)).Out
-    $mergeBase = (Invoke-Git -Args @('merge-base',$base,$head)).Out
+    $base = (Invoke-Git -GitArgs @('rev-parse', '--verify', $BaseRef)).Out
+    $head = (Invoke-Git -GitArgs @('rev-parse', '--verify', $HeadRef)).Out
+    $mergeBase = (Invoke-Git -GitArgs @('merge-base', $base, $head)).Out
     $range = "$mergeBase..$head"
 
-    $oneline = (Invoke-Git -Args @('log','--date=short','--pretty=format:%h %ad %an %s',$range)).Out
-    $subjects = (Invoke-Git -Args @('log','--pretty=%s',$range)).Out
-    $authors  = (Invoke-Git -Args @('log','--format=%an <%ae>',$range)).Out -split "`n" | Where-Object { $_ -and $_.Trim() } | Sort-Object -Unique
-    $nameStatus = (Invoke-Git -Args @('diff','--name-status',$mergeBase,$head)).Out
-    $numstat    = (Invoke-Git -Args @('diff','--numstat',$mergeBase,$head)).Out
-    $shortstat  = (Invoke-Git -Args @('diff','--shortstat',$mergeBase,$head)).Out
-    $stat       = (Invoke-Git -Args @('diff','--stat',$mergeBase,$head)).Out
+    $oneline = (Invoke-Git -GitArgs @('log', '--date=short', '--pretty=format:%h %ad %an %s', $range)).Out
+    $subjects = (Invoke-Git -GitArgs @('log', '--pretty=%s', $range)).Out
+    $authors = (Invoke-Git -GitArgs @('log', '--format=%an <%ae>', $range)).Out -split "`n" |
+        Where-Object { $_ -and $_.Trim() } | Sort-Object -Unique
+    $nameStatus = (Invoke-Git -GitArgs @('diff', '--name-status', $mergeBase, $head)).Out
+    $numstat = (Invoke-Git -GitArgs @('diff', '--numstat', $mergeBase, $head)).Out
+    $shortstat = (Invoke-Git -GitArgs @('diff', '--shortstat', $mergeBase, $head)).Out
+    $stat = (Invoke-Git -GitArgs @('diff', '--stat', $mergeBase, $head)).Out
 
     $num = ConvertFrom-Numstat -NumstatText $numstat
     $extSummary = Get-ExtensionSummary -Files $num.Files
-    $issues = Get-IssueReferences -Text ($oneline + "`n" + $subjects)
+    $issues = Get-IssueReference -Text ($oneline + "`n" + $subjects)
     $typeSummary = Get-ConventionalCommitSummary -SubjectsText $subjects
 
-    $onelineDisplay  = if (-not [string]::IsNullOrWhiteSpace($oneline)) { $oneline } else { "(none)" }
-    $authorsDisplay  = if ((Get-ItemCount $authors) -gt 0) { (@($authors) -join "`n") } else { "(none)" }
+    $onelineDisplay = if (-not [string]::IsNullOrWhiteSpace($oneline)) { $oneline } else { "(none)" }
+    $authorsDisplay = if ((Get-ItemCount $authors) -gt 0) { (@($authors) -join "`n") } else { "(none)" }
     $nameStatDisplay = if (-not [string]::IsNullOrWhiteSpace($nameStatus)) { $nameStatus } else { "(none)" }
-    $shortDisplay    = if (-not [string]::IsNullOrWhiteSpace($shortstat)) { $shortstat } else { "(none)" }
-    $extDisplay      = if (-not [string]::IsNullOrWhiteSpace($extSummary)) { $extSummary } else { "(none)" }
-    $issuesDisplay   = if ((Get-ItemCount $issues) -gt 0) { (@($issues) -join ", ") } else { "(none)" }
-    $statDisplay     = if (-not [string]::IsNullOrWhiteSpace($stat)) { $stat } else { "(none)" }
+    $shortDisplay = if (-not [string]::IsNullOrWhiteSpace($shortstat)) { $shortstat } else { "(none)" }
+    $extDisplay = if (-not [string]::IsNullOrWhiteSpace($extSummary)) { $extSummary } else { "(none)" }
+    $issuesDisplay = if ((Get-ItemCount $issues) -gt 0) { (@($issues) -join ", ") } else { "(none)" }
+    $statDisplay = if (-not [string]::IsNullOrWhiteSpace($stat)) { $stat } else { "(none)" }
 
-@"
+    @"
 $(Write-Section "PR Comparison")
 Base: $BaseRef
 Head: $HeadRef
@@ -293,6 +344,7 @@ Resolve-Repo -Root $RepoRoot
 $repoPath = (Get-Location).ProviderPath
 $OutPath = Join-Path -Path $repoPath -ChildPath $Out
 $OutDir = Split-Path -Parent $OutPath
+
 if (-not (Test-Path $OutDir)) {
     New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 }
@@ -305,10 +357,10 @@ $timestamp
 
 "@
 
-$remotes   = Get-RemoteSummary
-$branchMet = Get-BranchMetadata
-$status    = Get-RepoStatus -NoUntracked:$NoUntracked
-$wtDiff    = Get-WorkingTreeDiffDetails
+$remotes = Get-RemoteSummary
+$branchMet = Get-BranchInfo
+$status = Get-RepoStatus -NoUntracked:$NoUntracked
+$wtDiff = Get-WorkingTreeDiffSummary
 
 $pr = ""
 $baseRef = $Base
@@ -320,7 +372,8 @@ $headRef = Get-Branch -Ref $headRef
 if ($baseRef -and $headRef) {
     try {
         $pr = Get-PRContext -BaseRef $baseRef -HeadRef $headRef
-    } catch {
+    }
+    catch {
         $pr = "$(Write-Section "PR Comparison")`n(FAILED to compute PR context: $($_.Exception.Message))"
     }
 }
@@ -335,8 +388,9 @@ $pr
 
 if ($Append) {
     $header + $outText | Out-File -FilePath $OutPath -Encoding UTF8 -Append
-} else {
+}
+else {
     $header + $outText | Out-File -FilePath $OutPath -Encoding UTF8
 }
 
-Write-Host "Wrote context to: $OutPath"
+Write-Output "Wrote context to: $OutPath"

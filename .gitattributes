@@ -1,5 +1,15 @@
 
-# Ensure bundled scripts retain LF endings
+# Normalize all text files to LF to avoid CRLF churn between Windows and Linux
+* text=auto eol=lf
+
+# Keep common script types on LF for cross-platform execution
+*.sh text eol=lf
+*.ps1 text eol=lf
+*.psm1 text eol=lf
+*.psd1 text eol=lf
+*.py text eol=lf
+
+# Specific scripts that must stay LF
 tools/cloc text eol=lf
 scripts/run-cloc.sh text eol=lf
 
