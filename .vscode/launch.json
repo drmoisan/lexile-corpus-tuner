@@ -16,15 +16,15 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "PowerShell: Promote Potential -> Issue (bug)",
-            "type": "PowerShell",
+            "name": "Python: Promote Potential -> Issue (bug)",
+            "type": "debugpy",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/potential-to-issue.ps1",
+            "module": "scripts.dev_tools.potential_to_issue",
             "cwd": "${workspaceFolder}",
             "args": [
-                "-PotentialPath",
-                "docs/features/potential/2025-12-08-lexile-v2-adapter-python-3-10.md",
-                "-PromotionType",
+                "--potential-path",
+                "docs/features/potential/2025-12-15-fix-all-script.md",
+                "--promotion-type",
                 "bug"
             ]
         },

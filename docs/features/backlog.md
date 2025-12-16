@@ -4,7 +4,7 @@ Use this list to park ideas before they become GitHub issues or formal feature f
 
 | Status    | Date       | Title                                    | Summary                                                                         | Source | Next Step                |
 | --------- | ---------- | ---------------------------------------- | ------------------------------------------------------------------------------- | ------ | ------------------------ |
-| issue #10 | 2025-11-18 | lexile-faithful-text-difficulty-pipeline | Three-layer pipeline implementing official MetaMetrics Lexile methodology       | agent  | Issue #10 (tracking)     |
+| completed | 2025-11-18 | lexile-faithful-text-difficulty-pipeline | Three-layer pipeline implementing official MetaMetrics Lexile methodology       | agent  | Issue #10 (tracking)     |
 | issue #11 | 2025-11-18 | corpus-builder-layer                     | Build proxy MetaMetrics corpus and compute word frequencies for MLF calculation | agent  | Issue #11 (child of #10) |
 | issue #12 | 2025-11-18 | analyzer-layer                           | Slice texts and extract MSL/MLF features matching MetaMetrics methodology       | agent  | Issue #12 (child of #10) |
 | issue #13 | 2025-12-04 | calibration-layer                        | Train regression model against official Lexile measures with JSON export        | agent  | Issue #13 (child of #10) |
@@ -14,4 +14,4 @@ Use this list to park ideas before they become GitHub issues or formal feature f
 | potential | 2025-12-08 | git-context-auto-open-artifact           | After Git: Collect PR Context and Git: Collect Commit Context tasks, automatically open the generated artifact | agent  | Promote to GitHub issue  |
 | potential | 2025-12-08 | git-collect-pr-context-change-intent-chain | Collect Pull Request Context should scrape Change Intent across every commit in the chain | agent  | Promote to GitHub issue  |
 | potential | 2025-12-08 | tooling-bug-fix-process                  | Automate bug fix documentation workflow: templates, active folder creation, promotion, and tracking | user   | Promote to GitHub issue  |
-| potential | 2025-12-15 | awesome-copilot-adapted                  | Adopt MIT-licensed awesome-copilot agents with repo-policy guardrails + attribution | drm    | Promote to GitHub issue  |
+| completed | 2025-12-15 | awesome-copilot-adapted                  | Adopt MIT-licensed awesome-copilot agents with repo-policy guardrails + attribution | drm    | Issue #42  |
