@@ -4,20 +4,21 @@ from typing import Any
 import lexile_corpus_tuner.estimators.lexile_determination_v2_adapter as adapter
 import numpy as np
 import pytest
+from numpy.typing import NDArray
 
 
 class DummyModel:
-    def predict(self, X: Any, verbose: int = 0) -> np.ndarray:
+    def predict(self, X: Any, verbose: int = 0) -> NDArray[np.floating[Any]]:
         return np.array([[0.1, 0.8, 0.1]])
 
 
 class DummyVectorizer:
-    def transform(self, texts: Any) -> np.ndarray:
+    def transform(self, texts: Any) -> NDArray[np.floating[Any]]:
         return np.array([[1.0, 2.0, 3.0]])
 
 
 class DummyLabelEncoder:
-    def inverse_transform(self, indices: Any) -> np.ndarray:
+    def inverse_transform(self, indices: Any) -> NDArray[np.str_]:
         return np.array(["900-999"])
 
 
