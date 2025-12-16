@@ -68,7 +68,7 @@ Describe "collect-commit-context.ps1" {
             $fileExists = $false
 
             $dirSep = [IO.Path]::DirectorySeparatorChar
-            $expectedRoot = if ($dirSep -eq '\\') { "C:\repo-root" } else { "/repo-root" }
+            $expectedRoot = if ($dirSep -eq '\') { "C:\repo-root" } else { "/repo-root" }
             $outputDir = "${expectedRoot}${dirSep}artifacts"
             $outputPath = "${outputDir}${dirSep}commit_context.txt"
 

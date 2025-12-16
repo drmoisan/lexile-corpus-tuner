@@ -778,7 +778,7 @@ If you encounter any conflicting instructions, **halt and notify the user.**
 
 3) **Compatibility**
 
-- Keep scripts compatible with **Windows PowerShell 5.1** and **PowerShell 7.5+** (enforced via PSScriptAnalyzer settings).
+- Keep scripts compatible with **PowerShell 7+** (enforced via PSScriptAnalyzer settings).
 
 > Testing tools are defined in the PowerShell unit test policy; do not redefine them here.
 
@@ -841,7 +841,7 @@ If there is any conflict between these documents, halt and notify the user.
 - Use the repo config at `scripts/powershell/PoshQC/settings/pester.runsettings.psd1`. Run via PoshQC:
   - `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Import-Module ./scripts/powershell/PoshQC; Invoke-PoshQCTest -Root ."`
 - VS Code task: `PoshQC: 4 test (Pester)`
-- Keep tests compatible with Windows PowerShell 5.1 and PowerShell 7.5+.
+- Keep tests compatible with PowerShell 7+.
 
 ---
 

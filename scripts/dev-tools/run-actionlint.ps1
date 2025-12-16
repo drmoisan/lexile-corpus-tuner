@@ -89,7 +89,9 @@ function Add-DirectoryToPath {
         [string]$Directory
     )
 
-    if (-not ($env:PATH.Split([IO.Path]::PathSeparator) -contains $Directory)) {
+    if ([string]::IsNullOrEmpty($env:PATH)) {
+        $env:PATH = $Directory
+    } elseif (-not ($env:PATH.Split([IO.Path]::PathSeparator) -contains $Directory)) {
         $env:PATH = "$Directory$([IO.Path]::PathSeparator)$env:PATH"
     }
 }
