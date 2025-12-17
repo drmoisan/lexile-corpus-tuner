@@ -86,6 +86,10 @@ def test_get_feature_name_variants() -> None:
         mod.get_feature_name("# First Feature\n## Second\n# Third", Path("test.md"))
         == "First Feature"
     )
+    assert (
+        mod.get_feature_name("# Bug Title (Potential Bug)\n", Path("test.md"))
+        == "Bug Title"
+    )
 
 
 def test_get_feature_path_variants() -> None:
@@ -220,6 +224,89 @@ def test_promote_potential_failure_does_not_move_file() -> None:
     assert "## Test Conditions\n(not provided in potential file)" in body
     assert str(potential.relative_to(workspace)) in body
     assert "line1" in messages and "line2" in messages
+
+
+def test_promote_potential_bug_builds_issue_body_from_bug_sections() -> None:
+    workspace = Path("/workspace")
+    potential = workspace / "docs/features/potential/sample-bug.md"
+    fs = FakeFileSystem()
+    fs.files[potential] = "\n".join(
+        [
+            "# Sample Bug (Potential Bug)",
+            "## Summary",
+            "summary details",
+            "## Environment",
+            "- OS: Linux",
+            "## Steps to Reproduce",
+            "1. step one",
+            "## Expected Behavior",
+            "expected results",
+            "## Actual Behavior",
+            "actual results",
+            "## Impact / Severity",
+            "medium",
+            "## Logs / Screenshots",
+            "screenshot attached",
+        ]
+    )
+
+    create_result = mod.GhResult(["Created: https://example.com/issues/200"], 0)
+    view_result = mod.GhResult(
+        [
+            '{"number":200,"title":"Bug title","url":"https://example.com/issues/200","author":{"login":"me"},"updatedAt":"2024-02-01T00:00:00Z"}',
+        ],
+        0,
+    )
+    gh = FakeGhClient(create_result, view_result)
+
+    outcome = mod.promote_potential(
+        potential_path=str(potential),
+        promotion_type="bug",
+        fs=fs,
+        gh=gh,
+        workspace=workspace,
+    )
+
+    assert outcome.exit_code == 0
+    verb, (title, body, label) = gh.calls[0]
+    assert verb == "create"
+    assert title == "Bug: Sample Bug"
+    assert label == "bug"
+    assert "## Summary\nsummary details" in body
+    assert "## Environment\n- OS: Linux" in body
+    assert "## Steps to Reproduce\n1. step one" in body
+    assert "## Expected Behavior\nexpected results" in body
+    assert "## Actual Behavior\nactual results" in body
+    assert "## Impact / Severity\nmedium" in body
+    assert "## Logs / Screenshots\nscreenshot attached" in body
+    assert "## Source\nFrom: docs/features/potential/sample-bug.md" in body
+
+
+def test_promote_potential_bug_missing_sections_use_placeholders() -> None:
+    workspace = Path("/workspace")
+    potential = workspace / "docs/features/potential/placeholder-bug.md"
+    fs = FakeFileSystem()
+    fs.files[potential] = "\n".join(["# Placeholder Bug", "## Summary", "only summary"])
+
+    create_result = mod.GhResult(["Created: https://example.com/issues/300"], 0)
+    gh = FakeGhClient(create_result)
+
+    mod.promote_potential(
+        potential_path=str(potential),
+        promotion_type="bug",
+        fs=fs,
+        gh=gh,
+        workspace=workspace,
+    )
+
+    _, (_, body, _) = gh.calls[0]
+    assert "## Summary\nonly summary" in body
+    assert "## Environment\n(not provided in potential file)" in body
+    assert "## Steps to Reproduce\n(not provided in potential file)" in body
+    assert "## Expected Behavior\n(not provided in potential file)" in body
+    assert "## Actual Behavior\n(not provided in potential file)" in body
+    assert "## Impact / Severity\n(not provided in potential file)" in body
+    assert "## Logs / Screenshots\n(not provided in potential file)" in body
 
 
 def test_promote_potential_raises_on_missing_file() -> None:

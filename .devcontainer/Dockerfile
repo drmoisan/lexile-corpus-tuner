@@ -27,14 +27,14 @@ RUN pip install --no-cache-dir poetry==2.2.1
 RUN poetry config virtualenvs.in-project true
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR /workspaces/lexile-corpus-tuner
 
 # Copy pyproject.toml and poetry.lock for dependency installation
-COPY pyproject.toml poetry.lock* ./
+# COPY pyproject.toml poetry.lock* ./
 
 # Install Python dependencies (will be cached unless these files change)
 # Note: This creates a basic venv; the post-create script will finalize it
-RUN poetry install --no-interaction --no-ansi --with dev || true
+# RUN poetry install --no-interaction --no-ansi --with dev || true
 
 # Install PowerShell modules as root for all users
 RUN pwsh -NoLogo -NoProfile -Command " \

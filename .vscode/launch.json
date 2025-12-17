@@ -23,7 +23,7 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--potential-path",
-                "docs/features/potential/2025-12-15-fix-all-script.md",
+                "docs/features/potential/2025-12-16-promote-potential-bug.md",
                 "--promotion-type",
                 "bug"
             ]

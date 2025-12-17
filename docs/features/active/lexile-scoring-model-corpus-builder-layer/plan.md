@@ -41,22 +41,22 @@
 ## Test Plan
 
 - Unit
-	- [x] Normalization uses shared `textutils` pipeline; shard boundaries align with token counts
-	- [x] Frequency math on fixture corpus (counts, per-5M rate, log frequency, rank)
+    - [x] Normalization uses shared `textutils` pipeline; shard boundaries align with token counts
+    - [x] Frequency math on fixture corpus (counts, per-5M rate, log frequency, rank)
 
 - Integration
-	- [x] `corpus download` creates expected directories; rerun is idempotent
-	- [x] `corpus normalize` produces shard count/summary matching input tokens
-	- [x] `corpus frequencies` reads shards and yields deterministic outputs
+    - [x] `corpus download` creates expected directories; rerun is idempotent
+    - [x] `corpus normalize` produces shard count/summary matching input tokens
+    - [x] `corpus frequencies` reads shards and yields deterministic outputs
 
 - CLI/UX examples
-	- [ ] End-to-end run on small fixture corpus exercising all commands
-	- [ ] Flags: `--gutenberg-limit`, `--shard-size-tokens`, source-weighting flag
+    - [ ] End-to-end run on small fixture corpus exercising all commands
+    - [ ] Flags: `--gutenberg-limit`, `--shard-size-tokens`, source-weighting flag
 
 - Performance/edge cases
-	- [ ] Streaming shard read (no full corpus in memory)
-	- [x] Missing manifests → clear error; bad shard size → validation error
-	- [x] Partial downloads present → safe skip without corruption
+    - [ ] Streaming shard read (no full corpus in memory)
+    - [x] Missing manifests → clear error; bad shard size → validation error
+    - [x] Partial downloads present → safe skip without corruption
 
 ## Open Questions / Notes
 
