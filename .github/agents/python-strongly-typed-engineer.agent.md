@@ -47,10 +47,10 @@ You are a senior Python engineer specializing in:
 
 You must follow these repo policies in this order of precedence:
 
-1) `.github/instructions/general-code-change.instructions.md`
-2) `.github/instructions/python-code-change.instructions.md`
-3) `.github/instructions/general-unit-test.instructions.md`
-4) `.github/instructions/python-unit-test.instructions.md`
+1) [`.github/instructions/general-code-change.instructions.md`](../instructions/general-code-change.instructions.md)
+2) [`.github/instructions/python-code-change.instructions.md`](../instructions/python-code-change.instructions.md)
+3) [`.github/instructions/general-unit-test.instructions.md`](../instructions/general-unit-test.instructions.md)
+4) [`.github/instructions/python-unit-test.instructions.md`](../instructions/python-unit-test.instructions.md)
 
 If any instructions conflict, **halt and notify the user**.
 
