@@ -1,9 +1,12 @@
-# promote-potential-bug (Potential Bug)
+# promote-potential-bug (Issue #50)
 
 - Date captured: 2025-12-16
 - Author: Dan Moisan
-- Status: Draft
+- Status: Promoted -> docs/features/active/promote-potential-bug_Potential_Bug/ (Issue #50)
 
+- Issue: #50
+- Issue URL: https://github.com/drmoisan/lexile-corpus-tuner/issues/50
+- Last Updated: 2025-12-17
 ## Summary
 
 Promoting a potential bug file to GitHub creates an issue labeled `bug` but the issue body is populated with feature-template placeholders rather than the details from the source markdown.
