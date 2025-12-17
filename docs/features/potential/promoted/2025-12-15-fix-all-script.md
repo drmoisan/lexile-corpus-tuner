@@ -1,4 +1,4 @@
-# fix-all-script (Potential Bug) (Issue #44)
+# fix-all-script (Issue #44)
 
 - Date captured: 2025-12-15
 - Author: Dan Moisan
