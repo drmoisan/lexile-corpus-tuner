@@ -94,15 +94,10 @@
 	
 	// Mount the workspace folder and Docker socket
 	"mounts": [
-		"source=lexile-corpus-tuner-venv,target=${workspaceFolder}/.venv,type=volume",
+		"source=lexile-corpus-tuner-venv,target=/workspaces/lexile-corpus-tuner/.venv,type=volume",
 		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
 	]
 ,
-	
-	// Run arguments for the container
-	"runArgs": [
-		"--name=lexile-corpus-tuner-dev"
-	],
 	
 	// Set `remoteUser` to `vscode` to use the non-root user
 	"remoteUser": "vscode",
