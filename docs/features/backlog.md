@@ -14,4 +14,5 @@ Use this list to park ideas before they become GitHub issues or formal feature f
 | potential | 2025-12-08 | git-context-auto-open-artifact           | After Git: Collect PR Context and Git: Collect Commit Context tasks, automatically open the generated artifact | agent  | Promote to GitHub issue  |
 | potential | 2025-12-08 | git-collect-pr-context-change-intent-chain | Collect Pull Request Context should scrape Change Intent across every commit in the chain | agent  | Promote to GitHub issue  |
 | potential | 2025-12-08 | tooling-bug-fix-process                  | Automate bug fix documentation workflow: templates, active folder creation, promotion, and tracking | user   | Promote to GitHub issue  |
+| issue #49 | 2025-12-17 | commit-message-process-automation        | Automate commit context collection, LLM drafting, and SCM input autofill via `/commit-message-generator` | user   | Issue #49                |
 | completed | 2025-12-15 | awesome-copilot-adapted                  | Adopt MIT-licensed awesome-copilot agents with repo-policy guardrails + attribution | drm    | Issue #42  |
