@@ -5,6 +5,10 @@
 		"dockerfile": "Dockerfile",
 		"context": ".."
 	},
+	"containerEnv": {
+		"TZ": "America/New_York"
+	},
+
 	
 	// Configure tool-specific properties
 	"customizations": {
@@ -55,6 +59,7 @@
 			// VS Code settings
 			"settings": {
 				"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+				"python.terminal.activateEnvironment": false,
 				"python.formatting.provider": "none",
 				"[python]": {
 					"editor.defaultFormatter": "ms-python.black-formatter",
@@ -71,17 +76,21 @@
 				"powershell.codeFormatting.preset": "OTBS",
 				"powershell.scriptAnalysis.enable": true,
 				"powershell.scriptAnalysis.settingsPath": "${workspaceFolder}/scripts/powershell/PoshQC/settings/pssa.settings.psd1",
+				"powershell.integratedConsole.startInBackground": true,
+				"powershell.integratedConsole.showOnStartup": false,
 				"terminal.integrated.defaultProfile.linux": "pwsh",
 				"terminal.integrated.profiles.linux": {
 					"pwsh": {
 						"path": "/usr/bin/pwsh",
-						"icon": "terminal-powershell"
+						"icon": "terminal-powershell",
+						"args": ["-NoLogo"]
 					},
 					"bash": {
 						"path": "/bin/bash",
 						"icon": "terminal-bash"
 					}
-				}
+				},
+				"terminal.integrated.shellIntegration.enabled": true
 			}
 		}
 	},
@@ -92,9 +101,13 @@
 	// Use 'postCreateCommand' to run commands after the container is created
 	"postCreateCommand": "bash .devcontainer/post-create.sh",
 	
+	// Set the Docker container name
+	"runArgs": [
+		"--name=lexile-corpus-tuner-devcontainer"
+	],
+	
 	// Mount the workspace folder and Docker socket
 	"mounts": [
-		"source=lexile-corpus-tuner-venv,target=/workspaces/lexile-corpus-tuner/.venv,type=volume",
 		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
 	]
 ,

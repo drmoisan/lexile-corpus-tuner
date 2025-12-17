@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 set -e
 
@@ -13,19 +12,70 @@ echo "==================================="
 # finally fall back to current directory.
 WORKSPACE_DIR="${WORKSPACE_FOLDER:-}"
 if [ -n "$WORKSPACE_DIR" ] && [ -d "$WORKSPACE_DIR" ]; then
-  :
+  # If WORKSPACE_DIR is not a git repo root, try to resolve to the git top-level within it
+  if git -C "$WORKSPACE_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+    WORKSPACE_DIR="$(git -C "$WORKSPACE_DIR" rev-parse --show-toplevel)"
+  fi
 else
   WORKSPACE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-fi
-
-if [ ! -d "$WORKSPACE_DIR" ]; then
-  echo "Warning: workspace directory $WORKSPACE_DIR not found; using current directory $(pwd)"
-  WORKSPACE_DIR="$(pwd)"
 fi
 
 cd "$WORKSPACE_DIR"
 export WORKSPACE_DIR
 echo "Workspace directory: $WORKSPACE_DIR"
+
+# Create PowerShell profile with custom prompt
+echo ""
+echo "Creating PowerShell profile..."
+mkdir -p ~/.config/powershell
+cat > ~/.config/powershell/Microsoft.PowerShell_profile.ps1 << 'PROFILE_END'
+$env:WORKSPACE_DIR = '/workspaces/lexile-corpus-tuner'
+
+# Activate venv silently (suppress all output)
+$activateScript = "$env:WORKSPACE_DIR/.venv/bin/Activate.ps1"
+if (Test-Path $activateScript) {
+    $null = & $activateScript *>&1
+}
+
+# Custom prompt with relative paths
+function prompt {
+    $venvName = if ($env:VIRTUAL_ENV) {
+        $name = Split-Path -Leaf $env:VIRTUAL_ENV
+        if ($name -eq '.venv' -and (Test-Path "$env:VIRTUAL_ENV/pyvenv.cfg")) {
+            $cfg = Get-Content "$env:VIRTUAL_ENV/pyvenv.cfg" -Raw
+            if ($cfg -match 'prompt\s*=\s*(.+)') {
+                $matches[1].Trim()
+            } else {
+                '.venv'
+            }
+        } else {
+            $name
+        }
+    } else {
+        ''
+    }
+    
+    $venv = if ($venvName) { "($venvName)" } else { "" }
+    $currentPath = $PWD.Path
+    $workspaceDir = $env:WORKSPACE_DIR
+    
+    if ($currentPath -eq $workspaceDir) {
+        $relativePath = "/"
+    } elseif ($currentPath.StartsWith($workspaceDir)) {
+        $relativePath = $currentPath.Substring($workspaceDir.Length)
+    } else {
+        $relativePath = $currentPath
+    }
+    
+    "$venv$relativePath> "
+}
+PROFILE_END
+
+
+# Persist WORKSPACE_DIR for future bash sessions (optional)
+BASHRC="$HOME/.bashrc"
+LINE="export WORKSPACE_DIR=\"$WORKSPACE_DIR\""
+grep -qxF "$LINE" "$BASHRC" 2>/dev/null || echo "$LINE" >> "$BASHRC"
 
 # -----------------------------------------------------------------------------
 # Python / Poetry setup
@@ -179,4 +229,3 @@ echo "To run the CLI:"
 echo "  poetry run lexile-tuner --help"
 echo "  poetry run lexile-scoring-model-pipeline --help"
 echo ""
-```
