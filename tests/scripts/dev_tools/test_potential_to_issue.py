@@ -86,6 +86,10 @@ def test_get_feature_name_variants() -> None:
         mod.get_feature_name("# First Feature\n## Second\n# Third", Path("test.md"))
         == "First Feature"
     )
+    assert (
+        mod.get_feature_name("# Bug Title (Potential Bug)\n", Path("test.md"))
+        == "Bug Title"
+    )
 
 
 def test_get_feature_path_variants() -> None:
@@ -266,7 +270,7 @@ def test_promote_potential_bug_builds_issue_body_from_bug_sections() -> None:
     assert outcome.exit_code == 0
     verb, (title, body, label) = gh.calls[0]
     assert verb == "create"
-    assert title == "Bug: Sample Bug (Potential Bug)"
+    assert title == "Bug: Sample Bug"
     assert label == "bug"
     assert "## Summary\nsummary details" in body
     assert "## Environment\n- OS: Linux" in body

@@ -173,10 +173,15 @@ def _resolve_workspace() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _strip_potential_marker(value: str) -> str:
+    cleaned = re.sub(r"\s*\(Potential[^)]*\)", "", value, flags=re.IGNORECASE).strip()
+    return cleaned or value.strip()
+
+
 def get_feature_name(content: str, file_path: Path) -> str:
     heading_match = re.search(r"^\s*#\s+(.+)$", content, flags=re.MULTILINE)
     if heading_match:
-        feature_name = heading_match.group(1).replace("(Potential)", "").strip()
+        feature_name = _strip_potential_marker(heading_match.group(1))
         if feature_name:
             return feature_name
 
