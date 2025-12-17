@@ -54,7 +54,7 @@
 			
 			// VS Code settings
 			"settings": {
-				"python.defaultInterpreterPath": "/workspace/.venv/bin/python",
+				"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
 				"python.formatting.provider": "none",
 				"[python]": {
 					"editor.defaultFormatter": "ms-python.black-formatter",
@@ -94,9 +94,10 @@
 	
 	// Mount the workspace folder and Docker socket
 	"mounts": [
-		"source=lexile-corpus-tuner-venv,target=/workspace/.venv,type=volume",
+		"source=lexile-corpus-tuner-venv,target=${workspaceFolder}/.venv,type=volume",
 		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-	],
+	]
+,
 	
 	// Run arguments for the container
 	"runArgs": [

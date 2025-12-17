@@ -1,3 +1,4 @@
+```bash
 #!/bin/bash
 set -e
 
@@ -5,22 +6,61 @@ echo "==================================="
 echo "Post-Create Container Setup"
 echo "==================================="
 
-# Ensure we're in the workspace directory
-WORKSPACE_DIR="${WORKSPACE_FOLDER:-/workspaces/lexile-corpus-tuner}"
-if [ ! -d "$WORKSPACE_DIR" ]; then
-    echo "Warning: workspace directory $WORKSPACE_DIR not found; using current directory $(pwd)" 
-    WORKSPACE_DIR="$(pwd)"
+# -----------------------------------------------------------------------------
+# Resolve workspace/repo root deterministically
+# -----------------------------------------------------------------------------
+# Prefer devcontainer-provided workspace folder when available; fall back to git;
+# finally fall back to current directory.
+WORKSPACE_DIR="${WORKSPACE_FOLDER:-}"
+if [ -n "$WORKSPACE_DIR" ] && [ -d "$WORKSPACE_DIR" ]; then
+  :
+else
+  WORKSPACE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
+
+if [ ! -d "$WORKSPACE_DIR" ]; then
+  echo "Warning: workspace directory $WORKSPACE_DIR not found; using current directory $(pwd)"
+  WORKSPACE_DIR="$(pwd)"
+fi
+
 cd "$WORKSPACE_DIR"
 export WORKSPACE_DIR
+echo "Workspace directory: $WORKSPACE_DIR"
 
-# Install/update Python dependencies with Poetry
+# -----------------------------------------------------------------------------
+# Python / Poetry setup
+# -----------------------------------------------------------------------------
+echo ""
 echo "Installing Python dependencies with Poetry..."
+
+# Ensure Poetry uses an in-project venv for THIS repo (local config, not global)
+poetry config virtualenvs.in-project true --local
+
+# If the venv exists but is clearly broken, recreate it
+if [ -d ".venv" ] && [ ! -x ".venv/bin/python" ]; then
+  echo "Detected broken .venv; removing and recreating..."
+  rm -rf .venv
+fi
+
 if [ -f "poetry.lock" ]; then
-    poetry install --no-interaction --no-ansi --with dev
+  echo "poetry.lock found; installing locked dependencies..."
+  poetry install --no-interaction --no-ansi --with dev
 else
-    echo "Warning: poetry.lock not found. Creating from pyproject.toml..."
-    poetry install --no-interaction --no-ansi --with dev
+  echo "Warning: poetry.lock not found. Resolving dependencies and creating lock file..."
+  poetry lock --no-interaction --no-ansi
+  poetry install --no-interaction --no-ansi --with dev
+fi
+
+# Verify Poetry is using the in-project environment (warn if not)
+echo ""
+echo "Verifying Poetry environment..."
+ENV_PATH="$(poetry env info --path 2>/dev/null || true)"
+if [ -z "$ENV_PATH" ]; then
+  echo "Warning: could not determine Poetry env path (poetry env info --path returned nothing)."
+elif [ "$ENV_PATH" != "$WORKSPACE_DIR/.venv" ]; then
+  echo "Warning: Poetry env is '$ENV_PATH' (expected '$WORKSPACE_DIR/.venv')."
+else
+  echo "Poetry env path: $ENV_PATH"
 fi
 
 # Verify Python tooling
@@ -31,7 +71,9 @@ poetry run ruff --version
 poetry run pyright --version
 poetry run pytest --version
 
-# Verify PowerShell tooling
+# -----------------------------------------------------------------------------
+# PowerShell tooling verification
+# -----------------------------------------------------------------------------
 echo ""
 echo "Verifying PowerShell tooling..."
 pwsh -NoLogo -NoProfile -Command "
@@ -39,10 +81,15 @@ pwsh -NoLogo -NoProfile -Command "
     \$PSVersionTable.PSVersion
     Write-Host ''
     Write-Host 'Installed modules:'
-    Get-Module -ListAvailable PSScriptAnalyzer, Pester | Format-Table Name, Version
+    Get-Module -ListAvailable PSScriptAnalyzer, Pester | Sort-Object Name, Version -Descending | Format-Table Name, Version
 "
 
-# Ensure PowerShell QC dependencies are present before importing PoshQC
+# -----------------------------------------------------------------------------
+# PowerShell QC dependencies
+# -----------------------------------------------------------------------------
+# Recommendation: Choose ONE strategy for module installation (AllUsers pinned in Dockerfile
+# OR CurrentUser pinned here). This script keeps the original behavior (CurrentUser pinning)
+# but will not reinstall if a suitable version is already present.
 echo ""
 echo "Ensuring PowerShell QC dependencies..."
 pwsh -NoLogo -NoProfile -Command - <<'PWSH'
@@ -64,7 +111,11 @@ if (-not $gallery) {
 }
 
 foreach ($module in $required) {
-    $installed = Get-Module -ListAvailable -Name $module.Name | Where-Object { $_.Version -ge [version]$module.Version } | Select-Object -First 1
+    $installed = Get-Module -ListAvailable -Name $module.Name |
+        Where-Object { $_.Version -ge [version]$module.Version } |
+        Sort-Object Version -Descending |
+        Select-Object -First 1
+
     if ($installed) {
         Write-Host "Found $($module.Name) $($installed.Version)"
         continue
@@ -75,45 +126,47 @@ foreach ($module in $required) {
 }
 PWSH
 
-# Import PoshQC module (will be available from mounted workspace)
+# -----------------------------------------------------------------------------
+# Import PoshQC module from the mounted workspace
+# -----------------------------------------------------------------------------
 echo ""
 echo "Importing PoshQC module..."
 pwsh -NoLogo -NoProfile -Command - <<'PWSH'
 $ErrorActionPreference = 'Stop'
-$candidates = @(
-    "$env:WORKSPACE_DIR/scripts/powershell/PoshQC/PoshQC.psd1",
-    '/workspaces/lexile-corpus-tuner/scripts/powershell/PoshQC/PoshQC.psd1'
-)
 
-$modulePath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $modulePath) {
-    Write-Error "PoshQC module not found. Checked: $($candidates -join ', ')"
+$candidate = "$env:WORKSPACE_DIR/scripts/powershell/PoshQC/PoshQC.psd1"
+if (-not (Test-Path $candidate)) {
+    Write-Error "PoshQC module not found. Checked: $candidate"
     exit 1
 }
 
-Import-Module $modulePath -Force -ErrorAction Stop
-Write-Host "Imported PoshQC from $modulePath"
+Import-Module $candidate -Force -ErrorAction Stop
+Write-Host "Imported PoshQC from $candidate"
 PWSH
 
-# Set up git configuration (if not already configured)
+# -----------------------------------------------------------------------------
+# Git configuration reminder
+# -----------------------------------------------------------------------------
 if [ ! -f ~/.gitconfig ]; then
-    echo ""
-    echo "Git configuration not found. You may want to run:"
-    echo "  git config --global user.name 'Your Name'"
-    echo "  git config --global user.email 'your.email@example.com'"
+  echo ""
+  echo "Git configuration not found. You may want to run:"
+  echo "  git config --global user.name 'Your Name'"
+  echo "  git config --global user.email 'your.email@example.com'"
 fi
 
-# Display helpful information
+# -----------------------------------------------------------------------------
+# Completion banner
+# -----------------------------------------------------------------------------
 echo ""
 echo "==================================="
 echo "Dev Container Setup Complete!"
 echo "==================================="
 echo ""
 echo "Available commands:"
-echo "  poetry run pytest                    # Run Python tests"
-echo "  poetry run black .                   # Format Python code"
-echo "  poetry run ruff check                # Lint Python code"
-echo "  poetry run pyright                   # Type check Python code"
+echo "  poetry run pytest                         # Run Python tests"
+echo "  poetry run black .                        # Format Python code"
+echo "  poetry run ruff check                     # Lint Python code"
+echo "  poetry run pyright                        # Type check Python code"
 echo "  pwsh -File scripts/dev-tools/fix-all.ps1  # Run all QC checks"
 echo ""
 echo "VS Code tasks are available via:"
@@ -126,3 +179,4 @@ echo "To run the CLI:"
 echo "  poetry run lexile-tuner --help"
 echo "  poetry run lexile-scoring-model-pipeline --help"
 echo ""
+```
