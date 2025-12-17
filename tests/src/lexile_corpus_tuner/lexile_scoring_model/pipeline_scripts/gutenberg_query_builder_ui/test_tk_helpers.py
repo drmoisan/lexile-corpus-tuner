@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock
 
-from tests.gutenberg_query_builder_ui.conftest import StubListbox
+from .conftest import StubListbox
 
 
 def test_listbox_helpers(ui_modules: Any) -> None:
