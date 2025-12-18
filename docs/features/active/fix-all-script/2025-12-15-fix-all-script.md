@@ -3,6 +3,7 @@
 - Date captured: 2025-12-15
 - Author: Dan Moisan
 - Status: Promoted -> docs/features/active/fix-all-script_Potential_Bug/ (Issue #44)
+- Resolution path: Port fix-all orchestration to Python (`scripts/dev_tools/fix_all.py`) with `scripts/dev-tools/fix-all.ps1` delegating for compatibility.
 
 - Issue: #44
 - Issue URL: https://github.com/drmoisan/lexile-corpus-tuner/issues/44
