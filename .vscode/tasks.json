@@ -305,24 +305,22 @@
         },
         {
             "label": "Git: Collect Pull Request Context",
-            "type": "shell",
-            "command": "pwsh",
-            "args": [
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
-                "-Base",
-                "${input:PRBaseBranch}"
-            ],
+          "type": "shell",
+          "command": "poetry",
+          "args": [
+            "run",
+            "python",
+            "-m",
+            "scripts.dev_tools.collect_pr_context",
+            "--base",
+            "${input:PRBaseBranch}"
+          ],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
                 "panel": "new"
             },
-            "detail": "Collects git PR context comparing current branch to specified base branch"
+          "detail": "Collects git PR context comparing current branch to specified base branch"
         },
             {
       "label": "Dev: New GitHub Feature Issue (manual)",

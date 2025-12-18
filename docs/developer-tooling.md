@@ -263,7 +263,7 @@ Collect context for commits or pull requests:
 pwsh scripts/dev-tools/collect-commit-context.ps1
 
 # Collect PR context
-pwsh scripts/dev-tools/collect-pull-request-context.ps1
+poetry run python -m scripts.dev_tools.collect_pr_context --base origin/main
 ```
 
 Output saved to `artifacts/` directory.
