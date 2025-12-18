@@ -1,5 +1,7 @@
 # TODO: Refactor fix-all.Tests.ps1 to Use Shared Test Helpers
 
+> Note: fix-all is now implemented in Python with Pytest coverage, and the legacy `fix-all.Tests.ps1` suite has been removed. This backlog item remains only for historical context.
+
 **Status:** Backlog  
 **Priority:** Low  
 **Created:** 2025-12-11  

@@ -117,7 +117,7 @@ poetry run pytest
 **Run with coverage:**
 
 ```bash
-poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=term-missing
+poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
 ```
 
 **VS Code tasks:**
@@ -144,9 +144,12 @@ Run All Checks
 
 ### Fix All (Automated)
 
-Runs Black formatting + Ruff auto-fixes:
+Runs Black formatting + Ruff auto-fixes + verification + Pyright + Pytest (with coverage) via the Python entry point:
 
 ```bash
+poetry run python -m scripts.dev_tools.fix_all
+
+# PowerShell wrapper (delegates to Python for compatibility)
 pwsh scripts/dev-tools/fix-all.ps1
 ```
 
