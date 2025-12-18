@@ -95,14 +95,48 @@ def test_command_runner_captures_output_on_failure(
     assert "line from stderr" in logged
 
 
+def test_black_retries_before_success() -> None:
+    runner = FakeRunner(
+        {
+            "Black: format": [make_result(1), make_result(1), make_result(0)],
+            "Ruff: lint": [make_result(0)],
+            "Pyright: type-check": [make_result(0)],
+            "Pytest: test with coverage": [make_result(0)],
+        }
+    )
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_black_retries=3, include_coverage=True, runner=runner, logger=logger
+    )
+    assert exit_code == 0
+    assert [call[0] for call in runner.calls].count("Black: format") == 3
+
+
+def test_black_retries_exhausted() -> None:
+    runner = FakeRunner(
+        {
+            "Black: format": [make_result(1), make_result(1), make_result(1)],
+        }
+    )
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_black_retries=3, include_coverage=True, runner=runner, logger=logger
+    )
+    assert exit_code == 1
+    assert [call[0] for call in runner.calls] == [
+        "Black: format",
+        "Black: format",
+        "Black: format",
+    ]
+    assert "Black formatting failed after 3 attempts" in read_log(logger)
+
+
 def test_pipeline_succeeds_when_black_writes_to_stderr() -> None:
     """Black stderr output without errors should not fail the pipeline."""
     runner = FakeRunner(
         {
             "Black: format": [make_result(0, "stderr noise\n")],
-            "Ruff: fix": [make_result(0)],
-            "Black: format (verify)": [make_result(0)],
-            "Ruff: lint (verify)": [make_result(0)],
+            "Ruff: lint": [make_result(0)],
             "Pyright: type-check": [make_result(0)],
             "Pytest: test with coverage": [make_result(0)],
         }
@@ -118,7 +152,11 @@ def test_pipeline_succeeds_when_black_writes_to_stderr() -> None:
 def test_pipeline_fails_when_black_fails() -> None:
     runner = FakeRunner(
         {
-            "Black: format": [make_result(1, "error")],
+            "Black: format": [
+                make_result(1, "error"),
+                make_result(1, "error"),
+                make_result(1, "error"),
+            ],
         }
     )
     logger = build_logger()
@@ -126,17 +164,20 @@ def test_pipeline_fails_when_black_fails() -> None:
         max_ruff_retries=2, include_coverage=True, runner=runner, logger=logger
     )
     assert exit_code == 1
-    assert runner.calls == [("Black: format", ["poetry", "run", "black", "."])]
+    assert [call[0] for call in runner.calls] == [
+        "Black: format",
+        "Black: format",
+        "Black: format",
+    ]
     assert "Black formatting failed" in read_log(logger)
 
 
 def test_ruff_retries_and_eventually_succeeds() -> None:
     runner = FakeRunner(
         {
-            "Black: format": [make_result(0)],
+            "Black: format": [make_result(0), make_result(0)],
+            "Ruff: lint": [make_result(1), make_result(0)],
             "Ruff: fix": [make_result(1), make_result(0)],
-            "Black: format (verify)": [make_result(0)],
-            "Ruff: lint (verify)": [make_result(0)],
             "Pyright: type-check": [make_result(0)],
             "Pytest: test with coverage": [make_result(0)],
         }
@@ -146,14 +187,23 @@ def test_ruff_retries_and_eventually_succeeds() -> None:
         max_ruff_retries=3, include_coverage=True, runner=runner, logger=logger
     )
     assert exit_code == 0
-    ruff_attempts = [call for call in runner.calls if call[0] == "Ruff: fix"]
-    assert len(ruff_attempts) == 2
+    assert [call[0] for call in runner.calls] == [
+        "Black: format",
+        "Ruff: lint",
+        "Ruff: fix",
+        "Ruff: fix",
+        "Black: format",
+        "Ruff: lint",
+        "Pyright: type-check",
+        "Pytest: test with coverage",
+    ]
 
 
 def test_ruff_retries_exhausted() -> None:
     runner = FakeRunner(
         {
             "Black: format": [make_result(0)],
+            "Ruff: lint": [make_result(1)],
             "Ruff: fix": [make_result(1), make_result(1)],
         }
     )
@@ -164,6 +214,7 @@ def test_ruff_retries_exhausted() -> None:
     assert exit_code == 1
     assert [call[0] for call in runner.calls] == [
         "Black: format",
+        "Ruff: lint",
         "Ruff: fix",
         "Ruff: fix",
     ]
@@ -174,9 +225,7 @@ def test_pipeline_runs_steps_in_order() -> None:
     runner = FakeRunner(
         {
             "Black: format": [make_result(0)],
-            "Ruff: fix": [make_result(0)],
-            "Black: format (verify)": [make_result(0)],
-            "Ruff: lint (verify)": [make_result(0)],
+            "Ruff: lint": [make_result(0)],
             "Pyright: type-check": [make_result(0)],
             "Pytest: test with coverage": [make_result(0)],
         }
@@ -188,9 +237,7 @@ def test_pipeline_runs_steps_in_order() -> None:
     assert exit_code == 0
     assert [call[0] for call in runner.calls] == [
         "Black: format",
-        "Ruff: fix",
-        "Black: format (verify)",
-        "Ruff: lint (verify)",
+        "Ruff: lint",
         "Pyright: type-check",
         "Pytest: test with coverage",
     ]
@@ -200,9 +247,7 @@ def test_pipeline_stops_on_pyright_failure() -> None:
     runner = FakeRunner(
         {
             "Black: format": [make_result(0)],
-            "Ruff: fix": [make_result(0)],
-            "Black: format (verify)": [make_result(0)],
-            "Ruff: lint (verify)": [make_result(0)],
+            "Ruff: lint": [make_result(0)],
             "Pyright: type-check": [make_result(1, "type errors")],
         }
     )
@@ -219,9 +264,7 @@ def test_pipeline_stops_on_pytest_failure() -> None:
     runner = FakeRunner(
         {
             "Black: format": [make_result(0)],
-            "Ruff: fix": [make_result(0)],
-            "Black: format (verify)": [make_result(0)],
-            "Ruff: lint (verify)": [make_result(0)],
+            "Ruff: lint": [make_result(0)],
             "Pyright: type-check": [make_result(0)],
             "Pytest: test with coverage": [make_result(1, "tests failed")],
         }

@@ -50,7 +50,7 @@ Black formatting failed. Please review errors above.
 - In scope:
 	- Investigate and fix `scripts/dev-tools/fix-all.ps1` Black step handling so a clean Black run does not fail the script.
 	- Rewrite the orchestration in Python (`scripts/dev_tools/fix_all.py`) while keeping `scripts/dev-tools/fix-all.ps1` as a thin compatibility shim.
-	- Preserve existing Ruff, Pyright, and Pytest sequencing after Black.
+	- Preserve sequencing: Black (retry up to 3) → Ruff check (retryable `--fix` with restart to Black on success) → Pyright → Pytest (coverage).
 	- Keep compatibility with existing VS Code tasks that invoke fix-all.ps1.
 - Out of scope / non-goals:
 	- Changing the order of the toolchain steps.
@@ -69,6 +69,7 @@ Black formatting failed. Please review errors above.
 - Capture `$LASTEXITCODE` immediately after Black and avoid overwriting it before failure checks.
 - Improve failure messaging to include Black exit code and stderr when the step truly fails.
 - Keep existing behavior for non-zero exit codes to avoid masking real failures.
+- Ensure looped sequencing matches: Black retry → Ruff check; if Ruff fails, run `ruff --fix` (retry up to 3) then restart from Black before proceeding; when Black/Ruff are clean, run Pyright then Pytest with coverage.
 - Validation items:
 	- [x] Unit coverage areas (Pytest) around Black step behaviors (success with stderr vs actual failure).
 	- [x] Integration scenario to retest end-to-end fix-all via the Python entry point (PowerShell shim as needed).

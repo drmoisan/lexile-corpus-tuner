@@ -123,18 +123,17 @@ def _ruff_fix(
     runner: CommandRunner,
     logger: StepLogger,
 ) -> bool:
-    logger.step("Step 2: Running Ruff linting with auto-fix...")
     attempt = 0
     last_result: CommandResult | None = None
     while attempt < max_retries:
         attempt += 1
-        logger.info(f"Ruff attempt {attempt} of {max_retries}...")
+        logger.info(f"Ruff --fix attempt {attempt} of {max_retries}...")
         result = runner.run(
             ["poetry", "run", "ruff", "check", "--fix"], step_name="Ruff: fix"
         )
         last_result = result
         if result.returncode == 0:
-            logger.success("Ruff linting passed")
+            logger.success("Ruff auto-fix completed")
             return True
 
         if attempt < max_retries:
@@ -150,9 +149,38 @@ def _ruff_fix(
     return False
 
 
+def _run_black_with_retry(
+    *,
+    max_retries: int,
+    runner: CommandRunner,
+    logger: StepLogger,
+) -> bool:
+    attempt = 0
+    while attempt < max_retries:
+        attempt += 1
+        logger.step(
+            f"Step 1: Running Black formatting... (attempt {attempt} of {max_retries})"
+        )
+        result = runner.run(["poetry", "run", "black", "."], step_name="Black: format")
+        if result.returncode == 0:
+            logger.success("Black formatting completed successfully")
+            return True
+
+        if attempt < max_retries:
+            logger.info("Black found issues. Retrying...")
+        else:
+            _log_failure(
+                logger,
+                f"Black formatting failed after {max_retries} attempts.",
+                result,
+            )
+    return False
+
+
 def run_fix_all(
     *,
     max_ruff_retries: int = 3,
+    max_black_retries: int = 3,
     include_coverage: bool = True,
     runner: CommandRunner | None = None,
     logger: StepLogger | None = None,
@@ -161,53 +189,40 @@ def run_fix_all(
     step_logger = logger or StepLogger()
     command_runner = runner or SubprocessCommandRunner(step_logger)
 
-    if not _run_simple_step(
-        step_number=1,
-        description="Running Black formatting...",
-        step_name="Black: format",
-        success_message="Black formatting completed successfully",
-        failure_message="Black formatting failed. Please review errors above.",
-        command=["poetry", "run", "black", "."],
-        runner=command_runner,
-        logger=step_logger,
-    ):
-        return 1
+    while True:
+        if not _run_black_with_retry(
+            max_retries=max_black_retries,
+            runner=command_runner,
+            logger=step_logger,
+        ):
+            return 1
 
-    if not _ruff_fix(
-        max_retries=max_ruff_retries,
-        runner=command_runner,
-        logger=step_logger,
-    ):
-        return 1
+        step_logger.step("Step 2: Running Ruff linting...")
+        ruff_result = command_runner.run(
+            ["poetry", "run", "ruff", "check"], step_name="Ruff: lint"
+        )
+        if ruff_result.returncode == 0:
+            step_logger.success("Ruff linting passed")
+        else:
+            if ruff_result.output:
+                step_logger.command_output(ruff_result.output)
+            step_logger.info("Ruff reported issues; attempting auto-fix...")
+            if not _ruff_fix(
+                max_retries=max_ruff_retries,
+                runner=command_runner,
+                logger=step_logger,
+            ):
+                return 1
+            step_logger.info(
+                "Ruff auto-fix applied; restarting from Black to re-verify formatting "
+                "and lint."
+            )
+            continue
+
+        break
 
     if not _run_simple_step(
         step_number=3,
-        description="Re-running Black to ensure consistency...",
-        step_name="Black: format (verify)",
-        success_message="Black formatting verified",
-        failure_message="Black formatting failed on verification pass.",
-        command=["poetry", "run", "black", "."],
-        runner=command_runner,
-        logger=step_logger,
-    ):
-        return 1
-
-    if not _run_simple_step(
-        step_number=4,
-        description="Re-running Ruff to verify fixes...",
-        step_name="Ruff: lint (verify)",
-        success_message="Ruff linting verified",
-        failure_message=(
-            "Ruff linting still has issues after fixes. Please review errors above."
-        ),
-        command=["poetry", "run", "ruff", "check"],
-        runner=command_runner,
-        logger=step_logger,
-    ):
-        return 1
-
-    if not _run_simple_step(
-        step_number=5,
         description="Running Pyright type checking...",
         step_name="Pyright: type-check",
         success_message="Pyright type checking passed",
@@ -232,7 +247,7 @@ def run_fix_all(
         )
 
     if not _run_simple_step(
-        step_number=6,
+        step_number=4,
         description=(
             "Running Pytest with coverage..."
             if include_coverage
@@ -273,6 +288,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Maximum number of Ruff --fix retries (default: 3).",
     )
     parser.add_argument(
+        "--max-black-retries",
+        type=int,
+        default=3,
+        help="Maximum number of Black retries (default: 3).",
+    )
+    parser.add_argument(
         "--no-coverage",
         action="store_true",
         help="Skip coverage flags when running pytest.",
@@ -283,7 +304,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     return run_fix_all(
-        max_ruff_retries=args.max_ruff_retries, include_coverage=not args.no_coverage
+        max_ruff_retries=args.max_ruff_retries,
+        max_black_retries=args.max_black_retries,
+        include_coverage=not args.no_coverage,
     )
 
 

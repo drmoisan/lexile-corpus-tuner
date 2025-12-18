@@ -22,9 +22,9 @@
 - [x] [P2-T3] Implement argument parsing for MaxRuffRetries and future-proof flag for coverage toggle (default on)
 
 **Phase 3 — Implement Toolchain Logic in Python**
-- [x] [P3-T1] Implement Black step: invoke Black, capture exit code, allow stderr when exit code is 0, fail otherwise
-- [x] [P3-T2] Implement Ruff auto-fix with retry loop honoring MaxRuffRetries; surface failures with attempt count
-- [x] [P3-T3] Implement Black verify pass and Ruff verify pass mirroring current sequencing
+- [x] [P3-T1] Implement Black step with retry (up to 3) that treats stderr as success when exit code is 0
+- [x] [P3-T2] Implement Ruff linting with retryable `--fix` loop (up to 3) that restarts the pipeline from Black after a successful fix
+- [x] [P3-T3] Maintain sequencing to Pyright and Pytest (with coverage) after Black/Ruff are clean; no extra verify passes
 - [x] [P3-T4] Implement Pyright step with fail-fast on non-zero exit
 - [x] [P3-T5] Implement Pytest step with coverage flags `--cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
 - [x] [P3-T6] Aggregate exit reporting to mirror current “ALL CHECKS PASSED” summary
