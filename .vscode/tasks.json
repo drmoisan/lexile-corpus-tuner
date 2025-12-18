@@ -443,7 +443,7 @@
         "reveal": "always",
         "panel": "new"
       },
-      "detail": "Copies docs/features/templates/feature into docs/features/active/<name> and opens the files."
+      "detail": "Creates docs/features/active/<name>/ from the selected template (feature/refactor/epic/bug) and opens the relevant files."
     },
     {
       "label": "Dev: New GitHub Bug Issue",
@@ -588,7 +588,8 @@
       "options": [
         "feature",
         "refactor",
-        "epic"
+        "epic",
+        "bug"
       ],
       "default": "feature"
     },

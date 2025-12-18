@@ -3,7 +3,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string] $FeatureName,
-    [ValidateSet("feature", "refactor", "epic")]
+    [ValidateSet("feature", "refactor", "epic", "bug")]
     [string] $Type = "feature",
     [switch] $Force,
     [string] $IssueNumber
@@ -113,7 +113,19 @@ if (-not (Test-Path $target)) {
     New-Item -ItemType Directory -Path $target | Out-Null
 }
 
-Copy-Item $template\* $target -Recurse -Force
+if ($Type -eq 'bug') {
+    $bugTemplateFiles = @(
+        (Join-Path $template 'spec.md'),
+        (Join-Path $template 'plan.md')
+    )
+    foreach ($file in $bugTemplateFiles) {
+        if (Test-Path $file) {
+            Copy-Item -Path $file -Destination $target -Force
+        }
+    }
+} else {
+    Copy-Item $template\* $target -Recurse -Force
+}
 Write-Output "Created/updated: $target"
 
 $filesToOpen = @()
@@ -130,6 +142,10 @@ switch ($Type) {
     'epic' {
         $filesToOpen += (Join-Path $target 'initiative.md')
     }
+    'bug' {
+        $filesToOpen += (Join-Path $target 'spec.md')
+        $filesToOpen += (Join-Path $target 'plan.md')
+    }
 }
 
 # Seed from a similarly named potential, if present (features/refactors)
@@ -139,6 +155,15 @@ $behavior = $null
 $criteriaRaw = $null
 $constraints = $null
 $tests = $null
+$bugSummary = $null
+$bugEnvironment = $null
+$bugSteps = $null
+$bugExpected = $null
+$bugActual = $null
+$bugLogs = $null
+$bugImpact = $null
+$bugCause = $null
+$bugValidation = $null
 if ($Type -ne 'epic') {
     $normalizedName = $FeatureName -replace '_', '-'
     $potentialDir = Join-Path $workspace 'docs/features/potential'
@@ -163,11 +188,23 @@ if ($Type -ne 'epic') {
 
     if ($potentialFile) {
         $potentialContent = Get-Content -Raw -Path $potentialFile.FullName
-        $problem = Get-Section -Content $potentialContent -Name 'Problem / Why'
-        $behavior = Get-Section -Content $potentialContent -Name 'Proposed Behavior'
-        $criteriaRaw = Get-Section -Content $potentialContent -Name 'Acceptance Criteria (early draft)'
-        $constraints = Get-Section -Content $potentialContent -Name 'Constraints & Risks'
-        $tests = Get-Section -Content $potentialContent -Name 'Test Conditions to Consider'
+        if ($Type -eq 'bug') {
+            $bugSummary = Get-Section -Content $potentialContent -Name 'Summary'
+            $bugEnvironment = Get-Section -Content $potentialContent -Name 'Environment'
+            $bugSteps = Get-Section -Content $potentialContent -Name 'Steps to Reproduce'
+            $bugExpected = Get-Section -Content $potentialContent -Name 'Expected Behavior'
+            $bugActual = Get-Section -Content $potentialContent -Name 'Actual Behavior'
+            $bugLogs = Get-Section -Content $potentialContent -Name 'Logs / Screenshots'
+            $bugImpact = Get-Section -Content $potentialContent -Name 'Impact / Severity'
+            $bugCause = Get-Section -Content $potentialContent -Name 'Suspected Cause / Notes'
+            $bugValidation = Get-Section -Content $potentialContent -Name 'Proposed Fix / Validation Ideas'
+        } else {
+            $problem = Get-Section -Content $potentialContent -Name 'Problem / Why'
+            $behavior = Get-Section -Content $potentialContent -Name 'Proposed Behavior'
+            $criteriaRaw = Get-Section -Content $potentialContent -Name 'Acceptance Criteria (early draft)'
+            $constraints = Get-Section -Content $potentialContent -Name 'Constraints & Risks'
+            $tests = Get-Section -Content $potentialContent -Name 'Test Conditions to Consider'
+        }
 
         if (-not $IssueNumber) {
             $issueMatch = [regex]::Match($potentialContent, '^\s*-\s*Issue\s*:\s*#?(\d+)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
@@ -199,6 +236,7 @@ $userStoryPath = $null
 $specPath = $null
 $planPath = $null
 $initiativePath = $null
+$potentialCopyPath = $null
 
 switch ($Type) {
     'feature' {
@@ -213,6 +251,14 @@ switch ($Type) {
     'epic' {
         $initiativePath = Join-Path $target 'initiative.md'
     }
+    'bug' {
+        $specPath = Join-Path $target 'spec.md'
+        $planPath = Join-Path $target 'plan.md'
+        if ($potentialFile) {
+            $potentialCopyPath = Join-Path $target $potentialFile.Name
+            Copy-Item -Path $potentialFile.FullName -Destination $potentialCopyPath -Force
+        }
+    }
 }
 
 # Helper to replace common header placeholders in a template file
@@ -226,13 +272,15 @@ function Set-HeaderPlaceholder {
         return $Content
     }
     $result = $Content
-    $namePlaceholders = @('<feature-name>', '<refactor-name>', '<epic-name>', '<name>')
+    $namePlaceholders = @('<feature-name>', '<refactor-name>', '<epic-name>', '<name>', '<bug-name>')
     foreach ($ph in $namePlaceholders) {
         $result = $result -replace [regex]::Escape($ph), $FeatureName
     }
     $result = [regex]::Replace($result, '#`?<id>`?', $issueField)
+    $result = $result -replace '<#id or TBD>', $issueField
     $result = [regex]::Replace($result, '#<tracking-issue>', $issueField)
-    $result = [regex]::Replace($result, '^- Owner:\s+name', "- Owner: $ownerField", 'Multiline')
+    $result = [regex]::Replace($result, '^- Owner:\s+(name|<name>)', "- Owner: $ownerField", 'Multiline')
+    $result = [regex]::Replace($result, '^- Date:\s+YYYY-MM-DD', "- Date: $updatedField", 'Multiline')
     $result = [regex]::Replace($result, '^- Last Updated:\s+YYYY-MM-DD', "- Last Updated: $updatedField", 'Multiline')
     return $result
 }
@@ -307,10 +355,71 @@ if ($Type -eq 'feature') {
         $content = Set-HeaderPlaceholder -Content $content
         Set-Content -Path $initiativePath -Value $content -Encoding UTF8
     }
+} elseif ($Type -eq 'bug') {
+    if (Test-Path $specPath) {
+        $content = Get-Content -Raw -Path $specPath
+        $content = Set-HeaderPlaceholder -Content $content
+
+        $contextParts = @()
+        if ($bugSummary) {
+            $contextParts += $bugSummary
+        }
+        if ($bugEnvironment) {
+            $contextParts += "Environment:`r`n$bugEnvironment"
+        }
+        if ($bugImpact) {
+            $contextParts += "Impact / Severity:`r`n$bugImpact"
+        }
+        if ($contextParts) {
+            $content = Set-Section -Content $content -Name 'Context' -Body ($contextParts -join "`r`n`r`n")
+        }
+
+        $reproParts = @()
+        if ($bugSteps) {
+            $reproParts += "Steps to Reproduce:`r`n$bugSteps"
+        }
+        $expectedActual = @()
+        if ($bugExpected) {
+            $expectedActual += "Expected:`r`n$bugExpected"
+        }
+        if ($bugActual) {
+            $expectedActual += "Actual:`r`n$bugActual"
+        }
+        if ($expectedActual) {
+            $reproParts += ($expectedActual -join "`r`n`r`n")
+        }
+        if ($bugLogs) {
+            $reproParts += "Logs / Screenshots:`r`n$bugLogs"
+        }
+        if ($reproParts) {
+            $content = Set-Section -Content $content -Name 'Repro & Evidence' -Body ($reproParts -join "`r`n`r`n")
+        }
+
+        if ($bugCause) {
+            $content = Set-Section -Content $content -Name 'Root Cause Analysis' -Body $bugCause
+        }
+
+        if ($bugValidation) {
+            $content = Set-Section -Content $content -Name 'Proposed Fix' -Body $bugValidation
+            $content = Set-Section -Content $content -Name 'Test Strategy' -Body $bugValidation
+        }
+
+        Set-Content -Path $specPath -Value $content -Encoding UTF8
+    }
+
+    if (Test-Path $planPath) {
+        $content = Get-Content -Raw -Path $planPath
+        $content = Set-HeaderPlaceholder -Content $content
+        Set-Content -Path $planPath -Value $content -Encoding UTF8
+    }
 }
 
 if ($potentialFile) {
     Write-Output "Seeded docs from potential: $($potentialFile.Name)"
+}
+
+if ($potentialCopyPath) {
+    $filesToOpen += $potentialCopyPath
 }
 
 $codeCmd = Get-Command code -ErrorAction SilentlyContinue
