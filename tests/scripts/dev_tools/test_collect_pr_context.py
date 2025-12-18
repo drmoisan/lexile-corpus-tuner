@@ -8,15 +8,19 @@ if TYPE_CHECKING:
 
 from scripts.dev_tools.collect_pr_context import (
     CommandResult,
-    GhClient,
     GitClient,
+    IssueDetails,
+    PullRequestDetails,
+    build_close_candidates_section,
     build_pr_context,
     completed_plan_tasks,
     convert_numstat,
     extension_summary,
     extract_issue_references,
     extract_merge_pr_numbers,
+    find_user_story_link,
     format_diff_path,
+    format_issue_details,
     gather_feature_excerpts,
     select_default_base,
 )
@@ -99,13 +103,12 @@ class FakeGit(GitClient):
         return CommandResult(stdout="resolved", stderr="", code=0)
 
 
-class FakeGh(GhClient):
+class FakeGh:
     def __init__(self) -> None:
-        self._available = True
+        self.available = True
 
-    @property
-    def available(self) -> bool:  # type: ignore[override]
-        return self._available
+    def ensure_available(self) -> None:
+        return None
 
     def classify_entity(self, number: str) -> str | None:
         if number == "44":
@@ -113,9 +116,6 @@ class FakeGh(GhClient):
         if number == "53":
             return "pull"
         return None
-
-    def closing_issues(self, pr_number: str | None = None) -> list[str]:  # type: ignore[override]
-        return ["#44", "#50"]
 
 
 def test_format_diff_path_handles_brace_and_simple_renames():
@@ -171,19 +171,25 @@ def test_select_default_base_tries_candidates_in_order():
 def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
     git = FakeGit()
     gh = FakeGh()
+    current_pr = PullRequestDetails(
+        number="#99",
+        title="current",
+        body="closes #44",
+        closing_issues=["#50"],
+    )
     context = build_pr_context(
         git=git,
         gh=gh,
         base_ref="main",
         head_ref="feature/test",
         include_untracked=True,
+        current_pr=current_pr,
     )
-    assert "PRs in range" in context
-    assert "#53" in context
-    assert "Referenced issues" in context
-    assert "#44" in context
-    assert "Issues to autoclose" in context
-    assert "#50" in context
+    assert "PRs in range" in context.text
+    assert "#53" in context.text
+    assert "Referenced issues" in context.text
+    assert "#44" in context.text
+    assert context.verified_closing == ["#50"]
 
 
 def test_gather_feature_excerpts_reads_active_docs():
@@ -193,10 +199,12 @@ def test_gather_feature_excerpts_reads_active_docs():
         "docs/features/active/fix-all-script/plan.md",
     ]
     excerpts = gather_feature_excerpts(root, paths)
-    joined = "\n".join(excerpts)
+    joined = "\n".join(item.excerpt for item in excerpts)
     assert "fix-all-script" in joined
     assert "Spec excerpts" in joined
     assert "Plan completed tasks" in joined or "Spec excerpts" in joined
+    collected_issue_refs = {ref for item in excerpts for ref in item.issue_refs}
+    assert isinstance(collected_issue_refs, set)
 
 
 def test_completed_plan_tasks_collects_checked_items():
@@ -207,3 +215,32 @@ def test_completed_plan_tasks_collects_checked_items():
 """
     tasks = completed_plan_tasks(text)
     assert tasks == ["done item", "another done"]
+
+
+def test_find_user_story_link_extracts_blob_path():
+    link = find_user_story_link(
+        "See [story](https://github.com/org/repo/blob/main/docs/story/user-story.md)"
+    )
+    assert link == "docs/story/user-story.md"
+
+
+def test_build_close_candidates_section_renders_lists():
+    section_text = build_close_candidates_section(
+        verified=["#1"], author_asserted=["#2"], referenced=["#3", "#4"]
+    )
+    assert "Close candidates" in section_text
+    assert "#1" in section_text and "#2" in section_text and "#3" in section_text
+
+
+def test_format_issue_details_includes_user_story():
+    issue = IssueDetails(
+        number="#10",
+        title="Test",
+        body="Body text",
+        comments=[],
+        user_story_path="docs/user-story.md",
+        user_story_content="Story content",
+    )
+    rendered = format_issue_details(issue)
+    assert "Issue #10" in rendered
+    assert "Story content" in rendered
