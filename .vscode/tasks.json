@@ -120,7 +120,13 @@
             "label": "QC: 4 Pytest: run tests with coverage",
             "type": "shell",
             "command": "poetry",
-            "args": ["run", "pytest", "--cov=src/lexile_corpus_tuner", "--cov-report=term-missing"],
+            "args": [
+                "run",
+                "pytest",
+                "--cov=src/lexile_corpus_tuner",
+                "--cov=scripts/dev_tools",
+                "--cov-report=term-missing"
+            ],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
@@ -259,14 +265,12 @@
         {
             "label": "QC: 0 Fix All",
             "type": "shell",
-            "command": "pwsh",
+            "command": "poetry",
             "args": [
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/dev-tools/fix-all.ps1"
+                "run",
+                "python",
+                "-m",
+                "scripts.dev_tools.fix_all"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -443,7 +447,7 @@
         "reveal": "always",
         "panel": "new"
       },
-      "detail": "Copies docs/features/templates/feature into docs/features/active/<name> and opens the files."
+      "detail": "Creates docs/features/active/<name>/ from the selected template (feature/refactor/epic/bug) and opens the relevant files."
     },
     {
       "label": "Dev: New GitHub Bug Issue",
@@ -588,7 +592,8 @@
       "options": [
         "feature",
         "refactor",
-        "epic"
+        "epic",
+        "bug"
       ],
       "default": "feature"
     },
