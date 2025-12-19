@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from scripts.dev_tools.pr_context_git import CommandResult, GitClient, SubprocessRunner
+from scripts.dev_tools.pr_context.git import CommandResult, GitClient, SubprocessRunner
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -64,7 +64,7 @@ def test_subprocess_runner_raises_on_failure(monkeypatch: pytest.MonkeyPatch) ->
     def fake_run(*args: object, **kwargs: object) -> DummyCompleted:
         return DummyCompleted("out", "err", 1)
 
-    monkeypatch.setattr("scripts.dev_tools.pr_context_git.subprocess.run", fake_run)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.git.subprocess.run", fake_run)
     runner = SubprocessRunner()
     with pytest.raises(RuntimeError):
         runner.run(["git", "status"])

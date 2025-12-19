@@ -8,11 +8,13 @@ if TYPE_CHECKING:
 
     import pytest
 
-from scripts.dev_tools.collect_pr_context import (
+from scripts.dev_tools.pr_context.collector import (
     CommandResult,
+    GhClient,
     GitClient,
     IssueDetails,
     PullRequestDetails,
+    _extract_digest_bullets,  # pyright: ignore[reportPrivateUsage]
     _is_scoping_doc,  # pyright: ignore[reportPrivateUsage]
     _issue_appendix,  # pyright: ignore[reportPrivateUsage]
     _issue_digest,  # pyright: ignore[reportPrivateUsage]
@@ -32,9 +34,31 @@ from scripts.dev_tools.collect_pr_context import (
     find_user_story_link,
     format_diff_path,
     gather_feature_excerpts,
+    main,
+    parse_args,
     select_default_base,
+    write_output,
 )
-from scripts.dev_tools.pr_context_models import FeatureDocExcerpt, PRContextResult
+from scripts.dev_tools.pr_context.models import FeatureDocExcerpt, PRContextResult
+
+
+def test_wrapper_modules_expose_pr_context_components() -> None:
+    import scripts.dev_tools.collect_pr_context as collect_wrapper
+    import scripts.dev_tools.pr_context_gh as gh_wrapper
+    import scripts.dev_tools.pr_context_git as git_wrapper
+    import scripts.dev_tools.pr_context_models as models_wrapper
+    import scripts.dev_tools.pr_context_render as render_wrapper
+
+    assert collect_wrapper.main is main
+    assert gh_wrapper.GhClient is GhClient
+    assert git_wrapper.GitClient is GitClient
+    assert models_wrapper.PRContextResult is PRContextResult
+    assert render_wrapper.build_pr_context is build_pr_context
+    assert "main" in dir(collect_wrapper)
+    assert "GhClient" in dir(gh_wrapper)
+    assert "GitClient" in dir(git_wrapper)
+    assert "PRContextResult" in dir(models_wrapper)
+    assert "build_pr_context" in dir(render_wrapper)
 
 
 class FakeRunner:
@@ -421,7 +445,7 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
         captured.append((out_path, text))
 
     monkeypatch.setattr(
-        "scripts.dev_tools.collect_pr_context.write_output", fake_write_output
+        "scripts.dev_tools.pr_context.collector.write_output", fake_write_output
     )
 
     class FakeGit:
@@ -532,10 +556,11 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
             rev_range="base-sha..head-sha",
         )
 
-    monkeypatch.setattr("scripts.dev_tools.collect_pr_context.GitClient", FakeGit)
-    monkeypatch.setattr("scripts.dev_tools.collect_pr_context.GhClient", FakeGh)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", FakeGit)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GhClient", FakeGh)
     monkeypatch.setattr(
-        "scripts.dev_tools.collect_pr_context.build_pr_context", fake_build_pr_context
+        "scripts.dev_tools.pr_context.collector.build_pr_context",
+        fake_build_pr_context,
     )
 
     def fake_gather_feature_excerpts(
@@ -548,7 +573,7 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
         ]
 
     monkeypatch.setattr(
-        "scripts.dev_tools.collect_pr_context.gather_feature_excerpts",
+        "scripts.dev_tools.pr_context.collector.gather_feature_excerpts",
         fake_gather_feature_excerpts,
     )
 
@@ -568,3 +593,281 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
     appendix_text = next(text for path, text in captured if path.name == "appendix.txt")
     assert "Scoping docs changed" in summary_text
     assert "fix-all-script" in appendix_text
+
+
+def test_extract_digest_bullets_truncates_and_skips_blank_lines() -> None:
+    body = "## Why\n- first\n\n- second\n- third"
+    bullets = _extract_digest_bullets(body, headings=["Why"], limit=2)
+    assert bullets == ["Why: first", "Why: second"]
+
+
+def test_parse_numstat_detailed_skips_invalid_rows() -> None:
+    adds, dels, mapping = _parse_numstat_detailed("\n1\t1\tfile.py\ninvalid-entry")
+    assert adds == 1 and dels == 1
+    assert mapping == {"file.py": (1, 1)}
+
+
+def test_write_output_creates_parent_and_appends(tmp_path: Path) -> None:
+    target = tmp_path / "nested" / "out.txt"
+    write_output("first", target, append=False)
+    write_output("second", target, append=True)
+    assert target.read_text(encoding="utf-8").endswith("firstsecond")
+
+
+def test_parse_args_and_main_delegate_to_collect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_collect_and_write(**kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.collect_and_write",
+        fake_collect_and_write,
+    )
+
+    args = parse_args(
+        [
+            "--base",
+            "origin/dev",
+            "--head",
+            "feature/123",
+            "--out",
+            "~/summary.txt",
+            "--appendix-out",
+            "~/appendix.txt",
+            "--repo-root",
+            ".",
+            "--append",
+            "--no-untracked",
+        ]
+    )
+    assert args.base == "origin/dev"
+    assert args.append is True
+
+    main(
+        [
+            "--base",
+            "origin/dev",
+            "--head",
+            "feature/123",
+            "--out",
+            "~/summary.txt",
+            "--appendix-out",
+            "~/appendix.txt",
+            "--repo-root",
+            ".",
+            "--append",
+            "--no-untracked",
+        ]
+    )
+
+    assert captured["base"] == "origin/dev"
+    assert captured["head"] == "feature/123"
+    assert captured["append"] is True
+    assert captured["include_untracked"] is False
+
+
+def test_collect_and_write_renders_non_material_scoping(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    outputs: list[tuple[Path, str]] = []
+
+    def fake_write_output(text: str, out_path: Path, append: bool) -> None:
+        outputs.append((out_path, text))
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.write_output", fake_write_output
+    )
+
+    class StubGit:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._root = tmp_path
+
+        def resolve_root(self) -> Path:
+            return self._root
+
+        def branch_name(self) -> str:
+            return "feature/ABC-10"
+
+        def upstream(self) -> str:
+            return "origin/feature/ABC-10"
+
+        def remote_verbose(self) -> str:
+            return "origin https://example/repo (fetch)"
+
+        def status_short(self) -> str:
+            return "## feature/ABC-10"
+
+        def untracked(self) -> str:
+            return ""
+
+        def diff_name_status(self, *, staged: bool) -> str:
+            return ""
+
+        def diff_patch(self, *, staged: bool) -> str:
+            return ""
+
+        def rev_parse(self, ref: str) -> str:
+            return f"{ref}-sha"
+
+        def merge_base(self, base: str, head: str) -> str:
+            return "base-sha"
+
+        def log(self, fmt: str, rev_range: str) -> str:
+            return ""
+
+        def diff_range(self, args: Sequence[str]) -> str:
+            if "--name-status" in args:
+                return "M\tdocs/features/active/feat/spec.md\nR100\told.py\tnew.py"
+            if "--numstat" in args:
+                return "2\t1\tdocs/features/active/feat/spec.md\n3\t0\tcore.py"
+            if "--shortstat" in args:
+                return " 1 files changed, 2 insertions(+), 1 deletions(-)"
+            if "--stat" in args:
+                return " spec.md | 3 ++"
+            return ""
+
+        def run(
+            self, args: Sequence[str], *, allow_error: bool = False
+        ) -> CommandResult:
+            return CommandResult(stdout="resolved", stderr="", code=0)
+
+    class StubGh:
+        status_message = "ok"
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.available = True
+
+        def ensure_available(self) -> None:
+            return None
+
+        def classify_entity(self, number: str) -> str | None:
+            return "issue" if number == "1" else None
+
+        def issue_details(self, number: str) -> IssueDetails:
+            return IssueDetails(
+                number=f"#{number}",
+                title="Issue",
+                state="open",
+                labels=[],
+                assignees=[],
+                author="alex",
+                created_at="2024-01-01",
+                updated_at="2024-01-02",
+                body="Body",
+                comments=[],
+            )
+
+        def pr_details(self, number: str) -> PullRequestDetails:
+            return PullRequestDetails(
+                number=f"#{number}",
+                title="PR",
+                state="open",
+                author="alex",
+                base_ref="main",
+                head_ref="feature",
+                created_at="2024-01-01",
+                updated_at="2024-01-02",
+                merged_at=None,
+                labels=[],
+                assignees=[],
+                body="PR body",
+                closing_issues=["#1"],
+                files_changed=["file.py"],
+            )
+
+        def ci_status(self, head_sha: str) -> tuple[str | None, list[str]]:
+            return "success", []
+
+        def current_pr(self) -> PullRequestDetails | None:
+            return PullRequestDetails(
+                number="#10",
+                title="existing",
+                state="open",
+                author="alex",
+                base_ref="main",
+                head_ref="feature",
+                created_at="2024-01-01",
+                updated_at="2024-01-02",
+                merged_at=None,
+                labels=[],
+                assignees=[],
+                body="existing body",
+                closing_issues=["#1"],
+                files_changed=[],
+            )
+
+    def fake_build_pr_context(
+        *,
+        git: StubGit,
+        gh: StubGh,
+        base_ref: str | None,
+        head_ref: str | None,
+        include_untracked: bool,
+        feature_issue_refs: Sequence[str] | None = None,
+        current_pr: PullRequestDetails | None = None,
+    ) -> PRContextResult:
+        context_text = "\n".join(
+            [
+                "===== Changed files (name-status) =====",
+                "M\tdocs/features/active/feat/spec.md",
+                "A\tcore.py",
+                "===== Diff shortstat =====",
+                " 1 files changed, 2 insertions(+), 1 deletions(-)",
+            ]
+        )
+        return PRContextResult(
+            text=context_text,
+            referenced_issues=["#1"],
+            referenced_prs=["#2"],
+            verified_closing=["#1"],
+            invalid_references=["#999"],
+            base_ref=base_ref,
+            resolved_base="origin/main",
+            base_sha="base-sha",
+            head_ref=head_ref or "feature",
+            head_sha="head-sha",
+            merge_base="base-sha",
+            rev_range="base-sha..head-sha",
+        )
+
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", StubGit)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GhClient", StubGh)
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.build_pr_context", fake_build_pr_context
+    )
+
+    def fake_gather_feature_excerpts(
+        *args: object, **kwargs: object
+    ) -> list[FeatureDocExcerpt]:
+        return []
+
+    def fake_scoping_doc_changes(
+        **kwargs: object,
+    ) -> list[tuple[str, bool, list[str], None]]:
+        return [("docs/features/active/feat/spec.md", False, ["links only"], None)]
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.gather_feature_excerpts",
+        fake_gather_feature_excerpts,
+    )
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector._scoping_doc_changes",
+        fake_scoping_doc_changes,
+    )
+
+    collect_and_write(
+        base="main",
+        head="feature",
+        out=tmp_path / "summary.txt",
+        appendix_out=tmp_path / "appendix.txt",
+        repo_root=tmp_path,
+        append=False,
+        include_untracked=False,
+    )
+
+    summary_text = next(text for path, text in outputs if path.name == "summary.txt")
+    assert "non-material" in summary_text
+    assert "#999" in summary_text

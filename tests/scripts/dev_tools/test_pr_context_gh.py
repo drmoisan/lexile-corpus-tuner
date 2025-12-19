@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from scripts.dev_tools.pr_context_gh import GhClient
-from scripts.dev_tools.pr_context_models import CommandResult
+from scripts.dev_tools.pr_context.github import GhClient
+from scripts.dev_tools.pr_context.models import CommandResult
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -222,3 +222,94 @@ def test_current_pr_parses_payload_and_ci_status_handles_empty(tmp_path: Path) -
     status, jobs = gh.ci_status("deadbeef")
     assert status is None
     assert jobs == []
+
+
+def test_gh_client_handles_unavailable_gh(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def missing_gh(_: str) -> None:
+        return None
+
+    monkeypatch.setattr("scripts.dev_tools.pr_context.github.shutil.which", missing_gh)
+    gh = GhClient(FakeRunner({}), tmp_path, gh_path=None)
+    with pytest.raises(RuntimeError):
+        gh.ensure_available()
+    assert gh.status_message is None
+
+
+def test_gh_client_reports_authentication_failure(tmp_path: Path) -> None:
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "denied", 1),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    with pytest.raises(RuntimeError):
+        gh.ensure_available()
+    assert gh.available is False
+
+
+def test_classify_entity_returns_none_on_not_found(tmp_path: Path) -> None:
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        ("gh", "api", "repos/owner/repo/issues/99"): CommandResult("", "Not Found", 1),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    assert gh.classify_entity("99") is None
+
+
+def test_closing_issues_parses_numbers(tmp_path: Path) -> None:
+    payload = json.dumps({"closingIssuesReferences": [{"number": 4}, {"number": 5}]})
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        ("gh", "pr", "view", "--json", "closingIssuesReferences,number"): CommandResult(
+            payload, "", 0
+        ),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    assert gh.closing_issues() == ["#4", "#5"]
+
+
+def test_issue_details_reads_local_story(tmp_path: Path) -> None:
+    story_path = tmp_path / "docs/story/user-story.md"
+    story_path.parent.mkdir(parents=True, exist_ok=True)
+    story_path.write_text("local story", encoding="utf-8")
+    issue_payload = json.dumps(
+        {
+            "title": "Issue title",
+            "state": "open",
+            "body": f"See ({story_path.relative_to(tmp_path)})",
+            "labels": [],
+            "assignees": [],
+            "user": {"login": "author"},
+            "created_at": "2024-01-01",
+            "updated_at": "2024-01-02",
+            "comments_url": None,
+        }
+    )
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        ("gh", "api", "repos/owner/repo/issues/8"): CommandResult(issue_payload, "", 0),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    details = gh.issue_details("8")
+    assert details.user_story_content == "local story"
+
+
+def test_fetch_repo_file_returns_none_on_invalid_payload(tmp_path: Path) -> None:
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        ("gh", "api", "repos/owner/repo/contents/path"): CommandResult("[]", "", 0),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    assert gh.fetch_repo_file("path") is None

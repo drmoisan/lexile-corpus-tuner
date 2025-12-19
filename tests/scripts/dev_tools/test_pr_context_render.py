@@ -3,13 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts.dev_tools.pr_context_git import GitClient
-from scripts.dev_tools.pr_context_models import CommandResult, PullRequestDetails
-from scripts.dev_tools.pr_context_render import (
+from scripts.dev_tools.pr_context.git import GitClient
+from scripts.dev_tools.pr_context.models import (
+    CommandResult,
+    IssueDetails,
+    PullRequestDetails,
+)
+from scripts.dev_tools.pr_context.render import (
     build_pr_context,
     completed_plan_tasks,
+    convert_numstat,
     extract_changed_paths,
+    format_issue_details,
+    gather_feature_excerpts,
     parse_section,
+    select_default_base,
     summarize_conventional_commits,
 )
 
@@ -206,3 +214,62 @@ def test_extract_changed_paths_and_helpers() -> None:
 
     empty_summary = summarize_conventional_commits("\n\n")
     assert "(no recognizable conventional commit types)" in empty_summary
+
+
+def test_convert_numstat_skips_blank_and_short_lines() -> None:
+    adds, dels, files = convert_numstat("\n1\t2\ta.py\nincomplete")
+    assert adds == 1 and dels == 2
+    assert files == ["a.py"]
+
+
+def test_gather_feature_excerpts_handles_empty_docs(tmp_path: Path) -> None:
+    feature_dir = tmp_path / "docs" / "features" / "active" / "demo"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    spec_path = feature_dir / "spec.md"
+    spec_path.write_text("", encoding="utf-8")
+
+    excerpts = gather_feature_excerpts(tmp_path, ["docs/features/active/demo/spec.md"])
+    assert excerpts
+    assert "(no spec/plan excerpts found)" in excerpts[0].excerpt
+
+
+def test_format_issue_details_includes_user_story() -> None:
+    details = format_issue_details(
+        IssueDetails(
+            number="#1",
+            title="Issue",
+            state="open",
+            labels=[],
+            assignees=[],
+            author="alex",
+            created_at="2024-01-01",
+            updated_at="2024-01-02",
+            body="Body",
+            comments=[],
+            user_story_path="docs/story/user-story.md",
+            user_story_content="Story content",
+        )
+    )
+    assert "User story (docs/story/user-story.md)" in details
+    assert "Story content" in details
+
+
+def test_extract_changed_paths_accepts_simple_lines() -> None:
+    context = "\n".join(
+        [
+            "===== Changed files (name-status) =====",
+            "docs/readme.md",
+            "===== Diff shortstat =====",
+        ]
+    )
+    paths = extract_changed_paths(context)
+    assert paths == ["docs/readme.md"]
+
+
+def test_select_default_base_returns_none_when_unavailable() -> None:
+    class FailingRunner:
+        def run(self, *args: object, **kwargs: object) -> CommandResult:
+            return CommandResult("", "", 1)
+
+    git = GitClient(FailingRunner(), Path("."))  # type: ignore[arg-type]
+    assert select_default_base(git) is None
