@@ -13,6 +13,8 @@ from scripts.dev_tools.collect_pr_context import (
     PullRequestDetails,
     _issue_appendix,  # pyright: ignore[reportPrivateUsage]
     _issue_digest,  # pyright: ignore[reportPrivateUsage]
+    _last_with_truncation,  # pyright: ignore[reportPrivateUsage]
+    _parse_name_status_map,  # pyright: ignore[reportPrivateUsage]
     _parse_numstat_detailed,  # pyright: ignore[reportPrivateUsage]
     _scoping_doc_changes,  # pyright: ignore[reportPrivateUsage]
     build_close_candidates_section,
@@ -144,6 +146,17 @@ def test_extract_issue_references_filters_and_deduplicates():
     text = "Fixes #12 and relates to ABC-99 plus #12 again"
     refs = extract_issue_references(text)
     assert refs == ["#12", "ABC-99"]
+
+
+def test_last_with_truncation_limits_list():
+    items, truncated = _last_with_truncation(["a", "b", "c", "d"], 2)
+    assert items == ["c", "d"]
+    assert truncated is True
+
+
+def test_parse_name_status_map_collects_statuses():
+    mapping = _parse_name_status_map("A\tfirst.txt\nM\tsecond.txt")
+    assert mapping == {"first.txt": "A", "second.txt": "M"}
 
 
 def test_extract_merge_pr_numbers_ignores_non_merge_lines():
@@ -310,3 +323,20 @@ def test_scoping_doc_changes_flags_material_headings():
     )
     material = [entry for entry in changes if entry[1]]
     assert material
+
+
+def test_scoping_doc_changes_marks_non_material_link_only():
+    root = Path(__file__).resolve().parents[3]
+    path = "docs/features/active/fix-all-script/spec.md"
+    diff_text = f"+++ b/{path}\n+http://example.com\n+[link](https://example.com)"
+    git = FakeGitScoping(diff_text)
+    changes = _scoping_doc_changes(
+        git=git,
+        merge_base="base",
+        head_sha="head",
+        root=root,
+        name_status_text=f"M\t{path}",
+        numstat_details={path: (2, 0)},
+    )
+    assert changes
+    assert changes[0][1] is False
