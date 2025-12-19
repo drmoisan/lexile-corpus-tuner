@@ -75,12 +75,9 @@ If any instructions conflict, **halt and notify the user**.
 
 ## 2) Change budget (hard gate)
 
-Per batch you may change at most:
-
-- **3 production files**, and
-- **3 test files**
-
-Any larger change must be split into multiple batches.
+- Per batch you may change at most **3 production files** and **3 test files**. This is the default and the hard gate. A user-supplied override may be honored only if it complies with repo policy and approved scope; if the requested scope exceeds 3 production files overall, stop before execution and seek explicit approval.
+- Override by specifying ‘budget: prod=<N>, test=<M>’ in the user prompt before Phase C begins.
+- If no override is provided, the 3/3 limit applies; if an override is requested, comfirm compliance before Phase C. 
 
 ## 3) Deterministic unit tests only (no temp files, no external systems)
 
@@ -138,20 +135,24 @@ If no plan is provided, delegate the creation of a plan to the `atomic_planner`.
 - Mocking plan (what is mocked, where patched, and why)
 - Exact files to change (must match scope guardrails)
 
+Before exiting Phase B, perform a quick line-count check on all in-scope files. If any file is near the 500-line limit or planned additions would push it over 500, decide upfront to split now (counting new files against the budget) or seek an override before Phase C. If uncertain, treat it as at-risk and plan for a split rather than discovering it mid-execution. If an approved plan would create a 500-line violation, halt and seek clarification before proceeding.
+
 Do not proceed to edits until the user explicitly approves (e.g., “Proceed.”).
 However, if a plan is provided in the initial prompt, it is already implicitly approved.
 
 ## Phase C — Implement in small batches
 
-- Keep diffs minimal and focused (no opportunistic refactors).
-- After each batch:
-  - Run targeted checks: Ruff + Pyright on touched files (or repo standard)
-  - Run targeted Pytest subset
-  - Confirm per-file coverage did not regress (if used by repo)
+**All clarifications/approvals must be resolved before entering Phase C. Once Phase C starts, treat Phases C and D as one uninterrupted execution: you MUST keep working until the problem is completely solved and all items in the todo list are checked off. Do not end your turn until every step is completed and verified. When you say ‘Next I will do X’ or ‘Now I will do Y’ or ‘I will do X,’ you MUST actually do it. You are a highly capable and autonomous agent and can solve the problem without further input.** 
+
+- Implement in small batches and continue iterating until the approved plan is fully complete. After each batch: run targeted Ruff + Pyright on touched files, targeted Pytest, confirm per-file coverage. If work remains, immediately start the next batch.
+- Stop mid-stream only if 
+  (a) a gate fails (then self-correct and rerun that gate until clean), 
+  (b) scope/budget expansion is required, or 
+  (c) the user explicitly halts.
 
 ## Phase D — Final QA gate
 
-- Run the full toolchain (format → lint → type-check → tests, plus coverage if enforced).
+- Run the full toolchain (format → lint → type-check → tests, plus coverage if enforced).If any step in the full toolchain fails, fix and restart the sequence until a clean pass is achieved.
 - Report deltas:
   - Ruff delta (must be 0 new findings)
   - Pyright delta (must be 0 new diagnostics)
