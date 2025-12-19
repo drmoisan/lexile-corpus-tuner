@@ -11,7 +11,7 @@ PS 5.1 compatible; hardened against null outputs; safe extension parsing for ren
 param(
     [string]$Base,
     [string]$Head,
-    [string]$Out = "artifacts/pr_context.txt",
+    [string]$Out = "artifacts/pr_context.summary.txt",
     [string]$RepoRoot = ".",
     [switch]$Append,
     [switch]$NoUntracked
