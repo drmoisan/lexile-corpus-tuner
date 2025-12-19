@@ -39,6 +39,12 @@ class IssueDetails:
 
     number: str
     title: str
+    state: str
+    labels: list[str]
+    assignees: list[str]
+    author: str
+    created_at: str
+    updated_at: str
     body: str
     comments: list[str]
     user_story_path: str | None = None
@@ -51,8 +57,18 @@ class PullRequestDetails:
 
     number: str
     title: str
+    state: str
+    author: str
+    base_ref: str
+    head_ref: str
+    created_at: str
+    updated_at: str
+    merged_at: str | None
+    labels: list[str]
+    assignees: list[str]
     body: str
     closing_issues: list[str]
+    files_changed: list[str]
 
 
 @dataclass
@@ -72,6 +88,56 @@ class PRContextResult:
     referenced_issues: list[str]
     referenced_prs: list[str]
     verified_closing: list[str]
+    invalid_references: list[str]
+    base_ref: str | None
+    resolved_base: str | None
+    base_sha: str | None
+    head_ref: str | None
+    head_sha: str | None
+    merge_base: str | None
+    rev_range: str | None
+
+
+@dataclass
+class GitHubCLIStatus:
+    """Status snapshot for GitHub CLI availability."""
+
+    healthy: bool
+    message: str
+
+
+@dataclass
+class CIStatusSnapshot:
+    """Minimal CI status for a given commit."""
+
+    status: str | None
+    failing_jobs: list[str]
+
+
+@dataclass
+class BaseHeadInfo:
+    """Resolved base/head refs and merge-base provenance."""
+
+    requested_base: str | None
+    resolved_base: str
+    base_sha: str
+    head_ref: str
+    head_sha: str
+    merge_base: str
+    warning: str | None = None
+
+
+@dataclass
+class ScopingDocChange:
+    """Represents a scoping doc change and its materiality."""
+
+    path: str
+    additions: int
+    deletions: int
+    change_type: str
+    material: bool
+    reasons: list[str]
+    excerpt: str | None = None
 
 
 def section(title: str) -> str:
@@ -82,6 +148,14 @@ def truncate(text: str, limit: int = 800) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 3].rstrip() + "..."
+
+
+def truncate_lines(text: str, limit: int) -> str:
+    lines = text.splitlines()
+    if len(lines) <= limit:
+        return text
+    head = "\n".join(lines[:limit])
+    return f"{head}\n\nTRUNCATED: first {limit} lines shown"
 
 
 def normalize_reference(ref: str) -> str:

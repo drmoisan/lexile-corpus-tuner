@@ -11,16 +11,18 @@ from scripts.dev_tools.collect_pr_context import (
     GitClient,
     IssueDetails,
     PullRequestDetails,
+    _issue_appendix,  # pyright: ignore[reportPrivateUsage]
+    _issue_digest,  # pyright: ignore[reportPrivateUsage]
+    _parse_numstat_detailed,  # pyright: ignore[reportPrivateUsage]
+    _scoping_doc_changes,  # pyright: ignore[reportPrivateUsage]
     build_close_candidates_section,
     build_pr_context,
-    completed_plan_tasks,
     convert_numstat,
     extension_summary,
     extract_issue_references,
     extract_merge_pr_numbers,
     find_user_story_link,
     format_diff_path,
-    format_issue_details,
     gather_feature_excerpts,
     select_default_base,
 )
@@ -173,9 +175,19 @@ def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
     gh = FakeGh()
     current_pr = PullRequestDetails(
         number="#99",
+        state="open",
+        author="alice",
+        base_ref="main",
+        head_ref="feature/test",
+        created_at="2025-01-01",
+        updated_at="2025-01-02",
+        merged_at=None,
+        labels=[],
+        assignees=[],
         title="current",
         body="closes #44",
         closing_issues=["#50"],
+        files_changed=[],
     )
     context = build_pr_context(
         git=git,
@@ -190,6 +202,7 @@ def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
     assert "Referenced issues" in context.text
     assert "#44" in context.text
     assert context.verified_closing == ["#50"]
+    assert context.invalid_references == []
 
 
 def test_gather_feature_excerpts_reads_active_docs():
@@ -207,16 +220,6 @@ def test_gather_feature_excerpts_reads_active_docs():
     assert isinstance(collected_issue_refs, set)
 
 
-def test_completed_plan_tasks_collects_checked_items():
-    text = """
-- [ ] todo
-- [x] done item
-- [X] another done
-"""
-    tasks = completed_plan_tasks(text)
-    assert tasks == ["done item", "another done"]
-
-
 def test_find_user_story_link_extracts_blob_path():
     link = find_user_story_link(
         "See [story](https://github.com/org/repo/blob/main/docs/story/user-story.md)"
@@ -226,21 +229,84 @@ def test_find_user_story_link_extracts_blob_path():
 
 def test_build_close_candidates_section_renders_lists():
     section_text = build_close_candidates_section(
-        verified=["#1"], author_asserted=["#2"], referenced=["#3", "#4"]
+        verified=["#1"],
+        author_asserted=["#2"],
+        referenced=["#3", "#4"],
+        verified_reason="None (no PR exists yet for this branch)",
+        author_reason="None (author asserted)",
     )
     assert "Close candidates" in section_text
     assert "#1" in section_text and "#2" in section_text and "#3" in section_text
 
 
-def test_format_issue_details_includes_user_story():
+def test_issue_digest_truncates_comments():
     issue = IssueDetails(
         number="#10",
         title="Test",
-        body="Body text",
-        comments=[],
-        user_story_path="docs/user-story.md",
-        user_story_content="Story content",
+        state="open",
+        labels=["bug"],
+        assignees=["alice"],
+        author="bob",
+        created_at="2024-01-01",
+        updated_at="2024-01-02",
+        body="## Why\n- reason one\n- reason two\n",
+        comments=[f"comment {idx}" for idx in range(6)],
+        user_story_path=None,
+        user_story_content=None,
     )
-    rendered = format_issue_details(issue)
-    assert "Issue #10" in rendered
-    assert "Story content" in rendered
+    digest = _issue_digest(issue)
+    assert "reason one" in digest
+    assert "TRUNCATED: last 3 comments shown" in digest
+
+
+def test_issue_appendix_truncates_body_and_comments():
+    issue = IssueDetails(
+        number="#11",
+        title="Another",
+        state="open",
+        labels=[],
+        assignees=[],
+        author="carol",
+        created_at="2024-02-01",
+        updated_at="2024-02-02",
+        body="\n".join(f"line {i}" for i in range(130)),
+        comments=[f"note {i}" for i in range(15)],
+        user_story_path=None,
+        user_story_content=None,
+    )
+    appendix = _issue_appendix(issue)
+    assert "TRUNCATED: first" in appendix or "TRUNCATED" in appendix
+    assert "TRUNCATED: last 10 comments shown" in appendix
+
+
+def test_parse_numstat_detailed_collects_per_file():
+    adds, dels, mapping = _parse_numstat_detailed("5\t1\ta.py\n3\t2\tdocs/readme.md")
+    assert adds == 8 and dels == 3
+    assert mapping["a.py"] == (5, 1)
+    assert mapping["docs/readme.md"] == (3, 2)
+
+
+class FakeGitScoping(GitClient):
+    def __init__(self, diff_text: str) -> None:
+        super().__init__(FakeRunner({}), Path("."))
+        self._diff_text = diff_text
+
+    def diff_range(self, args: Sequence[str]) -> str:
+        return self._diff_text
+
+
+def test_scoping_doc_changes_flags_material_headings():
+    root = Path(__file__).resolve().parents[3]
+    path = "docs/features/active/fix-all-script/spec.md"
+    diff_text = f"+++ b/{path}\n+## Acceptance Criteria\n+New criteria"
+    git = FakeGitScoping(diff_text)
+    changes = _scoping_doc_changes(
+        git=git,
+        merge_base="base",
+        head_sha="head",
+        root=root,
+        name_status_text=f"M\t{path}",
+        numstat_details={path: (10, 2)},
+    )
+    material = [entry for entry in changes if entry[1]]
+    assert material

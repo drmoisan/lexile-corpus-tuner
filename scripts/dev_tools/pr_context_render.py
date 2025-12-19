@@ -226,6 +226,13 @@ def format_issue_details(issue: IssueDetails) -> str:
     comments_text = format_list(issue.comments, "(no comments)")
     lines = [
         section(f"Issue {issue.number}: {issue.title}"),
+        f"State: {issue.state}",
+        f"Author: {issue.author}",
+        f"Labels: {', '.join(issue.labels) if issue.labels else '(none)'}",
+        f"Assignees: {', '.join(issue.assignees) if issue.assignees else '(none)'}",
+        f"Created: {issue.created_at}",
+        f"Updated: {issue.updated_at}",
+        "",
         truncate(issue.body, 1200),
         "",
         "Comments:",
@@ -246,10 +253,22 @@ def format_pr_details(pr: PullRequestDetails) -> str:
     return "\n".join(
         [
             section(f"Pull Request {pr.number}: {pr.title}"),
+            f"State: {pr.state}",
+            f"Author: {pr.author}",
+            f"Base: {pr.base_ref}",
+            f"Head: {pr.head_ref}",
+            f"Created: {pr.created_at}",
+            f"Updated: {pr.updated_at}",
+            f"Merged: {pr.merged_at or '(not merged)'}",
+            f"Labels: {', '.join(pr.labels) if pr.labels else '(none)'}",
+            f"Assignees: {', '.join(pr.assignees) if pr.assignees else '(none)'}",
             truncate(pr.body, 1200),
             "",
             "Auto-close issues (from this PR):",
             format_list(pr.closing_issues, "(none)"),
+            "",
+            "Files (first 15):",
+            format_list(pr.files_changed[:15], "(none)"),
         ]
     )
 
@@ -259,15 +278,17 @@ def build_close_candidates_section(
     verified: list[str],
     author_asserted: list[str],
     referenced: list[str],
+    verified_reason: str,
+    author_reason: str,
 ) -> str:
     return "\n".join(
         [
             section("Close candidates"),
             "Auto-close issues (verified from GitHub PR metadata):",
-            format_list(verified, "(no PR detected or no verified closing issues)"),
+            format_list(verified, verified_reason),
             "",
             "Auto-close issues (author asserted):",
-            format_list(author_asserted, "(none)"),
+            format_list(author_asserted, author_reason),
             "",
             "Referenced issues (detected):",
             format_list(referenced, "(none)"),
@@ -298,17 +319,42 @@ def build_pr_context(
     referenced_issues: list[str] = []
     referenced_prs: list[str] = []
     verified_closing = current_pr.closing_issues if current_pr else []
+    invalid_references: list[str] = []
+
+    resolved_base: str | None = None
+    base_sha: str | None = None
+    head_sha: str | None = None
+    head_ref_resolved: str | None = head_ref or branch_name
+    merge_base: str | None = None
+    rev_range: str | None = None
 
     pr_block = ""
+    base_warning: str | None = None
     try:
+        requested_base = base_ref
         resolved_base = base_ref or select_default_base(git)
         if not resolved_base:
             raise RuntimeError("Failed to resolve base ref (tried common defaults)")
 
-        base = git.rev_parse(resolved_base)
-        head = git.rev_parse(head_ref or "HEAD")
-        merge_base = git.merge_base(base, head)
-        rev_range = f"{merge_base}..{head}"
+        if not resolved_base.startswith("origin/"):
+            remote_candidate = f"origin/{resolved_base}"
+            remote_probe = git.run(
+                ["rev-parse", "--verify", "--quiet", remote_candidate],
+                allow_error=True,
+            )
+            if remote_probe.code == 0 and remote_probe.stdout.strip():
+                resolved_base = remote_candidate
+            elif requested_base:
+                base_warning = (
+                    "WARNING: Requested base is local and may be stale; prefer "
+                    f"origin/{requested_base}"
+                )
+
+        base_sha = git.rev_parse(resolved_base)
+        head_ref_resolved = head_ref or branch_name
+        head_sha = git.rev_parse(head_ref_resolved or "HEAD")
+        merge_base = git.merge_base(base_sha, head_sha)
+        rev_range = f"{merge_base}..{head_sha}"
 
         oneline = git.log("--pretty=format:%h %ad %an %s", rev_range)
         subjects = git.log("--pretty=%s", rev_range)
@@ -317,10 +363,10 @@ def build_pr_context(
             {line.strip() for line in authors.splitlines() if line.strip()}
         )
 
-        name_status = git.diff_range(["--name-status", merge_base, head])
-        numstat = git.diff_range(["--numstat", merge_base, head])
-        shortstat = git.diff_range(["--shortstat", merge_base, head])
-        stat = git.diff_range(["--stat", merge_base, head])
+        name_status = git.diff_range(["--name-status", merge_base, head_sha])
+        numstat = git.diff_range(["--numstat", merge_base, head_sha])
+        shortstat = git.diff_range(["--shortstat", merge_base, head_sha])
+        stat = git.diff_range(["--stat", merge_base, head_sha])
 
         additions, deletions, files = convert_numstat(numstat)
         ext_summary = extension_summary(files)
@@ -341,7 +387,7 @@ def build_pr_context(
             elif entity == "pull":
                 prs.append(ref if ref.startswith("#") else f"#{ref}")
             else:
-                issues.append(ref)
+                invalid_references.append(ref if ref.startswith("#") else f"#{ref}")
 
         referenced_issues = sorted(set(issues))
         referenced_prs = sorted(set(prs + merge_prs))
@@ -358,12 +404,17 @@ def build_pr_context(
         ext_display = ext_summary if ext_summary else "(none)"
         stat_display = stat if stat.strip() else "(none)"
 
-        pr_block = "\n".join(
+        block_lines = [
+            section("PR Comparison"),
+            f"Base ref (requested): {requested_base or '(default)'}",
+            f"Base ref (resolved): {resolved_base} @ {base_sha}",
+            f"Head ref (resolved): {head_ref_resolved} @ {head_sha}",
+            f"Merge-base: {merge_base}",
+        ]
+        if base_warning:
+            block_lines.append(f"Base warning: {base_warning}")
+        block_lines.extend(
             [
-                section("PR Comparison"),
-                f"Base: {base_ref or resolved_base}",
-                f"Head: {head_ref or branch_name}",
-                f"Merge-base: {merge_base}",
                 f"Range: {rev_range}\n",
                 section("Commits in range"),
                 oneline_display,
@@ -395,11 +446,19 @@ def build_pr_context(
                 stat_display,
             ]
         )
+        pr_block = "\n".join(block_lines)
     except Exception as exc:  # noqa: BLE001
         pr_block = section("PR Comparison") + f"(FAILED to compute PR context: {exc})\n"
         referenced_issues = []
         referenced_prs = []
         verified_closing = []
+        invalid_references = []
+        resolved_base = None
+        base_sha = None
+        head_sha = None
+        head_ref_resolved = head_ref or branch_name
+        merge_base = None
+        rev_range = None
 
     intent = "\n".join(
         [
@@ -445,6 +504,14 @@ def build_pr_context(
         referenced_issues=referenced_issues,
         referenced_prs=referenced_prs,
         verified_closing=sorted(set(verified_closing)),
+        invalid_references=sorted(set(invalid_references)),
+        base_ref=base_ref,
+        resolved_base=resolved_base,
+        base_sha=base_sha,
+        head_ref=head_ref_resolved,
+        head_sha=head_sha,
+        merge_base=merge_base,
+        rev_range=rev_range,
     )
 
 
