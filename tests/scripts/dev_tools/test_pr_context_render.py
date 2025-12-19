@@ -5,7 +5,13 @@ from typing import TYPE_CHECKING
 
 from scripts.dev_tools.pr_context_git import GitClient
 from scripts.dev_tools.pr_context_models import CommandResult, PullRequestDetails
-from scripts.dev_tools.pr_context_render import build_pr_context
+from scripts.dev_tools.pr_context_render import (
+    build_pr_context,
+    completed_plan_tasks,
+    extract_changed_paths,
+    parse_section,
+    summarize_conventional_commits,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -126,3 +132,77 @@ def test_build_pr_context_emits_base_warning_and_invalid_refs() -> None:
     assert "#53" in context.referenced_prs
     assert context.base_ref == "local"
     assert context.resolved_base == "origin/local" or context.resolved_base == "local"
+
+
+def test_build_pr_context_handles_exceptions() -> None:
+    class FailingGit(GitClient):
+        def __init__(self) -> None:
+            super().__init__(FakeRunner(), Path("."))
+
+        def branch_name(self) -> str:
+            return "feature/fail"
+
+        def upstream(self) -> str:
+            return "origin/feature/fail"
+
+        def remote_verbose(self) -> str:
+            return "origin https://example/repo (fetch)"
+
+        def status_short(self) -> str:
+            return "## feature/fail"
+
+        def diff_name_status(self, *, staged: bool) -> str:
+            return ""
+
+        def diff_patch(self, *, staged: bool) -> str:
+            return ""
+
+        def rev_parse(self, ref: str) -> str:
+            raise RuntimeError("boom")
+
+    class DummyGh:
+        def ensure_available(self) -> None:
+            return None
+
+        def classify_entity(self, number: str) -> str | None:
+            return None
+
+    git = FailingGit()
+    gh = DummyGh()
+    result = build_pr_context(
+        git=git,
+        gh=gh,
+        base_ref="main",
+        head_ref="feature/fail",
+        include_untracked=False,
+    )
+    assert result.text.lstrip().startswith("===== PR Intent")
+    assert result.referenced_issues == []
+    assert result.resolved_base is None
+    assert result.merge_base is None
+
+
+def test_extract_changed_paths_and_helpers() -> None:
+    context_text = "\n".join(
+        [
+            "===== Changed files (name-status) =====",
+            "M\tsrc/app.py",
+            "A\tdocs/guide.md",
+            "===== Diff shortstat =====",
+        ]
+    )
+    paths = extract_changed_paths(context_text)
+    assert paths == ["src/app.py", "docs/guide.md"]
+
+    section_text = parse_section("## Heading\ncontent\n## Next\n", "Heading")
+    assert section_text == "content"
+    assert parse_section("no heading", "Missing") == ""
+
+    tasks = completed_plan_tasks("- [x] done 1\n- [X] done 2\n- [ ] skip\n")
+    assert tasks == ["done 1", "done 2"]
+
+    summary = summarize_conventional_commits("chore: clean\nfeature: skip\n")
+    assert "other" in summary or "chore" in summary
+
+    empty_summary = summarize_conventional_commits("\n\n")
+    assert "(no recognizable conventional commit types)" in empty_summary

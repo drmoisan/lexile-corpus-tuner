@@ -6,19 +6,25 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    import pytest
+
 from scripts.dev_tools.collect_pr_context import (
     CommandResult,
     GitClient,
     IssueDetails,
     PullRequestDetails,
+    _is_scoping_doc,  # pyright: ignore[reportPrivateUsage]
     _issue_appendix,  # pyright: ignore[reportPrivateUsage]
     _issue_digest,  # pyright: ignore[reportPrivateUsage]
     _last_with_truncation,  # pyright: ignore[reportPrivateUsage]
     _parse_name_status_map,  # pyright: ignore[reportPrivateUsage]
     _parse_numstat_detailed,  # pyright: ignore[reportPrivateUsage]
+    _pr_appendix,  # pyright: ignore[reportPrivateUsage]
+    _pr_digest,  # pyright: ignore[reportPrivateUsage]
     _scoping_doc_changes,  # pyright: ignore[reportPrivateUsage]
     build_close_candidates_section,
     build_pr_context,
+    collect_and_write,
     convert_numstat,
     extension_summary,
     extract_issue_references,
@@ -28,6 +34,7 @@ from scripts.dev_tools.collect_pr_context import (
     gather_feature_excerpts,
     select_default_base,
 )
+from scripts.dev_tools.pr_context_models import FeatureDocExcerpt, PRContextResult
 
 
 class FakeRunner:
@@ -340,3 +347,224 @@ def test_scoping_doc_changes_marks_non_material_link_only():
     )
     assert changes
     assert changes[0][1] is False
+
+
+def test_pr_digest_and_appendix_cover_headings_and_files():
+    pr = PullRequestDetails(
+        number="#21",
+        title="Improve docs",
+        state="open",
+        author="lee",
+        base_ref="main",
+        head_ref="feature/docs",
+        created_at="2024-01-01",
+        updated_at="2024-01-02",
+        merged_at=None,
+        labels=["docs"],
+        assignees=["lee"],
+        body="## Why\n- clarify usage\n",
+        closing_issues=["#8"],
+        files_changed=["a.md", "b.md", "c.md", "d.md"],
+    )
+    digest = _pr_digest(pr)
+    appendix = _pr_appendix(pr)
+    assert "Why: clarify usage" in digest
+    assert "Files (first 25)" in appendix
+    assert "closes" not in appendix.lower()
+
+
+def test_issue_appendix_includes_user_story_block():
+    issue = IssueDetails(
+        number="#12",
+        title="Story reference",
+        state="open",
+        labels=[],
+        assignees=[],
+        author="alex",
+        created_at="2024-03-01",
+        updated_at="2024-03-02",
+        body="Context\n" + "\n".join(f"line {i}" for i in range(10)),
+        comments=["note"],
+        user_story_path="docs/story/user-story.md",
+        user_story_content="Story content line 1\nline 2",
+    )
+    appendix = _issue_appendix(issue)
+    assert "User story (docs/story/user-story.md)" in appendix
+    assert "Story content line" in appendix
+
+
+def test_parse_numstat_detailed_handles_non_numeric_entries():
+    adds, dels, mapping = _parse_numstat_detailed(
+        "-\t-\tfirst.txt\nnotnum\t3\tsecond.txt\n"
+    )
+    assert adds == 0
+    assert dels == 3
+    assert mapping["first.txt"] == (0, 0)
+    assert mapping["second.txt"] == (0, 3)
+
+
+def test_is_scoping_doc_identifies_feature_files():
+    assert _is_scoping_doc("docs/features/active/feat/spec.md")
+    assert _is_scoping_doc("docs/features/active/feat/plan.md")
+    assert _is_scoping_doc("docs/features/active/feat/bug-remediation-plan.md")
+    assert _is_scoping_doc("docs/features/active/feat/user-story.md")
+    assert not _is_scoping_doc("docs/features/ideas/idea.md")
+    assert not _is_scoping_doc("src/main.py")
+
+
+def test_collect_and_write_uses_feature_refs_and_scoping(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: list[tuple[Path, str]] = []
+
+    def fake_write_output(text: str, out_path: Path, append: bool) -> None:
+        captured.append((out_path, text))
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.collect_pr_context.write_output", fake_write_output
+    )
+
+    class FakeGit:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._root = Path(__file__).resolve().parents[3]
+
+        def resolve_root(self) -> Path:
+            return self._root
+
+        def branch_name(self) -> str:
+            return "feature/ABC-10"
+
+        def diff_range(self, args: Sequence[str]) -> str:
+            path = "docs/features/active/fix-all-script/spec.md"
+            if "--name-status" in args:
+                return f"M\t{path}"
+            if "--numstat" in args:
+                return f"20\t0\t{path}"
+            if "--unified=0" in args:
+                return f"+++ b/{path}\n+## Acceptance Criteria\n+New criteria"
+            return ""
+
+        def rev_parse(self, ref: str) -> str:
+            return f"{ref}-sha"
+
+    class FakeGh:
+        status_message = "ok"
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            return None
+
+        def ensure_available(self) -> None:
+            return None
+
+        def current_pr(self) -> PullRequestDetails | None:
+            return None
+
+        def classify_entity(self, number: str) -> str | None:
+            return "issue" if number in {"1", "ABC-10"} else "pull"
+
+        def issue_details(self, number: str) -> IssueDetails:
+            return IssueDetails(
+                number=f"#{number}",
+                title="Issue",
+                state="open",
+                labels=[],
+                assignees=[],
+                author="alex",
+                created_at="2024-01-01",
+                updated_at="2024-01-02",
+                body="Body",
+                comments=[],
+            )
+
+        def pr_details(self, number: str) -> PullRequestDetails:
+            return PullRequestDetails(
+                number=f"#{number}",
+                title="PR",
+                state="open",
+                author="alex",
+                base_ref="main",
+                head_ref="feature",
+                created_at="2024-01-01",
+                updated_at="2024-01-02",
+                merged_at=None,
+                labels=[],
+                assignees=[],
+                body="PR body",
+                closing_issues=[],
+                files_changed=["file.py"],
+            )
+
+        def ci_status(self, head_sha: str) -> tuple[str | None, list[str]]:
+            return "success", []
+
+    feature_calls: list[list[str]] = []
+
+    def fake_build_pr_context(
+        *,
+        git: GitClient,
+        gh: FakeGh,
+        base_ref: str | None,
+        head_ref: str | None,
+        include_untracked: bool,
+        feature_issue_refs: Sequence[str] | None = None,
+        current_pr: PullRequestDetails | None = None,
+    ) -> PRContextResult:
+        feature_calls.append(list(feature_issue_refs or []))
+        context_text = "\n".join(
+            [
+                "===== Changed files (name-status) =====",
+                "M\tdocs/features/active/fix-all-script/spec.md",
+                "===== Diff shortstat =====",
+            ]
+        )
+        return PRContextResult(
+            text=context_text,
+            referenced_issues=["#1"],
+            referenced_prs=["#2"],
+            verified_closing=["#1"],
+            invalid_references=[],
+            base_ref=base_ref,
+            resolved_base="origin/main",
+            base_sha="base-sha",
+            head_ref=head_ref or "feature",
+            head_sha="head-sha",
+            merge_base="base-sha",
+            rev_range="base-sha..head-sha",
+        )
+
+    monkeypatch.setattr("scripts.dev_tools.collect_pr_context.GitClient", FakeGit)
+    monkeypatch.setattr("scripts.dev_tools.collect_pr_context.GhClient", FakeGh)
+    monkeypatch.setattr(
+        "scripts.dev_tools.collect_pr_context.build_pr_context", fake_build_pr_context
+    )
+
+    def fake_gather_feature_excerpts(
+        root: Path, paths: Sequence[str]
+    ) -> list[FeatureDocExcerpt]:
+        return [
+            FeatureDocExcerpt(
+                feature="fix-all-script", excerpt="Excerpt", issue_refs=["#7"]
+            )
+        ]
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.collect_pr_context.gather_feature_excerpts",
+        fake_gather_feature_excerpts,
+    )
+
+    collect_and_write(
+        base="main",
+        head="feature",
+        out=tmp_path / "summary.txt",
+        appendix_out=tmp_path / "appendix.txt",
+        repo_root=tmp_path,
+        append=False,
+        include_untracked=False,
+    )
+
+    assert feature_calls[0] == []
+    assert feature_calls[1] == ["#7"]
+    summary_text = next(text for path, text in captured if path.name == "summary.txt")
+    appendix_text = next(text for path, text in captured if path.name == "appendix.txt")
+    assert "Scoping docs changed" in summary_text
+    assert "fix-all-script" in appendix_text

@@ -4,6 +4,8 @@ import base64
 import json
 from typing import TYPE_CHECKING
 
+import pytest
+
 from scripts.dev_tools.pr_context_gh import GhClient
 from scripts.dev_tools.pr_context_models import CommandResult
 
@@ -149,3 +151,74 @@ def test_issue_and_pr_details_parse_metadata_and_comments(tmp_path: Path) -> Non
     status, failing = gh.ci_status("abc123")
     assert status == "success"
     assert failing == []
+
+
+def test_gh_client_reports_unavailable_and_allows_not_found(tmp_path: Path) -> None:
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "not logged in", 1),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    with pytest.raises(RuntimeError):
+        gh.ensure_available()
+
+    responses_ok = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        ("gh", "api", "repos/owner/repo/issues/999"): CommandResult("", "Not Found", 1),
+    }
+    gh_ok = GhClient(FakeRunner(responses_ok), tmp_path, gh_path="gh")
+    assert gh_ok.classify_entity("999") is None
+
+
+def test_current_pr_parses_payload_and_ci_status_handles_empty(tmp_path: Path) -> None:
+    pr_payload = json.dumps(
+        {
+            "number": 4,
+            "title": "Existing PR",
+            "body": "Body",
+            "state": "open",
+            "author": {"login": "alex"},
+            "baseRefName": "main",
+            "headRefName": "feature",
+            "createdAt": "2024-02-01",
+            "updatedAt": "2024-02-02",
+            "mergedAt": None,
+            "labels": [{"name": "bug"}],
+            "assignees": [{"login": "lee"}],
+            "closingIssuesReferences": [{"number": 7}, {"number": 7}],
+        }
+    )
+    responses = {
+        ("gh", "auth", "status"): CommandResult("", "", 0),
+        ("gh", "repo", "view", "--json", "nameWithOwner"): CommandResult(
+            '{"nameWithOwner": "owner/repo"}', "", 0
+        ),
+        (
+            "gh",
+            "pr",
+            "view",
+            "--json",
+            "number,title,body,state,author,baseRefName,headRefName,createdAt,updatedAt,mergedAt,labels,assignees,closingIssuesReferences",
+        ): CommandResult(pr_payload, "", 0),
+        (
+            "gh",
+            "run",
+            "list",
+            "--commit",
+            "deadbeef",
+            "--limit",
+            "1",
+            "--json",
+            "conclusion,status,name,headSha",
+        ): CommandResult("[]", "", 0),
+    }
+    gh = GhClient(FakeRunner(responses), tmp_path, gh_path="gh")
+    pr = gh.current_pr()
+    assert pr is not None
+    assert pr.closing_issues == ["#7"]
+
+    status, jobs = gh.ci_status("deadbeef")
+    assert status is None
+    assert jobs == []
