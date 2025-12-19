@@ -15,9 +15,9 @@
 ## Implementation Plan (Atomic Tasks)
 
 ### Phase 0 — Context & Inputs
-- [ ] [P0-T1] Re-read chat-history.md to capture required behaviors (issue/PR separation, GH validation, feature-doc excerpts, PR-intent scaffold, deterministic autoclose).
-- [ ] [P0-T2] Re-read user-story.md and spec.md to align goals, acceptance criteria, and non-goals.
-- [ ] [P0-T3] Identify current versions/paths of generate-pr.prompt.md, pr-author.agent.md, and scripts/dev_tools/collect_pr_context.py to be updated.
+- [x] [P0-T1] Re-read chat-history.md to capture required behaviors (issue/PR separation, GH validation, feature-doc excerpts, PR-intent scaffold, deterministic autoclose).
+- [x] [P0-T2] Re-read user-story.md and spec.md to align goals, acceptance criteria, and non-goals.
+- [x] [P0-T3] Identify current versions/paths of generate-pr.prompt.md, pr-author.agent.md, and scripts/dev_tools/collect_pr_context.py to be updated.
 
 ### Phase 1 — Collector: issue/PR validation and autoclose
 - [ ] [P1-T1] Implement GH-aware classification that separates merged PRs (from merge commits) from issue references in pr_context output.

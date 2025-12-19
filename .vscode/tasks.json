@@ -491,6 +491,28 @@
       "detail": "Installs PSScriptAnalyzer and Pester (CurrentUser scope) for repo tasks."
     },
     {
+      "label": "Dev: Resolve Execute Plan Prompt",
+      "type": "shell",
+      "command": "poetry",
+      "args": [
+        "run",
+        "python",
+        "${workspaceFolder}/scripts/dev_tools/resolve_execute_plan_prompt.py",
+        "--feature",
+        "${input:ExecutePlanFeatureFolder}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "showReuseMessage": false
+      },
+      "detail": "Resolves the active feature, fills execute-plan prompt, and copies it to the clipboard."
+    },
+    {
       "label": "Dev: 1A New Potential Bug",
       "type": "shell",
       "command": "poetry",
@@ -583,6 +605,12 @@
       "description": "Feature folder name (kebab/underscore-case, e.g., notes_feature)",
       "default": "new_feature"
     },
+        {
+          "id": "ExecutePlanFeatureFolder",
+          "type": "promptString",
+          "description": "Feature folder under docs/features/active (leave blank to auto-detect)",
+          "default": ""
+        },
     {
       "id": "ActiveWorkType",
       "type": "pickString",
