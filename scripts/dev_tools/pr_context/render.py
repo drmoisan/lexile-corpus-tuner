@@ -168,6 +168,30 @@ def completed_plan_tasks(markdown: str, *, limit: int = 10) -> list[str]:
 def gather_feature_excerpts(
     root: Path, changed_files: Iterable[str]
 ) -> list[FeatureDocExcerpt]:
+    def _resolve_feature_dir(base_dir: Path, feature: str) -> Path | None:
+        direct = base_dir / feature
+        if direct.exists():
+            return direct
+
+        pattern = re.compile(rf"(?:^|[-_]){re.escape(feature)}(?:[-_]|$)")
+        strong_matches: list[Path] = []
+        weak_matches: list[Path] = []
+
+        for candidate in sorted(base_dir.iterdir()):
+            if not candidate.is_dir():
+                continue
+            name = candidate.name
+            if pattern.search(name):
+                strong_matches.append(candidate)
+            elif feature in name:
+                weak_matches.append(candidate)
+
+        if strong_matches:
+            return strong_matches[0]
+        if weak_matches:
+            return weak_matches[0]
+        return None
+
     features: set[str] = set()
     for raw in changed_files:
         parts = Path(raw).parts
@@ -180,9 +204,14 @@ def gather_feature_excerpts(
             features.add(parts[3])
 
     excerpts: list[FeatureDocExcerpt] = []
+    base_dir = root / "docs" / "features" / "active"
     for feature in sorted(features):
-        spec_path = root / "docs" / "features" / "active" / feature / "spec.md"
-        plan_path = root / "docs" / "features" / "active" / feature / "plan.md"
+        feature_dir = _resolve_feature_dir(base_dir, feature)
+        if feature_dir is None:
+            continue
+
+        spec_path = feature_dir / "spec.md"
+        plan_path = feature_dir / "plan.md"
 
         spec_text = spec_path.read_text(encoding="utf-8") if spec_path.exists() else ""
         plan_text = plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""
