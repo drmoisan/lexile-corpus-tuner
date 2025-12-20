@@ -1,5 +1,6 @@
 """Unit tests for scripts/dev_tools/pr_context/render.py module."""
 
+from pathlib import Path
 from unittest.mock import Mock
 
 from scripts.dev_tools.pr_context.models import (
@@ -19,6 +20,7 @@ from scripts.dev_tools.pr_context.render import (
     format_issue_details,
     format_pr_details,
     parse_section,
+    resolve_feature_dir,
     select_default_base,
     summarize_conventional_commits,
 )
@@ -424,3 +426,13 @@ class TestBuildCloseCandidatesSection:
         # which is ["#1", "#2"]
         assert "#1" in result
         assert "#2" in result
+
+
+class TestResolveFeatureDir:
+    def testresolve_feature_dir_exact_match(self, tmp_path: Path) -> None:
+        result = resolve_feature_dir(tmp_path, "feature")
+        assert result is None
+
+    def testresolve_feature_dir_missing_base(self, tmp_path: Path) -> None:
+        result = resolve_feature_dir(tmp_path / "missing", "feature")
+        assert result is None
