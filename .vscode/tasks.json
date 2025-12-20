@@ -311,7 +311,7 @@
             "run",
             "python",
             "-m",
-            "scripts.dev_tools.collect_pr_context",
+            "scripts.dev_tools.pr_context.collector",
             "--base",
             "${input:PRBaseBranch}"
           ],
