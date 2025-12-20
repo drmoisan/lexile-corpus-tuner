@@ -23,6 +23,7 @@ You MUST follow these rules.
 - DO NOT add numbers that are not present verbatim somewhere in `artifacts/pr_context.txt`.
 - DO NOT use “Related:” inside the auto-close section (it will not autoclose).
 - DO NOT claim verification (tests/lint/typecheck) unless the context explicitly proves it.
+- DO NOT cite or summarize files that are not listed under “Additional context files”.
 
 If the context is missing information, say so explicitly and provide recommended verification commands.
 
@@ -37,7 +38,7 @@ Prioritize these sections (when present), in this order:
    - If “Author-asserted autoclose issues” is filled in, it is the ONLY acceptable source of non-verified autoclose targets.
 
 2) **Additional context files** (enumerated)  
-   - You may only cite content from `pr_context` plus the explicitly listed files. Do not infer from any other sources.
+   - You may only cite content from `pr_context` plus the explicitly listed files. Do not infer from any other sources or files.
 
 3) **Feature doc excerpts** (spec/plan/user-story)  
    - Use excerpted **Root Cause / Constraints / Proposed Fix / Acceptance Criteria / Story Statement / Problem / Why** to write a high-signal “Why”.
@@ -112,9 +113,10 @@ This section MUST contain ONLY bullets of the form:
 Rules:
 1) If `artifacts/pr_context.txt` includes issue numbers under **Issues to autoclose (verified or pending)**, use exactly those.
 2) Else, if PR Intent contains **Author-asserted autoclose issues**, use exactly those.
-3) Else, write a single bullet:
+3) If `pr_context` indicates GitHub validation is unavailable/unverified, treat all references as unverified and use:
+   - None (GitHub validation unavailable; no verified closing issues listed)
+4) If none of the above provide numbers, write a single bullet:
    - None (no verified closing issues listed; fill “Author-asserted autoclose issues” in PR Intent to enable auto-close)
-4) If `pr_context` indicates GitHub validation is unavailable/unverified, treat all references as unverified and use the `None` bullet above.
 
 Never use “Related:” here.
 

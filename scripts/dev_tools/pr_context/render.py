@@ -226,15 +226,29 @@ def gather_feature_excerpts(
         active_dir: Path = _ensure_path(feature_dir or promoted_feature_dir)
         spec_path = active_dir / "spec.md"
         plan_path = active_dir / "plan.md"
-        user_story_path = active_dir / "user-story.md"
-        if not user_story_path.exists() and promoted_feature_dir:
-            fallback_story = promoted_feature_dir / "user-story.md"
-            if fallback_story.exists():
-                user_story_path = fallback_story
+        user_story_path: Path = active_dir / "user-story.md"
+        promoted_story_path = (
+            promoted_feature_dir / "user-story.md"
+            if promoted_feature_dir is not None
+            else None
+        )
+        promoted_story_text = (
+            _read_text(promoted_story_path) if promoted_story_path else ""
+        )
+        if promoted_story_path is not None and not user_story_path.exists():
+            user_story_path = promoted_story_path
+
+        user_story_text = _read_text(user_story_path)
+        if (
+            not user_story_text
+            and promoted_story_text
+            and promoted_story_path is not None
+        ):
+            user_story_text = promoted_story_text
+            user_story_path = promoted_story_path
 
         spec_text = _read_text(spec_path)
         plan_text = _read_text(plan_path)
-        user_story_text = _read_text(user_story_path)
 
         spec_parts: list[str] = []
         for heading in (
@@ -256,6 +270,12 @@ def gather_feature_excerpts(
         plan_section = (
             "\n".join(f"- {task}" for task in plan_tasks) if plan_tasks else ""
         )
+        test_plan_section = parse_section(plan_text, "Test Plan")
+        verification_block = (
+            "Plan verification notes:\n" + truncate(test_plan_section)
+            if test_plan_section
+            else ""
+        )
 
         story_parts: list[str] = []
         story_statements = parse_section(user_story_text, "Story Statement")
@@ -273,6 +293,12 @@ def gather_feature_excerpts(
         problem_section = parse_section(user_story_text, "Problem / Why")
         if problem_section:
             story_parts.append("Problem / Why:\n" + truncate(problem_section))
+        if not story_parts and promoted_story_text:
+            promoted_problem = parse_section(promoted_story_text, "Problem / Why")
+            if not promoted_problem:
+                promoted_problem = parse_section(promoted_story_text, "Summary")
+            if promoted_problem:
+                story_parts.append("Problem / Why:\n" + truncate(promoted_problem))
 
         lines: list[str] = [section(f"Feature doc: {feature}")]
         if story_parts:
@@ -281,6 +307,8 @@ def gather_feature_excerpts(
             lines.append("Spec excerpts:\n" + "\n\n".join(spec_parts))
         if plan_section:
             lines.append("Plan completed tasks:\n" + plan_section)
+        if verification_block:
+            lines.append(verification_block)
         if len(lines) == 1:
             lines.append("(no spec/plan/user-story excerpts found)")
 

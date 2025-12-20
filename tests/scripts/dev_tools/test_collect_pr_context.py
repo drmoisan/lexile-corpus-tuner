@@ -253,19 +253,26 @@ def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
 def test_gather_feature_excerpts_reads_active_docs():
     root = Path(__file__).resolve().parents[3]
     paths = [
-        "docs/features/active/fix-all-script/spec.md",
-        "docs/features/active/fix-all-script/plan.md",
+        "docs/features/active/2025-12-18-docs-v3-upgrade/spec.md",
+        "docs/features/active/2025-12-18-docs-v3-upgrade/plan.md",
     ]
     excerpts = gather_feature_excerpts(root, paths)
     joined = "\n".join(item.excerpt for item in excerpts)
-    assert "fix-all-script" in joined
+    assert "2025-12-18-docs-v3-upgrade" in joined
     assert "Spec excerpts" in joined
-    assert "Plan completed tasks" in joined or "Spec excerpts" in joined
+    assert "Plan completed tasks" in joined
+    assert "Plan verification notes" in joined
+    assert "Story Statement" in joined
+    assert "Problem / Why" in joined
     collected_issue_refs = {ref for item in excerpts for ref in item.issue_refs}
     assert isinstance(collected_issue_refs, set)
     for item in excerpts:
         assert any(
             context_path.endswith("spec.md") or context_path.endswith("plan.md")
+            for context_path in item.context_files
+        )
+        assert any(
+            context_path.endswith("user-story.md")
             for context_path in item.context_files
         )
 
@@ -975,3 +982,154 @@ def test_collect_and_write_handles_offline_gh(
     summary_text = next(text for path, text in outputs if path.name == "summary.txt")
     assert "GitHub CLI unavailable" in summary_text or "unavailable" in summary_text
     assert "Auto-close issues" in summary_text
+
+
+def test_collect_and_write_includes_intent_and_additional_context(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    outputs: list[tuple[Path, str]] = []
+
+    def fake_write_output(text: str, out_path: Path, append: bool) -> None:
+        outputs.append((out_path, text))
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.write_output", fake_write_output
+    )
+
+    class StubGit:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._root = Path(__file__).resolve().parents[3]
+
+        def resolve_root(self) -> Path:
+            return self._root
+
+        def branch_name(self) -> str:
+            return "feature/ABC-10"
+
+        def upstream(self) -> str:
+            return "origin/feature/ABC-10"
+
+        def remote_verbose(self) -> str:
+            return "origin https://example/repo (fetch)"
+
+        def status_short(self) -> str:
+            return "## feature/ABC-10"
+
+        def untracked(self) -> str:
+            return ""
+
+        def diff_name_status(self, *, staged: bool) -> str:
+            return ""
+
+        def diff_patch(self, *, staged: bool) -> str:
+            return ""
+
+        def rev_parse(self, ref: str) -> str:
+            return f"{ref}-sha"
+
+        def merge_base(self, base: str, head: str) -> str:
+            return "base-sha"
+
+        def log(self, fmt: str, rev_range: str) -> str:
+            return ""
+
+        def diff_range(self, args: Sequence[str]) -> str:
+            if "--name-status" in args:
+                return "M\tdocs/features/active/2025-12-18-docs-v3-upgrade/spec.md"
+            if "--numstat" in args:
+                return "1\t0\tdocs/features/active/2025-12-18-docs-v3-upgrade/spec.md"
+            if "--shortstat" in args:
+                return " 1 files changed, 1 insertions(+), 0 deletions(-)"
+            if "--stat" in args:
+                return " spec.md | 1 +"
+            return ""
+
+        def run(
+            self, args: Sequence[str], *, allow_error: bool = False
+        ) -> CommandResult:
+            return CommandResult(stdout="resolved", stderr="", code=0)
+
+    class StubGh:
+        status_message = "ok"
+        available = True
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            return None
+
+        def ensure_available(self) -> None:
+            return None
+
+        def current_pr(self) -> PullRequestDetails | None:
+            return None
+
+        def classify_entity(self, number: str) -> str | None:
+            return None
+
+        def ci_status(self, head_sha: str) -> tuple[str | None, list[str]]:
+            return "success", []
+
+    def fake_build_pr_context(
+        *,
+        git: StubGit,
+        gh: StubGh,
+        base_ref: str | None,
+        head_ref: str | None,
+        include_untracked: bool,
+        feature_issue_refs: Sequence[str] | None = None,
+        current_pr: PullRequestDetails | None = None,
+        gh_available: bool | None = None,
+    ) -> PRContextResult:
+        context_text = "\n".join(
+            [
+                "===== Changed files (name-status) =====",
+                "M\tdocs/features/active/2025-12-18-docs-v3-upgrade/spec.md",
+                "===== Diff shortstat =====",
+                " 1 files changed, 1 insertions(+), 0 deletions(-)",
+            ]
+        )
+        return PRContextResult(
+            text=context_text,
+            referenced_issues=[],
+            referenced_prs=[],
+            verified_closing=[],
+            invalid_references=[],
+            base_ref=base_ref,
+            resolved_base="origin/main",
+            base_sha="base-sha",
+            head_ref=head_ref or "feature",
+            head_sha="head-sha",
+            merge_base="base-sha",
+            rev_range="base-sha..head-sha",
+            gh_available=True,
+        )
+
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", StubGit)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GhClient", StubGh)
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.build_pr_context", fake_build_pr_context
+    )
+
+    repo_root = Path(__file__).resolve().parents[3]
+    collect_and_write(
+        base="main",
+        head="feature",
+        out=tmp_path / "summary.txt",
+        appendix_out=tmp_path / "appendix.txt",
+        repo_root=repo_root,
+        append=False,
+        include_untracked=False,
+    )
+
+    summary_text = next(text for path, text in outputs if path.name == "summary.txt")
+    appendix_text = next(text for path, text in outputs if path.name == "appendix.txt")
+
+    assert "PR Intent" in summary_text
+    assert "Author-asserted autoclose issues" in summary_text
+    assert "Additional context files" in summary_text
+    assert "Feature doc excerpts" in summary_text
+    assert "Excerpt" in summary_text
+    assert (
+        "docs/features/active/2025-12-18-docs-v3-upgrade/user-story.md" in summary_text
+    )
+    assert "Feature doc: 2025-12-18-docs-v3-upgrade" in appendix_text
+    assert "Plan verification notes" in appendix_text

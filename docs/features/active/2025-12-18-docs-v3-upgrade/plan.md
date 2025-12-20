@@ -2,7 +2,7 @@
 
 - Issue: #54
 - Owner: 2025-12-18-docs-v3-upgrade
-- Last Updated: 2025-12-19
+- Last Updated: 2025-12-20
 
 ## Required References
 
@@ -23,21 +23,21 @@
 - [x] [P1-T1] Implement GH-aware classification that separates merged PRs (from merge commits) from issue references in pr_context output.
 - [x] [P1-T2] Add verified “Issues to autoclose” block using gh closingIssuesReferences or gh issue view; when offline/unauthed, emit only unverified references and suppress autoclose claims.
 - [x] [P1-T3] Ensure referenced issues vs non-closing references are emitted in distinct buckets, never mixing merge-PR numbers into issues.
-- [ ] [P1-T4] Delete `scripts/dev_tools/collect_pr_context.py` and redirect any tasks, testing, or other tooling to the pr_context package.
-- [ ] [P1-T5] Delete `scripts/dev_tools/pr_context_gh.py` and redirect any tasks, testing, or other tooling to the pr_context package.
-- [ ] [P1-T6] Delete `scripts/dev_tools/pr_context_git.py` and redirect any tasks, testing, or other tooling to the pr_context package.
-- [ ] [P1-T7] Delete `scripts/dev_tools/pr_context_models.py` and redirect any tasks, testing, or other tooling to the pr_context package.
-- [ ] [P1-T8] Delete `scripts/dev_tools/pr_context_render.py` and redirect any tasks, testing, or other tooling to the pr_context package.
-- [ ] [P1-T9] Regenerate pr_context.txt and confirm #51/#52/#53 are classified as merged PRs (not issues) and that #50/#44 appear when verified for autoclose.
+- [x] [P1-T4] Delete `scripts/dev_tools/collect_pr_context.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [x] [P1-T5] Delete `scripts/dev_tools/pr_context_gh.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [x] [P1-T6] Delete `scripts/dev_tools/pr_context_git.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [x] [P1-T7] Delete `scripts/dev_tools/pr_context_models.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [x] [P1-T8] Delete `scripts/dev_tools/pr_context_render.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [x] [P1-T9] Regenerate pr_context.txt and confirm #51/#52/#53 are classified as merged PRs (not issues) and that #50/#44 appear when verified for autoclose. (artifacts/pr_context.txt on 2025-12-20 shows #51/#52/#53 under PRs; #44/#50 present as referenced issues; verified autoclose list empty because no PR exists for this branch—will populate when a PR is opened.)
 
 ### Phase 2 — Collector: feature-doc and intent embedding
-- [ ] [P2-T1] If one or more active user-story.md files exist, extract the "Story Statement" bullets to support the explanation of the desired end state.
-- [ ] [P2-T2] If one or more active user-story.md files exist, extract the "Problem / Why" section to support the why.
-- [ ] [P2-T3] If no active user-story.md file exists, please search for an active file in `docs/features/potential/promoted` and extract the problem from either a section labeled "Problem / Why" (for features) or a section labeled "Summary" (for bugs). 
-- [ ] [P2-T4] Extract spec.md sections (Context, Root Cause/Problem, Proposed Fix, Acceptance Criteria) into pr_context as concise excerpts.
-- [ ] [P2-T5] Extract plan.md completed tasks/verification notes into pr_context to support “Why/Verification”.
-- [ ] [P2-T6] Add PR-intent scaffold fields (primary outcome, impact, risks, asserted autoclose issues) to pr_context for author completion.
-- [ ] [P2-T7] Add an enumerated “Additional Context Files” list in pr_context to authorize PR author access only to embedded excerpts and listed files.
+- [x] [P2-T1] If one or more active user-story.md files exist, extract the "Story Statement" bullets to support the explanation of the desired end state.
+- [x] [P2-T2] If one or more active user-story.md files exist, extract the "Problem / Why" section to support the why.
+- [x] [P2-T3] If no active user-story.md file exists, please search for an active file in `docs/features/potential/promoted` and extract the problem from either a section labeled "Problem / Why" (for features) or a section labeled "Summary" (for bugs). 
+- [x] [P2-T4] Extract spec.md sections (Context, Root Cause/Problem, Proposed Fix, Acceptance Criteria) into pr_context as concise excerpts.
+- [x] [P2-T5] Extract plan.md completed tasks/verification notes into pr_context to support “Why/Verification”.
+- [x] [P2-T6] Add PR-intent scaffold fields (primary outcome, impact, risks, asserted autoclose issues) to pr_context for author completion.
+- [x] [P2-T7] Add an enumerated “Additional Context Files” list in pr_context to authorize PR author access only to embedded excerpts and listed files. (artifacts/pr_context.txt now includes feature-doc excerpts in the summary plus PR Intent scaffold and Additional context files.)
 
 ### Phase 3 — Prompt and agent alignment
 - [ ] [P3-T1] Update generate-pr.prompt.md to consume only pr_context and listed additional files; enforce `## GitHub Auto-close` with `- Closes #N` lines; forbid guessing when unverified.

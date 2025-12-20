@@ -6,6 +6,11 @@ import argparse
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .feature_docs import (
+    completed_plan_tasks,
+    extract_issue_references,
+    gather_feature_excerpts,
+)
 from .git import CommandRunner, GitClient, SubprocessRunner
 from .github import GhClient
 from .models import (
@@ -22,16 +27,13 @@ from .models import (
 from .render import (
     build_close_candidates_section,
     build_pr_context,
-    completed_plan_tasks,
     convert_numstat,
     extension_summary,
     extract_changed_paths,
-    extract_issue_references,
     extract_merge_pr_numbers,
     format_diff_path,
     format_issue_details,
     format_pr_details,
-    gather_feature_excerpts,
     select_default_base,
 )  # noqa: F401
 from .summary_helpers import (
@@ -314,6 +316,12 @@ def collect_and_write(
     issue_digests = "\n\n".join(_issue_digest(detail) for detail in issue_details)
     pr_digests = "\n\n".join(_pr_digest(detail) for detail in pr_details_list)
 
+    feature_summary = (
+        "\n\n".join(truncate_lines(doc.excerpt, 80) for doc in feature_docs)
+        if feature_docs
+        else "(none)"
+    )
+
     close_candidates = build_close_candidates_section(
         verified=verified,
         author_asserted=sorted(set(author_asserted)),
@@ -370,6 +378,9 @@ def collect_and_write(
             "",
             section("Additional context files"),
             format_list(additional_context_files, "(none)"),
+            "",
+            section("Feature doc excerpts"),
+            feature_summary,
             "",
             section("Referenced issues (classified)"),
             format_list(referenced_issues, "(none)")
