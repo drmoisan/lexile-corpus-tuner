@@ -46,17 +46,17 @@
 - [x] [P3-T4] Instruct agent to use embedded feature-doc excerpts and PR-intent fields as the sole “Why” sources (no external guessing).
 
 ### Phase 4 — Testing and verification
-- [ ] [P4-T1] Add unit tests for collector issue/PR classification with merge commits present to ensure PR numbers are excluded from issues.
+- [x] [P4-T1] Add unit tests for collector issue/PR classification with merge commits present to ensure PR numbers are excluded from issues.
 - [x] [P4-T2] Add unit tests for GH-validated autoclose list (online) and fallback behavior (offline) to ensure no autoclose claims when unverified.
 - [x] [P4-T3] Add unit tests for feature-doc extraction and PR-intent scaffold inclusion in pr_context.
-- [ ] [P4-T4] Integration test end-to-end pr_context generation across scenarios (feature, bugfix, docs-only) confirming deterministic autoclose lists and embedded excerpts.
-- [ ] [P4-T5] Dry-run PR author flow with updated prompt/agent to verify sections (Why, Verification, GitHub Auto-close, Related) render correctly from new pr_context.
+- [x] [P4-T4] Integration test end-to-end pr_context generation across scenarios (feature, bugfix, docs-only) confirming deterministic autoclose lists and embedded excerpts.
+- [x] [P4-T5] Dry-run PR author flow with updated prompt/agent to verify sections (Why, Verification, GitHub Auto-close, Related) render correctly from new pr_context.
 
 ### Phase 5 — Governance, rollout, and telemetry
-- [ ] [P5-T1] Document governance cadence (owners, audit schedule, escalation) and storage location for pr_context artifacts.
-- [ ] [P5-T2] Define telemetry/metrics collection for template usage, PR summary completeness, and reviewer satisfaction; specify reporting path to governance owners.
-- [ ] [P5-T3] Publish contributor-facing quick-start/checklist updates covering new pr_context fields, autoclose rules, and use of embedded excerpts.
-- [ ] [P5-T4] Update spec.md/user-story.md status fields and dates once implementation milestones complete.
+- [x] [P5-T1] Document governance cadence (owners, audit schedule, escalation) and storage location for pr_context artifacts.
+- [x] [P5-T2] Define telemetry/metrics collection for template usage, PR summary completeness, and reviewer satisfaction; specify reporting path to governance owners.
+- [x] [P5-T3] Publish contributor-facing quick-start/checklist updates covering new pr_context fields, autoclose rules, and use of embedded excerpts.
+- [x] [P5-T4] Update spec.md/user-story.md status fields and dates once implementation milestones complete.
 
 ## Test Plan
 

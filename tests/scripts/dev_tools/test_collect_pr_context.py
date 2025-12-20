@@ -250,6 +250,23 @@ def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
     assert context.invalid_references == []
 
 
+def test_build_pr_context_excludes_merge_pr_numbers_from_issue_refs():
+    git = FakeGit()
+    gh = FakeGh()
+    context = build_pr_context(
+        git=git,
+        gh=gh,
+        base_ref="main",
+        head_ref="feature/test",
+        include_untracked=True,
+        current_pr=None,
+    )
+
+    assert "#44" in context.referenced_issues
+    assert "#53" not in context.referenced_issues
+    assert "#53" in context.referenced_prs
+
+
 def test_gather_feature_excerpts_reads_active_docs():
     root = Path(__file__).resolve().parents[3]
     paths = [
