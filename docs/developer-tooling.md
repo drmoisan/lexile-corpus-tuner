@@ -260,10 +260,10 @@ Collect context for commits or pull requests:
 
 ```powershell
 # Collect commit context
-pwsh scripts/dev-tools/collect-commit-context.ps1
+poetry run python -m scripts.dev_tools.collect_commit_context --output artifacts/commit_context.txt
 
 # Collect PR context
-poetry run python -m scripts.dev_tools.collect_pr_context --base origin/main
+poetry run python -m scripts.dev_tools.pr_context.collector --base origin/main
 ```
 
 Output saved to `artifacts/` directory.
