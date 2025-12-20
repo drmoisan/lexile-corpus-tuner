@@ -18,7 +18,7 @@ from scripts.dev_tools.pr_context.models import CommandResult
 class TestSubprocessRunner:
     """Test SubprocessRunner command execution."""
 
-    def test_run_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_run_success(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """SubprocessRunner returns CommandResult on success."""
         mock_completed = Mock()
         mock_completed.stdout = "output\n"
@@ -29,7 +29,7 @@ class TestSubprocessRunner:
         monkeypatch.setattr("subprocess.run", mock_run)
 
         runner = SubprocessRunner()
-        result = runner.run(["echo", "test"], cwd=Path("/tmp"))
+        result = runner.run(["echo", "test"], cwd=tmp_path)
 
         assert result.stdout == "output"
         assert result.stderr == "warning"
@@ -57,7 +57,7 @@ class TestSubprocessRunner:
     def test_run_failure_raises_without_allow_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """SubprocessRunner raises RuntimeError when allow_error=False and command fails."""
+        """SubprocessRunner raises RuntimeError when command fails."""
         mock_completed = Mock()
         mock_completed.stdout = "out"
         mock_completed.stderr = "err"
@@ -127,7 +127,7 @@ class TestGitClient:
         result = git_client.run(["status", "-s"])
 
         mock_runner.run.assert_called_once_with(
-            ["git", "status", "-s"], cwd=git_client._cwd, allow_error=False
+            ["git", "status", "-s"], cwd=git_client.cwd, allow_error=False
         )
         assert result.stdout == "ok"
 
@@ -140,7 +140,7 @@ class TestGitClient:
         result = git_client.run(["diff"], allow_error=True)
 
         mock_runner.run.assert_called_once_with(
-            ["git", "diff"], cwd=git_client._cwd, allow_error=True
+            ["git", "diff"], cwd=git_client.cwd, allow_error=True
         )
         assert result.code == 1
 
@@ -166,7 +166,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "rev-parse", "--show-toplevel"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=False,
         )
         assert root == Path("/repo/root")
@@ -179,7 +179,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "rev-parse", "--verify", "HEAD"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=False,
         )
         assert sha == "abc123def"
@@ -191,7 +191,7 @@ class TestGitClient:
         remotes = git_client.remote_verbose()
 
         mock_runner.run.assert_called_once_with(
-            ["git", "remote", "-v"], cwd=git_client._cwd, allow_error=False
+            ["git", "remote", "-v"], cwd=git_client.cwd, allow_error=False
         )
         assert remotes == "origin\turl (fetch)"
 
@@ -203,7 +203,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=False,
         )
         assert branch == "feature/test"
@@ -216,7 +216,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=True,
         )
         assert upstream == "origin/main"
@@ -236,7 +236,7 @@ class TestGitClient:
         status = git_client.status_short()
 
         mock_runner.run.assert_called_once_with(
-            ["git", "status", "-sb"], cwd=git_client._cwd, allow_error=False
+            ["git", "status", "-sb"], cwd=git_client.cwd, allow_error=False
         )
         assert status == "## main\n M file.py"
 
@@ -248,7 +248,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "ls-files", "--others", "--exclude-standard"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=False,
         )
         assert files == "new.txt\nother.py"
@@ -263,7 +263,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "diff", "--cached", "--name-status"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=True,
         )
         assert diff == "M\tfile.py"
@@ -277,7 +277,7 @@ class TestGitClient:
         diff = git_client.diff_name_status(staged=False)
 
         mock_runner.run.assert_called_once_with(
-            ["git", "diff", "--name-status"], cwd=git_client._cwd, allow_error=True
+            ["git", "diff", "--name-status"], cwd=git_client.cwd, allow_error=True
         )
         assert diff == "A\tnew.py"
 
@@ -288,7 +288,7 @@ class TestGitClient:
         patch = git_client.diff_patch(staged=True)
 
         mock_runner.run.assert_called_once_with(
-            ["git", "diff", "--cached"], cwd=git_client._cwd, allow_error=True
+            ["git", "diff", "--cached"], cwd=git_client.cwd, allow_error=True
         )
         assert patch == "diff --git"
 
@@ -301,7 +301,7 @@ class TestGitClient:
         patch = git_client.diff_patch(staged=False)
 
         mock_runner.run.assert_called_once_with(
-            ["git", "diff"], cwd=git_client._cwd, allow_error=True
+            ["git", "diff"], cwd=git_client.cwd, allow_error=True
         )
         assert patch == "diff content"
 
@@ -313,7 +313,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "merge-base", "main", "feature"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=False,
         )
         assert base == "abc123"
@@ -326,7 +326,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "log", "--date=short", "--oneline", "main..feature"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=True,
         )
         assert log == "commit1\ncommit2"
@@ -339,7 +339,7 @@ class TestGitClient:
 
         mock_runner.run.assert_called_once_with(
             ["git", "diff", "--stat", "main", "feature", "--", "file.py"],
-            cwd=git_client._cwd,
+            cwd=git_client.cwd,
             allow_error=True,
         )
         assert diff == "diff output"

@@ -6,7 +6,7 @@ Focused on driving coverage of key uncovered paths.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
@@ -14,6 +14,9 @@ import pytest
 from scripts.dev_tools.pr_context.git import CommandRunner
 from scripts.dev_tools.pr_context.github import GhClient
 from scripts.dev_tools.pr_context.models import CommandResult
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestGhClientAvailability:
@@ -599,7 +602,10 @@ class TestGhClientUserStory:
                     {
                         "number": 1,
                         "title": "Feature request",
-                        "body": "## User Story\n[user-story.md](docs/features/active/test/user-story.md)",
+                        "body": (
+                            "## User Story\n"
+                            "[user-story.md](docs/features/active/test/user-story.md)"
+                        ),
                     }
                 ),
                 "",
@@ -624,7 +630,9 @@ class TestGhClientUserStory:
                     {
                         "number": 1,
                         "title": "Feature",
-                        "body": "[user-story.md](docs/features/active/test/user-story.md)",
+                        "body": (
+                            "[user-story.md](docs/features/active/test/user-story.md)"
+                        ),
                     }
                 ),
                 "",

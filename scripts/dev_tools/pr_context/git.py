@@ -62,6 +62,11 @@ class GitClient:
         self._runner = runner
         self._cwd = cwd
 
+    @property
+    def cwd(self) -> Path:
+        """Current working directory for git operations."""
+        return self._cwd
+
     def run(self, args: Sequence[str], *, allow_error: bool = False) -> CommandResult:
         return self._runner.run(["git", *args], cwd=self._cwd, allow_error=allow_error)
 
