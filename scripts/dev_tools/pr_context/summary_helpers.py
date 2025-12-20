@@ -377,5 +377,7 @@ def format_diff_path(path_text: str | None) -> str:
 
 
 def append_generation_timestamp() -> str:
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z")
+    timestamp = datetime.now(UTC).strftime(
+        "%Y-%m-%d %H:%M:%S %Z"
+    )  # noqa: UP017 py310 compatibility; datetime.UTC added in 3.11
     return section("Context generated") + "\n" + timestamp + "\n"
