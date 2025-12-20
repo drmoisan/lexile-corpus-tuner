@@ -40,15 +40,15 @@
 - [x] [P2-T7] Add an enumerated “Additional Context Files” list in pr_context to authorize PR author access only to embedded excerpts and listed files. (artifacts/pr_context.txt now includes feature-doc excerpts in the summary plus PR Intent scaffold and Additional context files.)
 
 ### Phase 3 — Prompt and agent alignment
-- [ ] [P3-T1] Update generate-pr.prompt.md to consume only pr_context and listed additional files; enforce `## GitHub Auto-close` with `- Closes #N` lines; forbid guessing when unverified.
-- [ ] [P3-T2] Update pr-author.agent.md to reject merge-PR numbers as issues, use only verified autoclose lists, and route non-closing refs to `## Related`.
-- [ ] [P3-T3] Define offline/no-gh handling in prompt/agent: omit autoclose section or mark references as unverified; never emit `Closes` without verification.
-- [ ] [P3-T4] Instruct agent to use embedded feature-doc excerpts and PR-intent fields as the sole “Why” sources (no external guessing).
+- [x] [P3-T1] Update generate-pr.prompt.md to consume only pr_context and listed additional files; enforce `## GitHub Auto-close` with `- Closes #N` lines; forbid guessing when unverified.
+- [x] [P3-T2] Update pr-author.agent.md to reject merge-PR numbers as issues, use only verified autoclose lists, and route non-closing refs to `## Related`.
+- [x] [P3-T3] Define offline/no-gh handling in prompt/agent: omit autoclose section or mark references as unverified; never emit `Closes` without verification.
+- [x] [P3-T4] Instruct agent to use embedded feature-doc excerpts and PR-intent fields as the sole “Why” sources (no external guessing).
 
 ### Phase 4 — Testing and verification
 - [ ] [P4-T1] Add unit tests for collector issue/PR classification with merge commits present to ensure PR numbers are excluded from issues.
 - [x] [P4-T2] Add unit tests for GH-validated autoclose list (online) and fallback behavior (offline) to ensure no autoclose claims when unverified.
-- [ ] [P4-T3] Add unit tests for feature-doc extraction and PR-intent scaffold inclusion in pr_context.
+- [x] [P4-T3] Add unit tests for feature-doc extraction and PR-intent scaffold inclusion in pr_context.
 - [ ] [P4-T4] Integration test end-to-end pr_context generation across scenarios (feature, bugfix, docs-only) confirming deterministic autoclose lists and embedded excerpts.
 - [ ] [P4-T5] Dry-run PR author flow with updated prompt/agent to verify sections (Why, Verification, GitHub Auto-close, Related) render correctly from new pr_context.
 

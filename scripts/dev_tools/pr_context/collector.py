@@ -316,10 +316,20 @@ def collect_and_write(
     issue_digests = "\n\n".join(_issue_digest(detail) for detail in issue_details)
     pr_digests = "\n\n".join(_pr_digest(detail) for detail in pr_details_list)
 
+    feature_summary_lines: list[str] = []
+    for doc in feature_docs:
+        feature_summary_lines.extend(
+            [
+                f"Feature: {doc.feature}",
+                "Excerpt:",
+                truncate_lines(doc.excerpt, 80),
+                "Context files:",
+                format_list(doc.context_files, "(none)"),
+                "",
+            ]
+        )
     feature_summary = (
-        "\n\n".join(truncate_lines(doc.excerpt, 80) for doc in feature_docs)
-        if feature_docs
-        else "(none)"
+        "\n".join(feature_summary_lines).rstrip() if feature_summary_lines else "(none)"
     )
 
     close_candidates = build_close_candidates_section(

@@ -1128,6 +1128,8 @@ def test_collect_and_write_includes_intent_and_additional_context(
     assert "Additional context files" in summary_text
     assert "Feature doc excerpts" in summary_text
     assert "Excerpt" in summary_text
+    assert "Feature: 2025-12-18-docs-v3-upgrade" in summary_text
+    assert "Context files:" in summary_text
     assert (
         "docs/features/active/2025-12-18-docs-v3-upgrade/user-story.md" in summary_text
     )
