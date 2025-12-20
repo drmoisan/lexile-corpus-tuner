@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -168,13 +169,17 @@ def completed_plan_tasks(markdown: str, *, limit: int = 10) -> list[str]:
     return tasks
 
 
+def directory_exists(path: Path) -> bool:
+    return path.exists()
+
+
 def resolve_feature_dir(base_dir: Path, feature: str) -> Path | None:
     """Resolve feature directory by exact match or fuzzy match."""
     direct = base_dir / feature
-    if direct.exists():
+    if directory_exists(direct):
         return direct
 
-    if not base_dir.exists():
+    if not directory_exists(base_dir):
         return None
 
     pattern = re.compile(rf"(?:^|[-_]){re.escape(feature)}(?:[-_]|$)")
@@ -610,7 +615,8 @@ def build_pr_context(
             ]
         )
         pr_block = "\n".join(block_lines)
-    except Exception as exc:  # noqa: BLE001
+    except (subprocess.CalledProcessError, RuntimeError, ValueError, OSError) as exc:
+        # Graceful degradation for git/GitHub operation failures
         pr_block = section("PR Comparison") + f"(FAILED to compute PR context: {exc})\n"
         referenced_issues = []
         referenced_prs = []
