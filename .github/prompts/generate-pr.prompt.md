@@ -11,7 +11,7 @@ You MUST follow these rules.
 ## Core Objectives
 
 1) Accuracy: Every statement must be supported by `artifacts/pr_context.txt`.  
-2) Signal: Emphasize the *semantic intent* (“why”) using any included feature-doc excerpts (spec/plan), not just file lists.  
+2) Signal: Emphasize the *semantic intent* (“why”) using feature-doc excerpts (spec/plan/user-story) and PR Intent fields, not just file lists.  
 3) GitHub correctness: Autoclose syntax must be correct and must not hallucinate issues.
 
 ---
@@ -36,17 +36,20 @@ Prioritize these sections (when present), in this order:
    - Use this to drive Summary/Why framing.
    - If “Author-asserted autoclose issues” is filled in, it is the ONLY acceptable source of non-verified autoclose targets.
 
-2) **Feature doc excerpts** (e.g., blocks derived from `docs/features/active/*/spec.md` and `plan.md`)  
-   - Use excerpted **Root Cause / Constraints / Proposed Fix / Acceptance Criteria** to write a high-signal “Why”.
+2) **Additional context files** (enumerated)  
+   - You may only cite content from `pr_context` plus the explicitly listed files. Do not infer from any other sources.
 
-3) **PR Comparison / Commits in range / Changed files / Diff stats**  
+3) **Feature doc excerpts** (spec/plan/user-story)  
+   - Use excerpted **Root Cause / Constraints / Proposed Fix / Acceptance Criteria / Story Statement / Problem / Why** to write a high-signal “Why”.
+
+4) **PR Comparison / Commits in range / Changed files / Diff stats**  
    - Use these to support “What Changed”, review guide, and migration notes.
    - Avoid dumping long file lists; synthesize into themes.
 
-4) **Referenced issues (classified)** and **PRs in range**  
+5) **Referenced issues (classified)** and **PRs in range**  
    - These are “mentions” and “included PRs” and are NOT automatically “Closes”.
 
-5) **Issues to autoclose (verified or pending)**  
+6) **Issues to autoclose (verified or pending)**  
    - If this section lists issue numbers, use those for auto-close.
 
 ---
@@ -111,6 +114,7 @@ Rules:
 2) Else, if PR Intent contains **Author-asserted autoclose issues**, use exactly those.
 3) Else, write a single bullet:
    - None (no verified closing issues listed; fill “Author-asserted autoclose issues” in PR Intent to enable auto-close)
+4) If `pr_context` indicates GitHub validation is unavailable/unverified, treat all references as unverified and use the `None` bullet above.
 
 Never use “Related:” here.
 

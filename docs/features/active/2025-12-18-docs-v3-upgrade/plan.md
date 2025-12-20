@@ -20,10 +20,15 @@
 - [x] [P0-T3] Identify current versions/paths of generate-pr.prompt.md, pr-author.agent.md, and scripts/dev_tools/collect_pr_context.py to be updated.
 
 ### Phase 1 — Collector: issue/PR validation and autoclose
-- [ ] [P1-T1] Implement GH-aware classification that separates merged PRs (from merge commits) from issue references in pr_context output.
-- [ ] [P1-T2] Add verified “Issues to autoclose” block using gh closingIssuesReferences or gh issue view; when offline/unauthed, emit only unverified references and suppress autoclose claims.
-- [ ] [P1-T3] Ensure referenced issues vs non-closing references are emitted in distinct buckets, never mixing merge-PR numbers into issues.
-- [ ] [P1-T4] Regenerate pr_context.txt and confirm #51/#52/#53 are classified as merged PRs (not issues) and that #50/#44 appear when verified for autoclose.
+- [x] [P1-T1] Implement GH-aware classification that separates merged PRs (from merge commits) from issue references in pr_context output.
+- [x] [P1-T2] Add verified “Issues to autoclose” block using gh closingIssuesReferences or gh issue view; when offline/unauthed, emit only unverified references and suppress autoclose claims.
+- [x] [P1-T3] Ensure referenced issues vs non-closing references are emitted in distinct buckets, never mixing merge-PR numbers into issues.
+- [ ] [P1-T4] Delete `scripts/dev_tools/collect_pr_context.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [ ] [P1-T5] Delete `scripts/dev_tools/pr_context_gh.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [ ] [P1-T6] Delete `scripts/dev_tools/pr_context_git.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [ ] [P1-T7] Delete `scripts/dev_tools/pr_context_models.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [ ] [P1-T8] Delete `scripts/dev_tools/pr_context_render.py` and redirect any tasks, testing, or other tooling to the pr_context package.
+- [ ] [P1-T9] Regenerate pr_context.txt and confirm #51/#52/#53 are classified as merged PRs (not issues) and that #50/#44 appear when verified for autoclose.
 
 ### Phase 2 — Collector: feature-doc and intent embedding
 - [ ] [P2-T1] If one or more active user-story.md files exist, extract the "Story Statement" bullets to support the explanation of the desired end state.
@@ -42,7 +47,7 @@
 
 ### Phase 4 — Testing and verification
 - [ ] [P4-T1] Add unit tests for collector issue/PR classification with merge commits present to ensure PR numbers are excluded from issues.
-- [ ] [P4-T2] Add unit tests for GH-validated autoclose list (online) and fallback behavior (offline) to ensure no autoclose claims when unverified.
+- [x] [P4-T2] Add unit tests for GH-validated autoclose list (online) and fallback behavior (offline) to ensure no autoclose claims when unverified.
 - [ ] [P4-T3] Add unit tests for feature-doc extraction and PR-intent scaffold inclusion in pr_context.
 - [ ] [P4-T4] Integration test end-to-end pr_context generation across scenarios (feature, bugfix, docs-only) confirming deterministic autoclose lists and embedded excerpts.
 - [ ] [P4-T5] Dry-run PR author flow with updated prompt/agent to verify sections (Why, Verification, GitHub Auto-close, Related) render correctly from new pr_context.

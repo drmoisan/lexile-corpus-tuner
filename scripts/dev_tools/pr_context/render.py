@@ -28,6 +28,9 @@ class GhLike(Protocol):
 
     def classify_entity(self, number: str) -> str | None: ...
 
+    @property
+    def available(self) -> bool: ...
+
 
 def select_default_base(git: GitClient) -> str | None:
     candidates = [
@@ -192,6 +195,14 @@ def gather_feature_excerpts(
             return weak_matches[0]
         return None
 
+    def _read_text(path: Path) -> str:
+        return path.read_text(encoding="utf-8") if path.exists() else ""
+
+    def _ensure_path(value: Path | None) -> Path:
+        if value is None:
+            raise ValueError("Feature directory could not be resolved")
+        return value
+
     features: set[str] = set()
     for raw in changed_files:
         parts = Path(raw).parts
@@ -205,23 +216,37 @@ def gather_feature_excerpts(
 
     excerpts: list[FeatureDocExcerpt] = []
     base_dir = root / "docs" / "features" / "active"
+    promoted_dir = root / "docs" / "features" / "potential" / "promoted"
     for feature in sorted(features):
-        feature_dir = _resolve_feature_dir(base_dir, feature)
-        if feature_dir is None:
+        feature_dir: Path | None = _resolve_feature_dir(base_dir, feature)
+        promoted_feature_dir: Path | None = _resolve_feature_dir(promoted_dir, feature)
+        if feature_dir is None and promoted_feature_dir is None:
             continue
 
-        spec_path = feature_dir / "spec.md"
-        plan_path = feature_dir / "plan.md"
+        active_dir: Path = _ensure_path(feature_dir or promoted_feature_dir)
+        spec_path = active_dir / "spec.md"
+        plan_path = active_dir / "plan.md"
+        user_story_path = active_dir / "user-story.md"
+        if not user_story_path.exists() and promoted_feature_dir:
+            fallback_story = promoted_feature_dir / "user-story.md"
+            if fallback_story.exists():
+                user_story_path = fallback_story
 
-        spec_text = spec_path.read_text(encoding="utf-8") if spec_path.exists() else ""
-        plan_text = plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""
+        spec_text = _read_text(spec_path)
+        plan_text = _read_text(plan_path)
+        user_story_text = _read_text(user_story_path)
 
         spec_parts: list[str] = []
         for heading in (
             "Context",
-            "Root Cause Analysis",
+            "Root Cause",
+            "Root Cause/Problem",
+            "Problem",
             "Proposed Fix",
             "Acceptance Criteria",
+            "Constraints & Risks",
+            "Behavior",
+            "Overview",
         ):
             section_text = parse_section(spec_text, heading)
             if section_text:
@@ -232,19 +257,48 @@ def gather_feature_excerpts(
             "\n".join(f"- {task}" for task in plan_tasks) if plan_tasks else ""
         )
 
+        story_parts: list[str] = []
+        story_statements = parse_section(user_story_text, "Story Statement")
+        if story_statements:
+            story_lines = [
+                line.strip("- ")
+                for line in story_statements.splitlines()
+                if line.strip()
+            ]
+            if story_lines:
+                story_parts.append(
+                    "Story Statement:\n"
+                    + "\n".join(f"- {line}" for line in story_lines)
+                )
+        problem_section = parse_section(user_story_text, "Problem / Why")
+        if problem_section:
+            story_parts.append("Problem / Why:\n" + truncate(problem_section))
+
         lines: list[str] = [section(f"Feature doc: {feature}")]
+        if story_parts:
+            lines.append("User story excerpts:\n" + "\n\n".join(story_parts))
         if spec_parts:
             lines.append("Spec excerpts:\n" + "\n\n".join(spec_parts))
         if plan_section:
             lines.append("Plan completed tasks:\n" + plan_section)
         if len(lines) == 1:
-            lines.append("(no spec/plan excerpts found)")
+            lines.append("(no spec/plan/user-story excerpts found)")
 
+        context_files = [
+            str(path.relative_to(root))
+            for path in (spec_path, plan_path, user_story_path)
+            if path and path.exists()
+        ]
         excerpt_text = "\n".join(lines)
-        issue_refs = extract_issue_references(spec_text + "\n" + plan_text)
+        issue_refs = extract_issue_references(
+            "\n".join([spec_text, plan_text, user_story_text])
+        )
         excerpts.append(
             FeatureDocExcerpt(
-                feature=feature, excerpt=excerpt_text, issue_refs=issue_refs
+                feature=feature,
+                excerpt=excerpt_text,
+                issue_refs=issue_refs,
+                context_files=context_files,
             )
         )
 
@@ -334,8 +388,16 @@ def build_pr_context(
     include_untracked: bool,
     feature_issue_refs: Iterable[str] | None = None,
     current_pr: PullRequestDetails | None = None,
+    gh_available: bool | None = None,
 ) -> PRContextResult:
-    gh.ensure_available()
+    gh_available = (
+        gh.available
+        if gh_available is None and hasattr(gh, "available")
+        else gh_available
+    )
+    gh_available = True if gh_available is None else gh_available
+    if gh_available:
+        gh.ensure_available()
     branch_name = git.branch_name()
     upstream = git.upstream() or "(none)"
 
@@ -347,7 +409,9 @@ def build_pr_context(
     feature_issue_list = list(feature_issue_refs or [])
     referenced_issues: list[str] = []
     referenced_prs: list[str] = []
-    verified_closing = current_pr.closing_issues if current_pr else []
+    verified_closing = (
+        current_pr.closing_issues if (current_pr and gh_available) else []
+    )
     invalid_references: list[str] = []
 
     resolved_base: str | None = None
@@ -410,14 +474,20 @@ def build_pr_context(
         prs: list[str] = []
         for ref in issue_candidates:
             number = normalize_reference(ref)
-            entity = gh.classify_entity(number)
-            if entity == "issue":
-                issues.append(ref if ref.startswith("#") else f"#{ref}")
-            elif entity == "pull":
-                prs.append(ref if ref.startswith("#") else f"#{ref}")
+            if gh_available:
+                entity = gh.classify_entity(number)
             else:
-                invalid_references.append(ref if ref.startswith("#") else f"#{ref}")
-
+                entity = None
+            formatted_ref = ref if ref.startswith("#") else f"#{ref}"
+            if entity == "issue":
+                issues.append(formatted_ref)
+            elif entity == "pull":
+                prs.append(formatted_ref)
+            else:
+                if gh_available:
+                    invalid_references.append(formatted_ref)
+                else:
+                    issues.append(formatted_ref)
         referenced_issues = sorted(set(issues))
         referenced_prs = sorted(set(prs + merge_prs))
 
@@ -541,6 +611,7 @@ def build_pr_context(
         head_sha=head_sha,
         merge_base=merge_base,
         rev_range=rev_range,
+        gh_available=gh_available,
     )
 
 

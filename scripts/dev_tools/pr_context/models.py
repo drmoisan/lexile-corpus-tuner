@@ -78,6 +78,7 @@ class FeatureDocExcerpt:
     feature: str
     excerpt: str
     issue_refs: list[str]
+    context_files: list[str]
 
 
 @dataclass
@@ -96,6 +97,7 @@ class PRContextResult:
     head_sha: str | None
     merge_base: str | None
     rev_range: str | None
+    gh_available: bool = True
 
 
 @dataclass

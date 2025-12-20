@@ -10,20 +10,9 @@ if TYPE_CHECKING:
 
 from scripts.dev_tools.pr_context.collector import (
     CommandResult,
-    GhClient,
     GitClient,
     IssueDetails,
     PullRequestDetails,
-    _extract_digest_bullets,  # pyright: ignore[reportPrivateUsage]
-    _is_scoping_doc,  # pyright: ignore[reportPrivateUsage]
-    _issue_appendix,  # pyright: ignore[reportPrivateUsage]
-    _issue_digest,  # pyright: ignore[reportPrivateUsage]
-    _last_with_truncation,  # pyright: ignore[reportPrivateUsage]
-    _parse_name_status_map,  # pyright: ignore[reportPrivateUsage]
-    _parse_numstat_detailed,  # pyright: ignore[reportPrivateUsage]
-    _pr_appendix,  # pyright: ignore[reportPrivateUsage]
-    _pr_digest,  # pyright: ignore[reportPrivateUsage]
-    _scoping_doc_changes,  # pyright: ignore[reportPrivateUsage]
     build_close_candidates_section,
     build_pr_context,
     collect_and_write,
@@ -40,25 +29,36 @@ from scripts.dev_tools.pr_context.collector import (
     write_output,
 )
 from scripts.dev_tools.pr_context.models import FeatureDocExcerpt, PRContextResult
-
-
-def test_wrapper_modules_expose_pr_context_components() -> None:
-    import scripts.dev_tools.collect_pr_context as collect_wrapper
-    import scripts.dev_tools.pr_context_gh as gh_wrapper
-    import scripts.dev_tools.pr_context_git as git_wrapper
-    import scripts.dev_tools.pr_context_models as models_wrapper
-    import scripts.dev_tools.pr_context_render as render_wrapper
-
-    assert collect_wrapper.main is main
-    assert gh_wrapper.GhClient is GhClient
-    assert git_wrapper.GitClient is GitClient
-    assert models_wrapper.PRContextResult is PRContextResult
-    assert render_wrapper.build_pr_context is build_pr_context
-    assert "main" in dir(collect_wrapper)
-    assert "GhClient" in dir(gh_wrapper)
-    assert "GitClient" in dir(git_wrapper)
-    assert "PRContextResult" in dir(models_wrapper)
-    assert "build_pr_context" in dir(render_wrapper)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    extract_digest_bullets as _extract_digest_bullets,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    is_scoping_doc as _is_scoping_doc,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    issue_appendix as _issue_appendix,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    issue_digest as _issue_digest,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    last_with_truncation as _last_with_truncation,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    parse_name_status_map as _parse_name_status_map,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    parse_numstat_detailed as _parse_numstat_detailed,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    pr_appendix as _pr_appendix,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    pr_digest as _pr_digest,
+)
+from scripts.dev_tools.pr_context.summary_helpers import (
+    scoping_doc_changes as _scoping_doc_changes,
+)
 
 
 class FakeRunner:
@@ -245,6 +245,7 @@ def test_build_pr_context_classifies_prs_and_issues_and_embeds_closing():
     assert "#53" in context.text
     assert "Referenced issues" in context.text
     assert "#44" in context.text
+    assert "Author-asserted autoclose issues" in context.text
     assert context.verified_closing == ["#50"]
     assert context.invalid_references == []
 
@@ -262,6 +263,11 @@ def test_gather_feature_excerpts_reads_active_docs():
     assert "Plan completed tasks" in joined or "Spec excerpts" in joined
     collected_issue_refs = {ref for item in excerpts for ref in item.issue_refs}
     assert isinstance(collected_issue_refs, set)
+    for item in excerpts:
+        assert any(
+            context_path.endswith("spec.md") or context_path.endswith("plan.md")
+            for context_path in item.context_files
+        )
 
 
 def test_find_user_story_link_extracts_blob_path():
@@ -532,6 +538,7 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
         include_untracked: bool,
         feature_issue_refs: Sequence[str] | None = None,
         current_pr: PullRequestDetails | None = None,
+        gh_available: bool | None = None,
     ) -> PRContextResult:
         feature_calls.append(list(feature_issue_refs or []))
         context_text = "\n".join(
@@ -554,6 +561,7 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
             head_sha="head-sha",
             merge_base="base-sha",
             rev_range="base-sha..head-sha",
+            gh_available=True,
         )
 
     monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", FakeGit)
@@ -568,7 +576,10 @@ def test_collect_and_write_uses_feature_refs_and_scoping(
     ) -> list[FeatureDocExcerpt]:
         return [
             FeatureDocExcerpt(
-                feature="fix-all-script", excerpt="Excerpt", issue_refs=["#7"]
+                feature="fix-all-script",
+                excerpt="Excerpt",
+                issue_refs=["#7"],
+                context_files=["docs/features/active/fix-all-script/spec.md"],
             )
         ]
 
@@ -808,6 +819,7 @@ def test_collect_and_write_renders_non_material_scoping(
         include_untracked: bool,
         feature_issue_refs: Sequence[str] | None = None,
         current_pr: PullRequestDetails | None = None,
+        gh_available: bool | None = None,
     ) -> PRContextResult:
         context_text = "\n".join(
             [
@@ -831,6 +843,7 @@ def test_collect_and_write_renders_non_material_scoping(
             head_sha="head-sha",
             merge_base="base-sha",
             rev_range="base-sha..head-sha",
+            gh_available=True,
         )
 
     monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", StubGit)
@@ -871,3 +884,94 @@ def test_collect_and_write_renders_non_material_scoping(
     summary_text = next(text for path, text in outputs if path.name == "summary.txt")
     assert "non-material" in summary_text
     assert "#999" in summary_text
+
+
+def test_collect_and_write_handles_offline_gh(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    outputs: list[tuple[Path, str]] = []
+
+    def fake_write_output(text: str, out_path: Path, append: bool) -> None:
+        outputs.append((out_path, text))
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.write_output", fake_write_output
+    )
+
+    class OfflineGit:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._root = tmp_path
+
+        def resolve_root(self) -> Path:
+            return self._root
+
+        def branch_name(self) -> str:
+            return "feature/ABC-10"
+
+        def upstream(self) -> str:
+            return "origin/feature/ABC-10"
+
+        def remote_verbose(self) -> str:
+            return "origin https://example/repo (fetch)"
+
+        def status_short(self) -> str:
+            return "## feature/ABC-10"
+
+        def untracked(self) -> str:
+            return ""
+
+        def diff_name_status(self, *, staged: bool) -> str:
+            return ""
+
+        def diff_patch(self, *, staged: bool) -> str:
+            return ""
+
+        def rev_parse(self, ref: str) -> str:
+            return f"{ref}-sha"
+
+        def merge_base(self, base: str, head: str) -> str:
+            return "base-sha"
+
+        def log(self, fmt: str, rev_range: str) -> str:
+            return ""
+
+        def diff_range(self, args: Sequence[str]) -> str:
+            return ""
+
+        def run(
+            self, args: Sequence[str], *, allow_error: bool = False
+        ) -> CommandResult:
+            return CommandResult(stdout="resolved", stderr="", code=0)
+
+    class OfflineGh:
+        status_message = None
+        available = False
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            return None
+
+        def ensure_available(self) -> None:
+            raise RuntimeError("offline")
+
+        def current_pr(self) -> PullRequestDetails | None:
+            return None
+
+        def classify_entity(self, number: str) -> str | None:
+            return None
+
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GitClient", OfflineGit)
+    monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GhClient", OfflineGh)
+
+    collect_and_write(
+        base="main",
+        head="feature",
+        out=tmp_path / "summary.txt",
+        appendix_out=tmp_path / "appendix.txt",
+        repo_root=tmp_path,
+        append=False,
+        include_untracked=False,
+    )
+
+    summary_text = next(text for path, text in outputs if path.name == "summary.txt")
+    assert "GitHub CLI unavailable" in summary_text or "unavailable" in summary_text
+    assert "Auto-close issues" in summary_text
