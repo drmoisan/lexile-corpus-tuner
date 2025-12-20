@@ -313,6 +313,20 @@ def test_build_close_candidates_section_renders_lists():
     assert "#1" in section_text and "#2" in section_text and "#3" in section_text
 
 
+def test_build_close_candidates_section_promotes_referenced_issues_to_auto_close():
+    section_text = build_close_candidates_section(
+        verified=[],
+        author_asserted=[],
+        referenced=["#3"],
+        verified_reason="None (no PR exists yet for this branch)",
+        author_reason="None (author has not asserted autoclose issues)",
+    )
+
+    lines = section_text.splitlines()
+    author_index = lines.index("Auto-close issues (author asserted):")
+    assert "- #3" in lines[author_index + 1]
+
+
 def test_issue_digest_truncates_comments():
     issue = IssueDetails(
         number="#10",

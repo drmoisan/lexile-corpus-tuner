@@ -227,6 +227,10 @@ def collect_and_write(
     else:
         verified_reason = "(verified from GitHub PR metadata)"
 
+    if referenced_issues:
+        author_asserted = sorted(set(author_asserted + referenced_issues))
+        author_reason = "Detected issue references (classified)"
+
     issues_to_fetch = sorted(set(verified + author_asserted + referenced_issues))
     issue_details: list[IssueDetails] = []
     if gh_available:
