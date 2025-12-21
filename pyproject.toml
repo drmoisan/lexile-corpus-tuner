@@ -50,11 +50,11 @@ text-difficulty-pipeline = "lexile_corpus_tuner.cli:text_difficulty_cli"
 
 [tool.black]
 line-length = 88
-target-version = ["py312"]
+target-version = ["py310"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py310"
 fix = true
 show-fixes = true
 

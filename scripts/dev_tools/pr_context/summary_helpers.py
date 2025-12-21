@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from .models import (
@@ -377,5 +377,7 @@ def format_diff_path(path_text: str | None) -> str:
 
 
 def append_generation_timestamp() -> str:
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S %Z")
+    timestamp = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S %Z"
+    )  # noqa: UP017
     return section("Context generated") + "\n" + timestamp + "\n"
