@@ -117,7 +117,7 @@ poetry run pytest
 **Run with coverage:**
 
 ```bash
-poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=term-missing
+poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
 ```
 
 **VS Code tasks:**
@@ -144,9 +144,12 @@ Run All Checks
 
 ### Fix All (Automated)
 
-Runs Black formatting + Ruff auto-fixes:
+Runs Black formatting + Ruff auto-fixes + verification + Pyright + Pytest (with coverage) via the Python entry point:
 
 ```bash
+poetry run python -m scripts.dev_tools.fix_all
+
+# PowerShell wrapper (delegates to Python for compatibility)
 pwsh scripts/dev-tools/fix-all.ps1
 ```
 
@@ -257,10 +260,10 @@ Collect context for commits or pull requests:
 
 ```powershell
 # Collect commit context
-pwsh scripts/dev-tools/collect-commit-context.ps1
+poetry run python -m scripts.dev_tools.collect_commit_context --output artifacts/commit_context.txt
 
 # Collect PR context
-pwsh scripts/dev-tools/collect-pull-request-context.ps1
+poetry run python -m scripts.dev_tools.pr_context.collector --base origin/main
 ```
 
 Output saved to `artifacts/` directory.

@@ -53,7 +53,8 @@ Runs on: Python 3.13
 Use the provided task:
 ```powershell
 # Run all checks sequentially
-pwsh ./scripts/dev-tools/fix-all.ps1
+poetry run python -m scripts.dev_tools.fix_all
+# PowerShell wrapper (delegates to Python) is available at scripts/dev-tools/fix-all.ps1
 
 # Or use VS Code task
 # Ctrl+Shift+P -> "Tasks: Run Task" -> "Run All Checks"
@@ -78,7 +79,7 @@ poetry run pyright
 poetry run pytest
 
 # Run tests with coverage
-poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=term-missing
+poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
 ```
 
 ### Pre-commit Hooks

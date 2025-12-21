@@ -4,6 +4,8 @@
 - Author: name
 - Status: Draft
 
+> Automation note: Keep the section headings below unchanged; the promotion tooling maps each of them into the GitHub bug issue template.
+
 ## Summary
 
 One or two sentences on what is broken.

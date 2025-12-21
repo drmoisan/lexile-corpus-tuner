@@ -19,6 +19,21 @@ if TYPE_CHECKING:
 PLACEHOLDER = "(not provided in potential file)"
 ISSUE_URL_PATTERN = re.compile(r"https?://\S+/issues/(\d+)")
 PROMOTION_TYPES = ("epic", "feature", "refactor", "bug")
+TITLE_PREFIXES = {
+    "epic": "Epic",
+    "feature": "Feature",
+    "refactor": "Refactor",
+    "bug": "Bug",
+}
+BUG_SECTION_HEADINGS = [
+    "Summary",
+    "Environment",
+    "Steps to Reproduce",
+    "Expected Behavior",
+    "Actual Behavior",
+    "Logs / Screenshots",
+    "Impact / Severity",
+]
 
 
 class PromotionError(Exception):
@@ -158,10 +173,15 @@ def _resolve_workspace() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _strip_potential_marker(value: str) -> str:
+    cleaned = re.sub(r"\s*\(Potential[^)]*\)", "", value, flags=re.IGNORECASE).strip()
+    return cleaned or value.strip()
+
+
 def get_feature_name(content: str, file_path: Path) -> str:
     heading_match = re.search(r"^\s*#\s+(.+)$", content, flags=re.MULTILINE)
     if heading_match:
-        feature_name = heading_match.group(1).replace("(Potential)", "").strip()
+        feature_name = _strip_potential_marker(heading_match.group(1))
         if feature_name:
             return feature_name
 
@@ -199,6 +219,12 @@ def build_body(
         f"## Test Conditions\n{tests}\n\n"
         f"## Source\nFrom: {relative_path}\n"
     )
+
+
+def build_bug_body(sections: dict[str, str], relative_path: str) -> str:
+    parts = [f"## {heading}\n{sections[heading]}" for heading in BUG_SECTION_HEADINGS]
+    parts.append(f"## Source\nFrom: {relative_path}")
+    return "\n\n".join(parts) + "\n"
 
 
 def parse_issue_reference(output: Iterable[str]) -> tuple[str | None, str | None]:
@@ -301,20 +327,34 @@ def promote_potential(
 
     feature_name = get_feature_name(content, resolved)
     feature_path = get_feature_path(feature_name)
-    issue_title = f"Feature: {feature_name}"
+    prefix = TITLE_PREFIXES.get(promotion_type, "Feature")
+    issue_title = f"{prefix}: {feature_name}"
 
-    problem = get_section(content, "Problem / Why") or PLACEHOLDER
-    behavior = get_section(content, "Proposed Behavior") or PLACEHOLDER
-    criteria = get_section(content, "Acceptance Criteria (early draft)") or PLACEHOLDER
-    constraints = get_section(content, "Constraints & Risks") or PLACEHOLDER
-    tests = get_section(content, "Test Conditions to Consider") or PLACEHOLDER
+    def _relative_path() -> str:
+        try:
+            return os.path.relpath(resolved, workspace_path)
+        except ValueError:
+            return str(resolved)
 
-    try:
-        relative_path = os.path.relpath(resolved, workspace_path)
-    except ValueError:
-        relative_path = str(resolved)
+    relative_path = _relative_path()
 
-    body = build_body(problem, behavior, criteria, constraints, tests, relative_path)
+    if promotion_type == "bug":
+        bug_sections = {
+            heading: get_section(content, heading) or PLACEHOLDER
+            for heading in BUG_SECTION_HEADINGS
+        }
+        body = build_bug_body(bug_sections, relative_path)
+    else:
+        problem = get_section(content, "Problem / Why") or PLACEHOLDER
+        behavior = get_section(content, "Proposed Behavior") or PLACEHOLDER
+        criteria = (
+            get_section(content, "Acceptance Criteria (early draft)") or PLACEHOLDER
+        )
+        constraints = get_section(content, "Constraints & Risks") or PLACEHOLDER
+        tests = get_section(content, "Test Conditions to Consider") or PLACEHOLDER
+        body = build_body(
+            problem, behavior, criteria, constraints, tests, relative_path
+        )
 
     messages: list[str] = []
 
