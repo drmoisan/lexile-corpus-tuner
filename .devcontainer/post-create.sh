@@ -24,6 +24,38 @@ cd "$WORKSPACE_DIR"
 export WORKSPACE_DIR
 echo "Workspace directory: $WORKSPACE_DIR"
 
+# -----------------------------------------------------------------------------
+# Fix Docker socket permissions
+# -----------------------------------------------------------------------------
+# The docker-outside-of-docker feature creates a docker group, but the socket
+# from the host may be owned by root:root. We need to ensure the vscode user
+# can access it by updating the socket group ownership.
+echo ""
+echo "Configuring Docker socket permissions..."
+if [ -S /var/run/docker.sock ]; then
+    DOCKER_SOCK_GID=$(stat -c '%g' /var/run/docker.sock 2>/dev/null || echo "")
+    DOCKER_GROUP_GID=$(getent group docker | cut -d: -f3 2>/dev/null || echo "")
+    
+    if [ -n "$DOCKER_SOCK_GID" ] && [ -n "$DOCKER_GROUP_GID" ]; then
+        if [ "$DOCKER_SOCK_GID" != "$DOCKER_GROUP_GID" ]; then
+            echo "Docker socket GID ($DOCKER_SOCK_GID) differs from docker group GID ($DOCKER_GROUP_GID)"
+            echo "Requesting sudo to fix socket permissions..."
+            # Change the socket to be owned by the docker group
+            sudo chgrp docker /var/run/docker.sock || echo "Warning: Could not change docker socket group"
+            sudo chmod g+rw /var/run/docker.sock || echo "Warning: Could not update docker socket permissions"
+        fi
+    fi
+    
+    # Verify docker access
+    if docker ps >/dev/null 2>&1; then
+        echo "✓ Docker access configured successfully"
+    else
+        echo "⚠ Docker access check failed - you may need to rebuild the container"
+    fi
+else
+    echo "⚠ Docker socket not found at /var/run/docker.sock"
+fi
+
 # Create PowerShell profile with custom prompt
 echo ""
 echo "Creating PowerShell profile..."

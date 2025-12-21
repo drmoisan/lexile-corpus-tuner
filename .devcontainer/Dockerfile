@@ -8,6 +8,9 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     wget \
     apt-transport-https \
     software-properties-common \
+    # Clipboard utilities for pyperclip fallback
+    wl-clipboard \
+    xclip \
     # cloc for code metrics
     cloc \
     && rm -rf /var/lib/apt/lists/*

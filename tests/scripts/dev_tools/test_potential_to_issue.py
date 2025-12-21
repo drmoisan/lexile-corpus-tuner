@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -402,3 +404,104 @@ def test_promote_potential_fails_fast_when_not_authenticated() -> None:
     assert (
         len(gh.calls) == 0
     ), "No gh commands should be executed when not authenticated"
+
+
+def test_real_gh_client_invokes_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_which(name: str) -> str:
+        return "/usr/bin/gh"
+
+    class DummyCompleted:
+        def __init__(self, code: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode = code
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(args: list[str], **kwargs: object) -> DummyCompleted:
+        calls.append(list(args))
+        if "auth" in args:
+            return DummyCompleted(0, "ok", "")
+        return DummyCompleted(0, "output", "")
+
+    monkeypatch.setattr(mod.shutil, "which", fake_which)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    client = mod.RealGhClient()
+    assert client.is_authenticated() is True
+    create = client.issue_create("Title", "Body", "feature")
+    view = client.issue_view("5")
+    assert create.exit_code == 0 and view.exit_code == 0
+    assert any("issue" in call for call in calls)
+
+
+def test_real_gh_client_raises_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing(_: str) -> None:
+        return None
+
+    monkeypatch.setattr(mod.shutil, "which", missing)
+    with pytest.raises(FileNotFoundError):
+        mod.RealGhClient()
+
+
+def test_real_filesystem_round_trip(tmp_path: Path) -> None:
+    fs = mod.RealFileSystem()
+    target = fs.resolve_path(str(tmp_path / "nested" / "file.txt"))
+    fs.ensure_dir(target.parent)
+    fs.write_text(target, "content")
+    assert fs.read_text(target) == "content"
+    dest = target.parent / "moved.txt"
+    fs.move(target, dest)
+    assert dest.exists()
+
+
+def test_parse_args_and_main_paths(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    potential = tmp_path / "p.md"
+    args = [
+        "prog",
+        "--potential-path",
+        str(potential),
+        "--promotion-type",
+        "epic",
+    ]
+    monkeypatch.setattr(sys, "argv", args)
+    parsed = mod.parse_args()
+    assert parsed.potential_path == str(potential)
+    assert parsed.promotion_type == "epic"
+
+    fake_args = SimpleNamespace(potential_path=str(potential), promotion_type="feature")
+
+    def fake_parse_args() -> SimpleNamespace:
+        return fake_args
+
+    def fake_promote(potential_path: str, promotion_type: str) -> mod.PromotionOutcome:
+        return mod.PromotionOutcome(0, [], None)
+
+    monkeypatch.setattr(mod, "parse_args", fake_parse_args)
+    monkeypatch.setattr(mod, "promote_potential", fake_promote)
+    with pytest.raises(SystemExit) as exc:
+        mod.main()
+    assert exc.value.code == 0
+
+
+def test_main_exits_on_promotion_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_args = SimpleNamespace(
+        potential_path=str(tmp_path / "p.md"), promotion_type="feature"
+    )
+
+    def fake_parse_args() -> SimpleNamespace:
+        return fake_args
+
+    monkeypatch.setattr(mod, "parse_args", fake_parse_args)
+
+    def raise_error(**kwargs: object) -> object:
+        raise mod.PromotionError("boom")
+
+    monkeypatch.setattr(mod, "promote_potential", raise_error)
+    with pytest.raises(SystemExit) as exc:
+        mod.main()
+    assert exc.value.code == 1
