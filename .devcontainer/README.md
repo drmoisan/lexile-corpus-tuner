@@ -36,11 +36,20 @@ This directory contains the Docker Dev Container configuration for the Lexile Co
 - **Pester** (test framework)
 - **PoshQC** module (from workspace)
 
-### VS Code Extensions
-- Python, Pylance, Black Formatter, Ruff
+### VS Code Extensions (allow list)
+- Python, Pylance, Black Formatter, Ruff, Poetry helper, Parquet Explorer, Live Server
 - PowerShell
-- GitLens, GitHub Pull Requests
-- EditorConfig, Code Spell Checker
+- GitLens, GitHub Pull Requests, Git Graph, Graphite GTI
+- EditorConfig, REST Client
+- Coverage Gutters, Koverage, Pester Test Explorer
+- Docker tools, Markdown Preview GitHub Styles, Mermaid, Rainbow CSV
+- ChatGPT, GitHub Actions
+
+### Mounts and Storage Layout
+- Workspace stored on a named volume: `${localWorkspaceFolderBasename}-workspace -> /workspaces/lexile-corpus-tuner`
+- Host workspace mounted read-only at `/workspaces/lexile-corpus-host` for initial bootstrap copy into the volume on first create (excludes `.venv`, `artifacts`, `data` to avoid slow transfers)
+- Dedicated artifact bind mount: `${localWorkspaceFolder}/../lexile-artifacts -> /workspaces/lexile-artifacts` (keeps large data outside the scanned code workspace)
+- Docker socket bind: `/var/run/docker.sock -> /var/run/docker.sock`
 
 ## Container Features
 
@@ -107,9 +116,10 @@ The container does **not** include secrets. To use OpenAI API:
 - Check extension compatibility with container architecture
 
 ### Performance issues on Windows
-- Ensure workspace is on a local drive (not network share)
-- Consider WSL 2 backend for Docker Desktop
-- The `.venv` mount helps by keeping Python packages on host filesystem
+- The workspace now lives on a named volume to avoid host bind latency; a read-only host bind is only used to seed the volume on first create
+- Ensure Docker Desktop uses the WSL 2 backend; keep host-side edits in sync by rebuilding the container if you need a fresh copy from the host
+- Keep large artifacts under `/workspaces/lexile-artifacts` instead of inside the code volume
+- Avoid aggressive workspace scanners (Task Explorer removed from allow list)
 
 ## Benefits Over Local Development
 

@@ -174,6 +174,26 @@ Add to devcontainer.json:
 }
 ```
 
+### 6b. Slow pytest collection or heavy file I/O in devcontainer
+
+#### Symptoms
+- `poetry run pytest --collect-only` takes >5–10s with no CPU saturation
+- High disk activity while idle due to extension scans
+
+#### Solutions
+
+**Disable aggressive workspace scanners**
+- Task Explorer is removed from the allow list; ensure it is not installed in the container.
+
+**Keep artifacts off the code workspace**
+- Use the dedicated bind mount `/workspaces/lexile-artifacts` (host `${localWorkspaceFolder}/../lexile-artifacts`) for large data to reduce directory walks inside the code workspace.
+
+**Keep workspace on a fast path**
+- Workspace now lives on a named volume to avoid host bind latency. A read-only host bind seeds the volume on first create (excluding `.venv`, `artifacts`, and `data` to prevent long copies); rebuild the container if you need to refresh from host. Prefer WSL2 backend for Docker Desktop.
+
+**Rebuild after config changes**
+- `F1 → Dev Containers: Rebuild Container` to ensure extension set and mounts are applied.
+
 ---
 
 ### 7. Port Forwarding Issues
