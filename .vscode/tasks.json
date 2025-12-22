@@ -286,14 +286,14 @@
         {
             "label": "Git: Collect Commit Context",
             "type": "shell",
-            "command": "pwsh",
+            "command": "poetry",
             "args": [
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1"
+                "run",
+                "python",
+                "-m",
+                "scripts.dev_tools.collect_commit_context",
+                "--output",
+                "${workspaceFolder}/artifacts/commit_context.txt"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -305,24 +305,22 @@
         },
         {
             "label": "Git: Collect Pull Request Context",
-            "type": "shell",
-            "command": "pwsh",
-            "args": [
-                "-NoLogo",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
-                "-Base",
-                "${input:PRBaseBranch}"
-            ],
+          "type": "shell",
+          "command": "poetry",
+          "args": [
+            "run",
+            "python",
+            "-m",
+            "scripts.dev_tools.pr_context.collector",
+            "--base",
+            "${input:PRBaseBranch}"
+          ],
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
                 "panel": "new"
             },
-            "detail": "Collects git PR context comparing current branch to specified base branch"
+          "detail": "Collects git PR context comparing current branch to specified base branch"
         },
             {
       "label": "Dev: New GitHub Feature Issue (manual)",
@@ -493,6 +491,28 @@
       "detail": "Installs PSScriptAnalyzer and Pester (CurrentUser scope) for repo tasks."
     },
     {
+      "label": "Dev: Resolve Execute Plan Prompt",
+      "type": "shell",
+      "command": "poetry",
+      "args": [
+        "run",
+        "python",
+        "${workspaceFolder}/scripts/dev_tools/resolve_execute_plan_prompt.py",
+        "--feature",
+        "${input:ExecutePlanFeatureFolder}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "showReuseMessage": false
+      },
+      "detail": "Resolves the active feature, fills execute-plan prompt, and copies it to the clipboard."
+    },
+    {
       "label": "Dev: 1A New Potential Bug",
       "type": "shell",
       "command": "poetry",
@@ -585,6 +605,12 @@
       "description": "Feature folder name (kebab/underscore-case, e.g., notes_feature)",
       "default": "new_feature"
     },
+        {
+          "id": "ExecutePlanFeatureFolder",
+          "type": "promptString",
+          "description": "Feature folder under docs/features/active (leave blank to auto-detect)",
+          "default": ""
+        },
     {
       "id": "ActiveWorkType",
       "type": "pickString",

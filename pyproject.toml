@@ -36,6 +36,7 @@ black = ">=23.0"
 ruff = "^0.5.3"
 pyright = "^1.1.407"
 openai = "^2.8.0"
+pyperclip = "^1.11.0"
 
 [tool.poetry.extras]
 lexile-v2 = ["tensorflow", "joblib", "nltk", "keras-preprocessing"]
@@ -49,11 +50,11 @@ text-difficulty-pipeline = "lexile_corpus_tuner.cli:text_difficulty_cli"
 
 [tool.black]
 line-length = 88
-target-version = ["py312"]
+target-version = ["py310"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py310"
 fix = true
 show-fixes = true
 

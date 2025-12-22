@@ -9,11 +9,12 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "PowerShell: Collect PR Context",
-            "type": "PowerShell",
+            "name": "Python: Collect PR Context",
+            "type": "debugpy",
             "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/collect-pull-request-context.ps1",
-            "cwd": "${workspaceFolder}"
+            "module": "scripts.dev_tools.collect_pr_context",
+            "cwd": "${workspaceFolder}",
+            "args": ["--base", "main"]
         },
         {
             "name": "Python: Promote Potential -> Issue (bug)",
