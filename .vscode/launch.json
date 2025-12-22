@@ -213,6 +213,20 @@
                 "data/calibration/calibration_dataset.parquet",
                 "--out", "data/model/lexile_regression_model.json"
             ]
+        },
+        {
+            "name": "Python: Format current markdown file",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.dev_tools.markdown_label_formatter",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "${relativeFile}",
+                "--output",
+                "${relativeFile}"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }

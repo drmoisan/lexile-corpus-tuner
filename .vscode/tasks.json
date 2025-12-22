@@ -284,6 +284,31 @@
             }
         },
         {
+          "label": "Markdown: format current file",
+          "type": "shell",
+          "command": "poetry",
+          "args": [
+            "run",
+            "python",
+            "-m",
+            "scripts.dev_tools.markdown_label_formatter",
+            "${relativeFile}",
+            "--output",
+            "${relativeFile}"
+          ],
+          "problemMatcher": [],
+          "presentation": {
+            "reveal": "always",
+            "panel": "dedicated",
+            "showReuseMessage": false
+          },
+          "group": {
+            "kind": "build",
+            "isDefault": false
+          },
+          "detail": "Formats the active markdown file with chat label normalization."
+        },
+        {
             "label": "Git: Collect Commit Context",
             "type": "shell",
             "command": "poetry",
