@@ -66,7 +66,6 @@ Timeline (abridged):
 ## Proposed Fix / Validation Ideas
 
 Actions/resolution:
-- Disable Task Explorer extension inside the dev container (or exclude the workspace from its scans).
 - Migrate the *code* to WSL2 (small) 
 - Keep *artifacts* on externally blind mounted directory (large)
 
