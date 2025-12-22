@@ -137,11 +137,3 @@ Pytest test collection is highly sensitive to filesystem latency due to large nu
 * Dev container performance issues are often caused by **external tooling interacting with slow filesystem mounts**, not by the application or test framework itself.
 * Comparing local vs container execution early is a high-signal diagnostic step.
 * Systematically ruling out internal causes (plugins, config, cache, fixtures) helps surface external interference quickly.
-
----
-
-If you’d like, I can also provide:
-
-* A **short executive RCA summary** (1–2 paragraphs),
-* A **blameless postmortem** variant, or
-* A **checklist template** for future devcontainer performance investigations.
