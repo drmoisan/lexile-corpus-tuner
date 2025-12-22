@@ -63,14 +63,23 @@ Timeline (abridged):
 
 ## Proposed Fix
 - Keep aggressive workspace-scanning extensions disabled in the devcontainer extension set; document recommended/allowed extensions.
-- Keep source code on a low-latency path (WSL2 filesystem or container volume). Bind-mount large artifacts separately.
-- Update `devcontainer.json` (or docs) with mounts guidance and an extension recommendation/exclusion list.
-- Add usage guidance: avoid dual writers (host + container), and use save-all before agent runs.
+- Move source code to a named volume to avoid host bind latency, keep a read-only host bind for bootstrap copy, and keep heavy artifacts on a dedicated host bind outside the code volume to reduce scanning contention.
+- Update `devcontainer.json` with the chosen mount layout and extension allowlist (Task Explorer removed) plus an artifact bind mount.
+- Add usage guidance: avoid dual writers (host + container), keep code on a fast path (WSL2 path or default bind with cached consistency), and use save-all before agent runs.
+
+## Decisions (2025-12-22)
+- Mount strategy: move code to a named volume (`workspaceMount: source=${localWorkspaceFolderBasename}-workspace,type=volume,target=/workspaces/lexile-corpus-tuner`) to avoid host bind latency; mount the host workspace read-only at `/workspaces/lexile-corpus-host` for initial bootstrap copy; keep the dedicated host bind mount for artifacts at `source=${localWorkspaceFolder}/../lexile-artifacts,type=bind,target=/workspaces/lexile-artifacts,consistency=cached` so large data stays off the code volume.
+- Extension allowlist (Task Explorer removed): ms-python.python; ms-python.vscode-pylance; ms-python.black-formatter; charliermarsh.ruff; AdamViola.parquet-explorer; zeshuaro.vscode-python-poetry; ms-vscode.live-server; ms-vscode.powershell; eamodio.gitlens; mhutchie.git-graph; graphite.gti-vscode; github.vscode-pull-request-github; editorconfig.editorconfig; humao.rest-client; ryanluker.vscode-coverage-gutters; tenninebt.vscode-koverage; pspester.pester-test; ms-azuretools.vscode-containers; bierner.markdown-preview-github-styles; bierner.markdown-mermaid; mechatroner.rainbow-csv; openai.chatgpt; github.vscode-github-actions.
+- Settings adjustments: keep Python formatOnSave/codeActionsOnSave defaults; no functional change to interpreter path; retain PSScriptAnalyzer settings; default terminal profile remains pwsh.
 
 Validation:
 - Re-run `poetry run pytest --collect-only` targeting ~1–2s for ~521 tests.
 - Run a representative short pytest suite to confirm end-to-end improvement.
 - Record before/after timings and environment in docs.
+
+Validation results (2025-12-22):
+- Bind-mounted workspace (cached bind + artifact bind): extension set matched allowlist; `poetry run pytest --collect-only` reported `collected 778 items` in ~9.99s (real ~13.5s) and `poetry run pytest tests/src -q` reported 497 passed in ~14.6s (real ~19.9s) — above the target.
+- Volume-backed workspace (workspaceMount volume + host bootstrap bind + artifact bind): extension set still matches allowlist; `poetry run pytest --collect-only` reported `collected 783 items in 0.92s` (real 1.72s, user 6.38s, sys 0.24s). `poetry run pytest tests/src -q` reported 497 passed, 11 warnings in 2.49s (real 3.19s, user 6.84s, sys 0.28s). Target achieved on the volume-backed layout.
 
 
 ## Assumptions, Constraints, Dependencies

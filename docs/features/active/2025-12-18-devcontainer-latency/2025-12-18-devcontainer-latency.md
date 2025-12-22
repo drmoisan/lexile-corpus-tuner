@@ -78,6 +78,61 @@ Validation:
 - [x] Promote to GitHub issue (bug-report template)
 - [x] Move to active fix folder / branch
 
+## Baseline (current devcontainer before changes)
+
+- Workspace extensions from [.devcontainer/devcontainer.json](../../../.devcontainer/devcontainer.json):
+	- ms-python.python
+	- ms-python.vscode-pylance
+	- ms-python.black-formatter
+	- charliermarsh.ruff
+	- AdamViola.parquet-explorer
+	- zeshuaro.vscode-python-poetry
+	- ms-vscode.live-server
+	- ms-vscode.powershell
+	- eamodio.gitlens
+	- mhutchie.git-graph
+	- graphite.gti-vscode
+	- github.vscode-pull-request-github
+	- editorconfig.editorconfig
+	- humao.rest-client
+	- spmeesseman.vscode-taskexplorer
+	- ryanluker.vscode-coverage-gutters
+	- tenninebt.vscode-koverage
+	- pspester.pester-test
+	- ms-azuretools.vscode-containers
+	- bierner.markdown-preview-github-styles
+	- bierner.markdown-mermaid
+	- mechatroner.rainbow-csv
+	- openai.chatgpt
+	- github.vscode-github-actions
+
+- Key devcontainer settings snapshot: Python interpreter `${workspaceFolder}/.venv/bin/python`; formatOnSave + codeActionsOnSave (fixAll/organizeImports) enabled for Python; Pylance strict type checking; terminal default profile pwsh; PSScriptAnalyzer enabled with repo settings.
+
+- Baseline pytest collection (current container, Task Explorer enabled):
+	- Command: `poetry run pytest --collect-only`
+	- Result: `collected 778 items` in `9.62s` (plugins: anyio-4.12.0, cov-7.0.0; Python 3.13.9)
+	- Observation: prior timing attempt via Measure-Command returned ~45.6s (likely cold start + PowerShell overhead); direct invocation stabilizes near 9–10s and remains materially slower than host target (1–2s).
+
+## Mitigation plan (in progress)
+
+- Remove Task Explorer from the devcontainer extension allow list to eliminate workspace-wide scanning pressure.
+- Move workspace to a named volume with `workspaceMount` while keeping a read-only host bind at `/workspaces/lexile-corpus-host` for bootstrap copy; keep artifacts on dedicated host bind `/workspaces/lexile-artifacts` (host `${localWorkspaceFolder}/../lexile-artifacts`).
+- Document and enforce the extension allow list + mount layout in devcontainer docs; require rebuild to apply.
+- Validate with `poetry run pytest --collect-only` and a short test subset after rebuild, targeting ~1–2s collection.
+
+## Validation snapshots
+
+- Extension check (post-uninstall, pre-rebuild): Task Explorer removed; installed set now includes adamviola.parquet-explorer, bierner.markdown-mermaid, bierner.markdown-preview-github-styles, charliermarsh.ruff, dbaeumer.vscode-eslint, eamodio.gitlens, editorconfig.editorconfig, github.copilot, github.copilot-chat, github.vscode-github-actions, github.vscode-pull-request-github, graphite.gti-vscode, humao.rest-client, mechatroner.rainbow-csv, mhutchie.git-graph, ms-azuretools.vscode-containers, ms-python.autopep8, ms-python.black-formatter, ms-python.debugpy, ms-python.python, ms-python.vscode-pylance, ms-python.vscode-python-envs, ms-vscode.live-server, ms-vscode.powershell, openai.chatgpt, pspester.pester-test, ryanluker.vscode-coverage-gutters, tenninebt.vscode-koverage, zeshuaro.vscode-python-poetry.
+- Pytest collection after removing Task Explorer (workspace still on existing mount): `poetry run pytest --collect-only` → `collected 778 items` in `9.95s` (Python 3.13.9, plugins anyio-4.12.0, cov-7.0.0). Additional rebuild required to pick up new mount layout.
+- Post-rebuild validation (cached workspace bind + artifact bind applied):
+	- Extensions (`code --list-extensions | sort`): adamviola.parquet-explorer; bierner.markdown-mermaid; bierner.markdown-preview-github-styles; charliermarsh.ruff; dbaeumer.vscode-eslint; eamodio.gitlens; editorconfig.editorconfig; github.copilot; github.copilot-chat; github.vscode-github-actions; github.vscode-pull-request-github; graphite.gti-vscode; humao.rest-client; mechatroner.rainbow-csv; mhutchie.git-graph; ms-azuretools.vscode-containers; ms-python.autopep8; ms-python.black-formatter; ms-python.debugpy; ms-python.python; ms-python.vscode-pylance; ms-python.vscode-python-envs; ms-vscode.live-server; ms-vscode.powershell; openai.chatgpt; pspester.pester-test; ryanluker.vscode-coverage-gutters; tenninebt.vscode-koverage; zeshuaro.vscode-python-poetry. Task Explorer absent.
+	- Pytest collect-only: `poetry run pytest --collect-only` → `collected 778 items` in `9.99s` (pytest-reported; `time` real ~13.5s). Target (~1–2s) not achieved on current bind layout.
+	- Pytest subset: `poetry run pytest tests/src -q` → `497 passed, 11 warnings in 14.60s` (pytest-reported; `time` real ~19.9s). Still above desired range; residual latency likely from bind mount.
+	- Volume-backed validation (workspace volume + host bootstrap bind + artifact bind):
+		- Extensions (`code --list-extensions | sort`): adamviola.parquet-explorer; bierner.markdown-mermaid; bierner.markdown-preview-github-styles; charliermarsh.ruff; dbaeumer.vscode-eslint; eamodio.gitlens; editorconfig.editorconfig; github.copilot; github.copilot-chat; github.vscode-github-actions; github.vscode-pull-request-github; graphite.gti-vscode; humao.rest-client; mechatroner.rainbow-csv; mhutchie.git-graph; ms-azuretools.vscode-containers; ms-python.autopep8; ms-python.black-formatter; ms-python.debugpy; ms-python.python; ms-python.vscode-pylance; ms-python.vscode-python-envs; ms-vscode.live-server; ms-vscode.powershell; openai.chatgpt; pspester.pester-test; ryanluker.vscode-coverage-gutters; tenninebt.vscode-koverage; zeshuaro.vscode-python-poetry. Task Explorer absent; command banner from `code` noted but extensions match allowlist.
+		- Pytest collect-only: `poetry run pytest --collect-only` → `collected 783 items in 0.92s` (pytest); `time -p` real `1.72`, user `6.38`, sys `0.24`. Meets ~1–2s target on the volume-backed workspace.
+		- Pytest subset: `poetry run pytest tests/src -q` → `497 passed, 11 warnings in 2.49s`; `time -p` real `3.19`, user `6.84`, sys `0.28`. Material improvement vs prior 19.9s real.
+
 ---
 
 ## Further Investigation

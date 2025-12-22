@@ -284,7 +284,7 @@
             }
         },
         {
-          "label": "Markdown: format current file",
+          "label": "Copilot MD: format current chat file",
           "type": "shell",
           "command": "poetry",
           "args": [
@@ -584,10 +584,6 @@
         }
     ],
   "inputs": [
-    {
-      "id": "closePanel",
-      "type": ""
-    },
     {
       "id": "PRBaseBranch",
       "type": "promptString",
