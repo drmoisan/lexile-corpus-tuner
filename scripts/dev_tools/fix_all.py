@@ -151,6 +151,7 @@ def _ruff_fix(
 
 def _run_black_with_retry(
     *,
+    step_number: int,
     max_retries: int,
     runner: CommandRunner,
     logger: StepLogger,
@@ -159,7 +160,8 @@ def _run_black_with_retry(
     while attempt < max_retries:
         attempt += 1
         logger.step(
-            f"Step 1: Running Black formatting... (attempt {attempt} of {max_retries})"
+            f"Step {step_number}: Running Black formatting... "
+            f"(attempt {attempt} of {max_retries})"
         )
         result = runner.run(["poetry", "run", "black", "."], step_name="Black: format")
         if result.returncode == 0:
@@ -189,15 +191,40 @@ def run_fix_all(
     step_logger = logger or StepLogger()
     command_runner = runner or SubprocessCommandRunner(step_logger)
 
+    if not _run_simple_step(
+        step_number=1,
+        description="Running JSON formatting...",
+        step_name="JSON: format",
+        success_message="JSON formatting completed",
+        failure_message="JSON formatting failed. Please review errors above.",
+        command=["poetry", "run", "python", "-m", "scripts.dev_tools.format_json"],
+        runner=command_runner,
+        logger=step_logger,
+    ):
+        return 1
+
+    if not _run_simple_step(
+        step_number=2,
+        description="Running JSON validation...",
+        step_name="JSON: validate",
+        success_message="JSON validation passed",
+        failure_message="JSON validation failed. Please review errors above.",
+        command=["poetry", "run", "python", "-m", "scripts.dev_tools.validate_json"],
+        runner=command_runner,
+        logger=step_logger,
+    ):
+        return 1
+
     while True:
         if not _run_black_with_retry(
+            step_number=3,
             max_retries=max_black_retries,
             runner=command_runner,
             logger=step_logger,
         ):
             return 1
 
-        step_logger.step("Step 2: Running Ruff linting...")
+        step_logger.step("Step 4: Running Ruff linting...")
         ruff_result = command_runner.run(
             ["poetry", "run", "ruff", "check"], step_name="Ruff: lint"
         )
@@ -222,7 +249,7 @@ def run_fix_all(
         break
 
     if not _run_simple_step(
-        step_number=3,
+        step_number=5,
         description="Running Pyright type checking...",
         step_name="Pyright: type-check",
         success_message="Pyright type checking passed",
@@ -247,7 +274,7 @@ def run_fix_all(
         )
 
     if not _run_simple_step(
-        step_number=4,
+        step_number=6,
         description=(
             "Running Pytest with coverage..."
             if include_coverage
@@ -266,6 +293,8 @@ def run_fix_all(
     step_logger.info("========================================")
     step_logger.info("ALL CHECKS PASSED")
     step_logger.info("========================================")
+    step_logger.info("  JSON formatting: PASS")
+    step_logger.info("  JSON validation: PASS")
     step_logger.info("  Black formatting: PASS")
     step_logger.info("  Ruff linting: PASS")
     step_logger.info("  Pyright type checking: PASS")

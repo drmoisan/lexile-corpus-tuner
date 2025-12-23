@@ -37,6 +37,7 @@ ruff = "^0.5.3"
 pyright = "^1.1.407"
 openai = "^2.8.0"
 pyperclip = "^1.11.0"
+jsonschema = "^4.25.1"
 
 [tool.poetry.extras]
 lexile-v2 = ["tensorflow", "joblib", "nltk", "keras-preprocessing"]

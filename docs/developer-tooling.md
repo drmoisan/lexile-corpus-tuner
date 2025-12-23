@@ -125,6 +125,27 @@ poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-re
 - `Pytest: run tests` - Run all tests (default test task)
 - `Pytest: run tests with coverage` - Run with coverage report
 
+### JSON Config Quality: jq + jsonschema
+
+- **Governed globs**: `.vscode/*.json`, `.vscode/**/*.json`, `.devcontainer/*.json`, `scripts/**/*.json`, `docs/**/*.json`, `examples/**/*.json`
+- **Excludes**: `data/**`, `artifacts/**`, `htmlcov/**`, `coverage*/**`, `**/node_modules/**`
+- **Formatter**: strict JSON only (no comments); sorts keys deterministically via jq.
+
+  ```bash
+  poetry run python -m scripts.dev_tools.format_json          # rewrite in place
+  poetry run python -m scripts.dev_tools.format_json --check  # verify only
+  ```
+
+- **Validator**: requires `$schema` on governed files; caches schemas under `.cache/schemas`.
+
+  ```bash
+  poetry run python -m scripts.dev_tools.validate_json                # validate governed files
+  poetry run python -m scripts.dev_tools.validate_json --verbose      # show per-file status
+  poetry run python -m scripts.dev_tools.validate_json --cache-dir .cache/schemas
+  ```
+
+- **VS Code tasks**: `JSON: format`, `JSON: validate`
+
 ### PowerShell Testing: Pester
 
 - **Configuration**: `scripts/powershell/PoshQC/settings/pester.runsettings.psd1`
@@ -135,7 +156,7 @@ poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-re
 
 ### Run All Checks (Sequential)
 
-Runs Black → Ruff → Pyright → Pytest in sequence:
+Runs JSON format → JSON validate → Black → Ruff → Pyright → Pytest in sequence (plus PowerShell format/analyze/test):
 
 ```bash
 # VS Code task
@@ -144,7 +165,7 @@ Run All Checks
 
 ### Fix All (Automated)
 
-Runs Black formatting + Ruff auto-fixes + verification + Pyright + Pytest (with coverage) via the Python entry point:
+Runs JSON format → JSON validate → Black formatting + Ruff auto-fixes + verification → Pyright → Pytest (with coverage) via the Python entry point:
 
 ```bash
 poetry run python -m scripts.dev_tools.fix_all

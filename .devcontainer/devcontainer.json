@@ -1,130 +1,104 @@
 {
-	"name": "Lexile Corpus Tuner Dev Container",
-	"workspaceFolder": "/workspaces/lexile-corpus-tuner",
-	"workspaceMount": "source=${localWorkspaceFolderBasename}-workspace,target=/workspaces/lexile-corpus-tuner,type=volume",
-	"build": {
-		"dockerfile": "Dockerfile",
-		"context": ".."
-	},
-	"containerEnv": {
-		"TZ": "America/New_York"
-	},
-
-	
-	// Configure tool-specific properties
-	"customizations": {
-		"vscode": {
-			// VS Code extensions to install
-			"extensions": [
-				// Python
-				"ms-python.python",
-				"ms-python.vscode-pylance",
-				"ms-python.black-formatter",
-				"charliermarsh.ruff",
-				"AdamViola.parquet-explorer",
-				"zeshuaro.vscode-python-poetry",
-				"ms-vscode.live-server",
-				
-				// PowerShell
-				"ms-vscode.powershell",
-				
-				// Git
-				"eamodio.gitlens",
-				"mhutchie.git-graph",
-				"graphite.gti-vscode",
-				"github.vscode-pull-request-github",
-				
-				// Utilities
-				"editorconfig.editorconfig",
-				"humao.rest-client",
-
-				// Testing
-				"ryanluker.vscode-coverage-gutters",
-				"tenninebt.vscode-koverage",
-				"pspester.pester-test",
-
-				// Container tools
-				"ms-azuretools.vscode-containers",
-
-				// File Viewers
-				"bierner.markdown-preview-github-styles",
-				"bierner.markdown-mermaid",
-				"mechatroner.rainbow-csv",
-
-				// Agents
-				"openai.chatgpt",
-				"github.vscode-github-actions"
-			],
-			
-			// VS Code settings
-			"settings": {
-				"python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-				"python.terminal.activateEnvironment": false,
-				"python.formatting.provider": "none",
-				"[python]": {
-					"editor.defaultFormatter": "ms-python.black-formatter",
-					"editor.formatOnSave": true,
-					"editor.codeActionsOnSave": {
-						"source.fixAll": "explicit",
-						"source.organizeImports": "explicit"
-					}
-				},
-				"black-formatter.args": ["--config", "${workspaceFolder}/pyproject.toml"],
-				"python.testing.pytestEnabled": true,
-				"python.testing.unittestEnabled": false,
-				"python.analysis.typeCheckingMode": "strict",
-				"powershell.codeFormatting.preset": "OTBS",
-				"powershell.scriptAnalysis.enable": true,
-				"powershell.scriptAnalysis.settingsPath": "${workspaceFolder}/scripts/powershell/PoshQC/settings/pssa.settings.psd1",
-				"powershell.integratedConsole.startInBackground": true,
-				"powershell.integratedConsole.showOnStartup": false,
-				"terminal.integrated.defaultProfile.linux": "pwsh",
-				"terminal.integrated.profiles.linux": {
-					"pwsh": {
-						"path": "/usr/bin/pwsh",
-						"icon": "terminal-powershell",
-						"args": ["-NoLogo"]
-					},
-					"bash": {
-						"path": "/bin/bash",
-						"icon": "terminal-bash"
-					}
-				},
-				"terminal.integrated.shellIntegration.enabled": true
-			}
-		}
-	},
-	
-	// Use 'forwardPorts' to make a list of ports inside the container available locally
-	"forwardPorts": [],
-	
-	// Use 'postCreateCommand' to run commands after the container is created
-	"postCreateCommand": "bash -lc 'set -euo pipefail; sudo mkdir -p /workspaces/lexile-corpus-tuner; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; if [ ! -d /workspaces/lexile-corpus-tuner/.git ] && [ -d /workspaces/lexile-corpus-host ]; then tar -C /workspaces/lexile-corpus-host --exclude=.venv --exclude=artifacts --exclude=data -cf - . | tar -C /workspaces/lexile-corpus-tuner -xf -; fi; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; bash .devcontainer/post-create.sh'",
-	// Set the Docker container name
-	"runArgs": [
-		"--name=lexile-corpus-tuner-devcontainer"
-	],
-	
-	// Mount the workspace folder and Docker socket
-	"mounts": [
-		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-		"source=${localWorkspaceFolder},target=/workspaces/lexile-corpus-host,type=bind,consistency=cached,readonly",
-		"source=${localWorkspaceFolder}/../lexile-artifacts,target=/workspaces/lexile-artifacts,type=bind,consistency=cached"
-	],
-	
-	// Set `remoteUser` to `vscode` to use the non-root user
-	"remoteUser": "vscode",
-	
-	// Features to install
-	"features": {
-		"ghcr.io/devcontainers/features/git:1": {
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/github-cli:1": {
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-			"version": "latest"
-		}
-	}
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
+  },
+  "containerEnv": {
+    "TZ": "America/New_York"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "AdamViola.parquet-explorer",
+        "zeshuaro.vscode-python-poetry",
+        "ms-vscode.live-server",
+        "ms-vscode.powershell",
+        "eamodio.gitlens",
+        "mhutchie.git-graph",
+        "graphite.gti-vscode",
+        "github.vscode-pull-request-github",
+        "editorconfig.editorconfig",
+        "humao.rest-client",
+        "ryanluker.vscode-coverage-gutters",
+        "tenninebt.vscode-koverage",
+        "pspester.pester-test",
+        "ms-azuretools.vscode-containers",
+        "bierner.markdown-preview-github-styles",
+        "bierner.markdown-mermaid",
+        "mechatroner.rainbow-csv",
+        "openai.chatgpt",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "[python]": {
+          "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+          },
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true
+        },
+        "black-formatter.args": [
+          "--config",
+          "${workspaceFolder}/pyproject.toml"
+        ],
+        "powershell.codeFormatting.preset": "OTBS",
+        "powershell.integratedConsole.showOnStartup": false,
+        "powershell.integratedConsole.startInBackground": true,
+        "powershell.scriptAnalysis.enable": true,
+        "powershell.scriptAnalysis.settingsPath": "${workspaceFolder}/scripts/powershell/PoshQC/settings/pssa.settings.psd1",
+        "python.analysis.typeCheckingMode": "strict",
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "python.formatting.provider": "none",
+        "python.terminal.activateEnvironment": false,
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "terminal.integrated.defaultProfile.linux": "pwsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "icon": "terminal-bash",
+            "path": "/bin/bash"
+          },
+          "pwsh": {
+            "args": [
+              "-NoLogo"
+            ],
+            "icon": "terminal-powershell",
+            "path": "/usr/bin/pwsh"
+          }
+        },
+        "terminal.integrated.shellIntegration.enabled": true
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  "forwardPorts": [],
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localWorkspaceFolder},target=/workspaces/lexile-corpus-host,type=bind,consistency=cached,readonly",
+    "source=${localWorkspaceFolder}/../lexile-artifacts,target=/workspaces/lexile-artifacts,type=bind,consistency=cached"
+  ],
+  "name": "Lexile Corpus Tuner Dev Container",
+  "postCreateCommand": "bash -lc 'set -euo pipefail; sudo mkdir -p /workspaces/lexile-corpus-tuner; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; if [ ! -d /workspaces/lexile-corpus-tuner/.git ] && [ -d /workspaces/lexile-corpus-host ]; then tar -C /workspaces/lexile-corpus-host --exclude=.venv --exclude=artifacts --exclude=data -cf - . | tar -C /workspaces/lexile-corpus-tuner -xf -; fi; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; bash .devcontainer/post-create.sh'",
+  "remoteUser": "vscode",
+  "runArgs": [
+    "--name=lexile-corpus-tuner-devcontainer"
+  ],
+  "workspaceFolder": "/workspaces/lexile-corpus-tuner",
+  "workspaceMount": "source=${localWorkspaceFolderBasename}-workspace,target=/workspaces/lexile-corpus-tuner,type=volume"
 }

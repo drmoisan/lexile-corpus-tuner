@@ -67,6 +67,9 @@ data/meta/*
 # Tools
 tools/actionlint
 
+# Cache
+.cache/
+
 
 
 
