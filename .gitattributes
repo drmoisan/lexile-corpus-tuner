@@ -9,10 +9,6 @@
 *.psd1 text eol=lf
 *.py text eol=lf
 
-# Specific scripts that must stay LF
-tools/cloc text eol=lf
-scripts/run-cloc.sh text eol=lf
-
 
 
 

@@ -21,7 +21,6 @@ This directory contains the Docker Dev Container configuration for the Lexile Co
 - **Python 3.13** with Poetry package manager
 - **PowerShell 7.5+** for cross-platform scripting
 - **Git** and **GitHub CLI** (gh)
-- **cloc** for code metrics
 - **actionlint** for GitHub Actions workflow linting
 
 ### Python Tooling

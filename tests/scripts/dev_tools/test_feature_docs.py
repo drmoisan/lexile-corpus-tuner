@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from scripts.dev_tools.pr_context.feature_docs import (
+    _resolve_feature_dir,  # pyright: ignore[reportPrivateUsage]
     completed_plan_tasks,
     extract_issue_references,
     gather_feature_excerpts,
@@ -196,3 +197,106 @@ class TestGatherFeatureExcerpts:
         assert len(excerpts) == 2
         features = {e.feature for e in excerpts}
         assert features == {"feature-a", "feature-b"}
+
+
+class TestResolveFeatureDir:
+    """Tests for _resolve_feature_dir focusing on directory matching loop."""
+
+    def test_resolve_feature_dir_direct_match(self, tmp_path: Path) -> None:
+        """Test direct match when feature folder exists exactly."""
+        base_dir = tmp_path / "active"
+        feature_dir = base_dir / "my-feature"
+        feature_dir.mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result == feature_dir
+
+    def test_resolve_feature_dir_pattern_match_prefix(self, tmp_path: Path) -> None:
+        """Test pattern matching with feature at start of directory name."""
+        base_dir = tmp_path / "active"
+        (base_dir / "2025-12-01-my-feature-impl").mkdir(parents=True)
+        (base_dir / "other-folder").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        assert result.name == "2025-12-01-my-feature-impl"
+
+    def test_resolve_feature_dir_pattern_match_suffix(self, tmp_path: Path) -> None:
+        """Test pattern matching with feature at end of directory name."""
+        base_dir = tmp_path / "active"
+        (base_dir / "impl-my-feature").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        assert result.name == "impl-my-feature"
+
+    def test_resolve_feature_dir_pattern_match_middle(self, tmp_path: Path) -> None:
+        """Test pattern matching with feature in middle of directory name."""
+        base_dir = tmp_path / "active"
+        (base_dir / "prefix-my-feature-suffix").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        assert result.name == "prefix-my-feature-suffix"
+
+    def test_resolve_feature_dir_weak_match(self, tmp_path: Path) -> None:
+        """Test weak substring match when no pattern match found."""
+        base_dir = tmp_path / "active"
+        (base_dir / "somemyfeaturedir").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "myfeature")
+        assert result is not None
+        assert result.name == "somemyfeaturedir"
+
+    def test_resolve_feature_dir_strong_over_weak(self, tmp_path: Path) -> None:
+        """Test that strong pattern match is preferred over weak substring match."""
+        base_dir = tmp_path / "active"
+        (base_dir / "weak-myfeature-match").mkdir(parents=True)
+        (base_dir / "strong-my-feature-match").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        # Strong match (with delimiters) should win
+        assert result.name == "strong-my-feature-match"
+
+    def test_resolve_feature_dir_skips_files(self, tmp_path: Path) -> None:
+        """Test that files are skipped during directory iteration."""
+        base_dir = tmp_path / "active"
+        base_dir.mkdir(parents=True)
+        # Create a file (not directory) with matching name
+        (base_dir / "my-feature.txt").write_text("not a dir", encoding="utf-8")
+        # Create actual directory
+        (base_dir / "my-feature-dir").mkdir()
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        assert result.name == "my-feature-dir"
+
+    def test_resolve_feature_dir_sorted_order(self, tmp_path: Path) -> None:
+        """Test first sorted match returned when multiple strong matches exist."""
+        base_dir = tmp_path / "active"
+        (base_dir / "z-my-feature").mkdir(parents=True)
+        (base_dir / "a-my-feature").mkdir(parents=True)
+        (base_dir / "m-my-feature").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "my-feature")
+        assert result is not None
+        # Should return first in sorted order
+        assert result.name == "a-my-feature"
+
+    def test_resolve_feature_dir_no_match(self, tmp_path: Path) -> None:
+        """Test returns None when no match found."""
+        base_dir = tmp_path / "active"
+        (base_dir / "other-feature").mkdir(parents=True)
+        (base_dir / "different-thing").mkdir(parents=True)
+
+        result = _resolve_feature_dir(base_dir, "nonexistent")
+        assert result is None
+
+    def test_resolve_feature_dir_empty_directory(self, tmp_path: Path) -> None:
+        """Test returns None when base directory is empty."""
+        base_dir = tmp_path / "active"
+        base_dir.mkdir()
+
+        result = _resolve_feature_dir(base_dir, "any-feature")
+        assert result is None
