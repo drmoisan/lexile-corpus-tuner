@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -62,6 +63,21 @@ def test_load_schema_missing_scheme(tmp_path: Path) -> None:
         val._load_schema("no-scheme-here", tmp_path / "cache")  # type: ignore[reportPrivateUsage]
 
 
+def test_load_schema_relative_path(tmp_path: Path) -> None:
+    """_load_schema should resolve relative file paths against the source file."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(
+        '{"type": "object", "properties": {"key": {"type": "number"}}}'
+    )
+    source_path = tmp_path / "data.json"
+
+    schema = val._load_schema("./schema.json", cache_dir, source_path)  # type: ignore[reportPrivateUsage]
+
+    assert schema == {"type": "object", "properties": {"key": {"type": "number"}}}
+
+
 def test_load_schema_fetch_and_cache(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     """_load_schema should fetch remote schema and cache it."""
     cache_dir = tmp_path / "cache"
@@ -92,7 +108,7 @@ def test_validate_ok(monkeypatch: MonkeyPatch) -> None:
     }
     _patch_read(monkeypatch, store)
 
-    def _schema(_: str, __: Path) -> dict[str, object]:
+    def _schema(_: str, __: Path, ___: Path | None = None) -> dict[str, object]:
         return {
             "type": "object",
             "properties": {"key": {"type": "number"}},
@@ -102,6 +118,28 @@ def test_validate_ok(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(val, "_load_schema", _schema)
 
     ok, msg = val.validate_file(Path("/f.json"), Path("/cache"))
+
+    assert ok is True
+    assert "ok" in msg
+
+
+def test_validate_relative_schema(tmp_path: Path) -> None:
+    """validate_file should resolve relative $schema paths."""
+    schema_path = tmp_path / "schema.json"
+    schema_path.write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "properties": {"key": {"type": "number"}},
+                "required": ["key"],
+            }
+        )
+    )
+
+    data_path = tmp_path / "data.json"
+    data_path.write_text('{"$schema": "./schema.json", "key": 1}')
+
+    ok, msg = val.validate_file(data_path, tmp_path / "cache")
 
     assert ok is True
     assert "ok" in msg
@@ -123,7 +161,7 @@ def test_validate_schema_failure(monkeypatch: MonkeyPatch) -> None:
     }
     _patch_read(monkeypatch, store)
 
-    def _schema(_: str, __: Path) -> dict[str, object]:
+    def _schema(_: str, __: Path, ___: Path | None = None) -> dict[str, object]:
         return {
             "type": "object",
             "properties": {"key": {"type": "number"}},
@@ -177,7 +215,7 @@ def test_validate_exception_during_validation(monkeypatch: MonkeyPatch) -> None:
     }
     _patch_read(monkeypatch, store)
 
-    def _schema(_: str, __: Path) -> dict[str, object]:
+    def _schema(_: str, __: Path, ___: Path | None = None) -> dict[str, object]:
         raise RuntimeError("Schema load failed")
 
     monkeypatch.setattr(val, "_load_schema", _schema)
@@ -286,7 +324,7 @@ def test_main_all_valid(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     def mock_iter(_: Path) -> list[Path]:
         return [json_file]
 
-    def _schema(_: str, __: Path) -> dict[str, object]:
+    def _schema(_: str, __: Path, ___: Path | None = None) -> dict[str, object]:
         return {"type": "object"}
 
     monkeypatch.setattr(val, "iter_governed_files", mock_iter)
@@ -340,7 +378,7 @@ def test_main_verbose_mode(
     def mock_iter(_: Path) -> list[Path]:
         return [json_file]
 
-    def _schema(_: str, __: Path) -> dict[str, object]:
+    def _schema(_: str, __: Path, ___: Path | None = None) -> dict[str, object]:
         return {"type": "object"}
 
     monkeypatch.setattr(val, "iter_governed_files", mock_iter)
@@ -373,8 +411,11 @@ def test_main_custom_cache_dir(tmp_path: Path, monkeypatch: MonkeyPatch) -> None
     def mock_iter(_: Path) -> list[Path]:
         return [json_file]
 
-    def _schema(uri: str, cache_dir: Path) -> dict[str, object]:
+    def _schema(
+        uri: str, cache_dir: Path, base_path: Path | None = None
+    ) -> dict[str, object]:
         assert cache_dir == custom_cache
+        assert base_path == json_file
         return {"type": "object"}
 
     monkeypatch.setattr(val, "iter_governed_files", mock_iter)

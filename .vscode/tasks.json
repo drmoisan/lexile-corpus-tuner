@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/vscode/master/src/vs/workbench/contrib/tasks/common/tasks.schema.json",
+  "$schema": "./schemas/tasks.schema.json",
   "inputs": [
     {
       "default": "development",

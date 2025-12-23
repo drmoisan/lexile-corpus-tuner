@@ -1,4 +1,5 @@
 {
+  "$schema": "./schemas/launch.schema.json",
   "configurations": [
     {
       "cwd": "${workspaceFolder}",

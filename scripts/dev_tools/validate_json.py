@@ -28,15 +28,35 @@ def _cache_path(cache_dir: Path, uri: str) -> Path:
     return cache_dir / f"{digest}.json"
 
 
-def _load_schema(uri: str, cache_dir: Path) -> dict[str, Any]:
+def _load_schema(
+    uri: str, cache_dir: Path, base_path: Path | None = None
+) -> dict[str, Any]:
+    parsed = urlparse(uri)
+
+    if not parsed.scheme:
+        if base_path is None:
+            raise ValueError("Unsupported schema URI scheme: missing")
+
+        local_path = (base_path.parent / uri).resolve()
+        if not local_path.is_file():
+            raise FileNotFoundError(f"Schema file not found: {local_path}")
+
+        return json.loads(local_path.read_text())
+
+    if parsed.scheme == "file":
+        local_path = Path(parsed.path)
+        if not local_path.is_file():
+            raise FileNotFoundError(f"Schema file not found: {local_path}")
+
+        return json.loads(local_path.read_text())
+
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError(f"Unsupported schema URI scheme: {parsed.scheme or 'missing'}")
+
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = _cache_path(cache_dir, uri)
     if cache_file.exists():
         return json.loads(cache_file.read_text())
-
-    parsed = urlparse(uri)
-    if parsed.scheme not in {"http", "https", "file"}:
-        raise ValueError(f"Unsupported schema URI scheme: {parsed.scheme or 'missing'}")
 
     resp = urllib.request.urlopen(uri)  # noqa: S310 - fetching trusted schema URL
     with resp:
@@ -61,7 +81,7 @@ def validate_file(path: Path, cache_dir: Path) -> tuple[bool, str]:
     schema_uri: str = schema_value
 
     try:
-        schema = _load_schema(schema_uri, cache_dir)
+        schema = _load_schema(schema_uri, cache_dir, path)
         validator = Draft202012Validator(schema)
         raw_errors = cast(Any, validator).iter_errors(data)
         errors_iter = cast("Iterable[exceptions.ValidationError]", raw_errors)
