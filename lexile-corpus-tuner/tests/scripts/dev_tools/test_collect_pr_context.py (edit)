@@ -1,0 +1,4 @@
+def test_collect_pr_context():
+    assert collect_pr_context() is not None
+    assert isinstance(collect_pr_context(), dict)
+    assert 'key' in collect_pr_context()

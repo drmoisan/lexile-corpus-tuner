@@ -267,31 +267,67 @@ def test_build_pr_context_excludes_merge_pr_numbers_from_issue_refs():
     assert "#53" in context.referenced_prs
 
 
-def test_gather_feature_excerpts_reads_active_docs():
-    root = Path(__file__).resolve().parents[3]
+def test_gather_feature_excerpts_reads_active_docs(tmp_path: Path) -> None:
+    root = tmp_path
+    feature = "2025-12-18-docs-v3-upgrade"
+    feature_dir = root / "docs" / "features" / "active" / feature
+    feature_dir.mkdir(parents=True)
+    (root / "docs" / "features" / "potential" / "promoted").mkdir(parents=True)
+
+    spec_path = feature_dir / "spec.md"
+    plan_path = feature_dir / "plan.md"
+    story_path = feature_dir / "user-story.md"
+
+    spec_path.write_text(
+        "## Context\n"
+        "Working on #77 to modernize docs.\n"
+        "\n"
+        "## Acceptance Criteria\n"
+        "- Documentation matches production behavior.\n",
+        encoding="utf-8",
+    )
+    plan_path.write_text(
+        "## Tasks\n"
+        "- [x] Deliver ABC-123 migration steps.\n"
+        "- [ ] Follow-up polish.\n"
+        "\n"
+        "## Verification\n"
+        "Plan verification details captured.\n",
+        encoding="utf-8",
+    )
+    story_path.write_text(
+        "## Story Statement\n"
+        "- As an operator, I need docs to mirror reality.\n"
+        "\n"
+        "## Problem / Why\n"
+        "Old flows confuse teams.\n",
+        encoding="utf-8",
+    )
+
     paths = [
-        "docs/features/active/2025-12-18-docs-v3-upgrade/spec.md",
-        "docs/features/active/2025-12-18-docs-v3-upgrade/plan.md",
+        f"docs/features/active/{feature}/spec.md",
+        f"docs/features/active/{feature}/plan.md",
     ]
     excerpts = gather_feature_excerpts(root, paths)
-    joined = "\n".join(item.excerpt for item in excerpts)
-    assert "2025-12-18-docs-v3-upgrade" in joined
-    assert "Spec excerpts" in joined
-    assert "Plan completed tasks" in joined
-    assert "Plan verification notes" in joined
-    assert "Story Statement" in joined
-    assert "Problem / Why" in joined
-    collected_issue_refs = {ref for item in excerpts for ref in item.issue_refs}
-    assert isinstance(collected_issue_refs, set)
-    for item in excerpts:
-        assert any(
-            context_path.endswith("spec.md") or context_path.endswith("plan.md")
-            for context_path in item.context_files
-        )
-        assert any(
-            context_path.endswith("user-story.md")
-            for context_path in item.context_files
-        )
+    assert len(excerpts) == 1
+    excerpt = excerpts[0]
+    joined = excerpt.excerpt
+    for expected in [
+        feature,
+        "Spec excerpts",
+        "Plan completed tasks",
+        "Plan verification notes",
+        "Story Statement",
+        "Problem / Why",
+    ]:
+        assert expected in joined
+
+    assert excerpt.issue_refs == ["#77", "ABC-123"]
+    assert set(excerpt.context_files) == {
+        str(spec_path.relative_to(root)),
+        str(plan_path.relative_to(root)),
+        str(story_path.relative_to(root)),
+    }
 
 
 def test_find_user_story_link_extracts_blob_path():
@@ -1012,7 +1048,8 @@ def test_collect_and_write_handles_offline_gh(
 
     summary_text = next(text for path, text in outputs if path.name == "summary.txt")
     assert "GitHub CLI unavailable" in summary_text or "unavailable" in summary_text
-    assert "Auto-close issues" in summary_text
+    normalized_summary = summary_text.lower().replace("-", "")
+    assert "autoclose issues" in normalized_summary
 
 
 def test_collect_and_write_includes_intent_and_additional_context(
@@ -1138,6 +1175,30 @@ def test_collect_and_write_includes_intent_and_additional_context(
     monkeypatch.setattr("scripts.dev_tools.pr_context.collector.GhClient", StubGh)
     monkeypatch.setattr(
         "scripts.dev_tools.pr_context.collector.build_pr_context", fake_build_pr_context
+    )
+
+    def fake_gather_feature_excerpts(
+        root: Path, paths: Sequence[str]
+    ) -> list[FeatureDocExcerpt]:
+        return [
+            FeatureDocExcerpt(
+                feature="2025-12-18-docs-v3-upgrade",
+                excerpt=(
+                    "Feature doc: 2025-12-18-docs-v3-upgrade\n"
+                    "Plan verification notes\n"
+                    "Excerpt"
+                ),
+                issue_refs=[],
+                context_files=[
+                    "docs/features/active/2025-12-18-docs-v3-upgrade/spec.md",
+                    "docs/features/active/2025-12-18-docs-v3-upgrade/user-story.md",
+                ],
+            )
+        ]
+
+    monkeypatch.setattr(
+        "scripts.dev_tools.pr_context.collector.gather_feature_excerpts",
+        fake_gather_feature_excerpts,
     )
 
     repo_root = Path(__file__).resolve().parents[3]
