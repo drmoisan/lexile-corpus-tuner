@@ -447,25 +447,23 @@
     {
       "label": "Dev: 3 Create Active Folder",
       "type": "shell",
-      "command": "pwsh",
+      "command": "poetry",
       "args": [
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/scripts/dev-tools/new-active-feature-folder.ps1",
-        "-FeatureName",
+        "run",
+        "python",
+        "-m",
+        "scripts.dev_tools.new_active_feature_folder",
+        "--feature-name",
         "${input:ActiveFeatureName}",
-        "-Type",
+        "--type",
         "${input:ActiveWorkType}",
-        "-IssueNumber",
+        "--issue-number",
         "${input:ActiveIssueNumber}"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": [],
+      },
+      "problemMatcher": [],
       "presentation": {
         "reveal": "always",
         "panel": "new"
