@@ -69,7 +69,9 @@ Ctrl+` or Terminal → New Terminal
 ## File Persistence
 
 ### What Persists
-- Your workspace files (mounted from host)
+- Your workspace files live on a named volume (`${localWorkspaceFolderBasename}-workspace` at `/workspaces/lexile-corpus-tuner`)
+- A read-only host bind (`/workspaces/lexile-corpus-host`) is used only to seed the volume on first create; `.venv`, `artifacts`, and `data` are excluded from the seed to avoid long copies. Rebuild the container if you need to refresh from host.
+- Dedicated artifacts folder bound to host sibling path `${localWorkspaceFolder}/../lexile-artifacts` at `/workspaces/lexile-artifacts`
 - `.venv` folder (mounted from host)
 - Git configuration
 - Installed VS Code extensions
@@ -111,8 +113,10 @@ sudo apt-get update
 ```
 
 ### Performance on Windows
+- Workspace now runs from a named volume to avoid host bind latency; host bind is read-only and only for bootstrap
 - Use WSL 2 backend in Docker Desktop settings
-- Keep workspace on local drive (not network)
+- Keep large artifacts in `/workspaces/lexile-artifacts` (host sibling) to avoid scanning overhead inside the code workspace
+- Aggressive workspace scanners are not allowed (Task Explorer removed)
 - The `.venv` mount helps performance by keeping packages on host
 
 ## Tips
@@ -131,8 +135,8 @@ pwsh scripts/dev-tools/load-openai-key.ps1
 ```
 
 ### Extension Management
-- Extensions auto-install from devcontainer.json
-- Install more: Extensions panel → Install in Dev Container
+- Extensions auto-install from devcontainer.json (Task Explorer excluded by policy)
+- Install more: Extensions panel → Install in Dev Container (avoid workspace-wide scanners)
 
 ### Customize Shell Prompt
 Add to `~/.bashrc` or `~/.config/powershell/profile.ps1` inside container

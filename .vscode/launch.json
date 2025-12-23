@@ -1,220 +1,254 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "PowerShell: Collect Commit Context",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Python: Collect PR Context",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "scripts.dev_tools.collect_pr_context",
-            "cwd": "${workspaceFolder}",
-            "args": ["--base", "main"]
-        },
-        {
-            "name": "Python: Promote Potential -> Issue (bug)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "scripts.dev_tools.potential_to_issue",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--potential-path",
-                "docs/features/potential/2025-12-16-promote-potential-bug.md",
-                "--promotion-type",
-                "bug"
-            ]
-        },
-        {
-            "name": "PowerShell: Load OpenAI Key",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "${workspaceFolder}/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "-ItemName",
-                "'Lexile OpenAI Key'"
-            ]
-        },
-        {
-            "name": "PowerShell: Link Parent/Child Issues",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "PowerShell: Convert PoshQC Coverage to Relative",
-            "type": "PowerShell",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/powershell/PoshQC/convert-poshqc-coverage.ps1",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "-InputPath", "${workspaceFolder}/artifacts/pester/powershell-coverage.xml",
-                "-OutputPath", "${workspaceFolder}/artifacts/pester/powershell-coverage.koverage.xml",
-                "-RepoRoot", "${workspaceFolder}"
-            ]
-        },
-        {
-            "name": "Python: Analyze chapter1.txt",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "justMyCode": true,
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "analyze",
-                "--input-path",
-                "examples/example_corpus/chapter1.txt",
-                "--config",
-                "examples/example_config.yaml"
-            ]
-        },
-        {
-            "name": "Python: Rewrite chapter1.txt",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "rewrite",
-                "--input-path", "examples/example_corpus/chapter1.txt",
-                "--output-path", "artifacts/vscode_chapter1",
-                "--config", "examples/example_config.yaml",
-                "--rewrite-enabled",
-                "--openai-enabled",
-                "--openai-model", "gpt-4.1-mini"
-            ]
-        },
-        {
-            "name": "Python: Current File",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
-            "name": "Step 0.1 - Build Gutenberg ID List",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--languages", "en"
-            ]
-        },
-                {
-            "name": "Step 0.2 - Curate Gutenberg ID List",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--languages", "en"
-            ]
-        },
-        {
-            "name": "Step 1 - Corpus Download",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "corpus",
-                "download"
-            ]
-        },
-        {
-            "name": "Step 2 - Extract Simple Wiki",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--dump", "data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2",
-                "--output", "data/corpus/raw/simple_wiki/simplewiki_articles.jsonl"
-            ]
-        },
-        {
-            "name": "Step 3 - Corpus Normalize",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "corpus",
-                "normalize",
-                "--shard-size-tokens", "100000"
-            ]
-        },
-        {
-            "name": "Step 4 - Corpus Frequencies",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "corpus",
-                "frequencies"
-            ]
-        },
-        {
-            "name": "Step 5 - Calibration Fetch Texts",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "calibration",
-                "fetch-texts",
-                "--catalog", "data/calibration/catalog/lexile_catalog.csv",
-                "--texts-root", "data/calibration/texts"
-            ]
-        },
-        {
-            "name": "Step 6 - Calibration Build Dataset",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "calibration",
-                "build-dataset",
-                "--catalog", "data/calibration/catalog/lexile_catalog.csv",
-                "--texts-root", "data/calibration/texts",
-                "--output", "data/calibration/calibration_dataset.parquet"
-            ]
-        },
-        {
-            "name": "Step 7 - Calibration Fit",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "lexile_corpus_tuner.cli",
-            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "calibration",
-                "fit",
-                "data/calibration/calibration_dataset.parquet",
-                "--out", "data/model/lexile_regression_model.json"
-            ]
-        }
-    ]
+  "$schema": "./schemas/launch.schema.json",
+  "configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Collect Commit Context",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "--base",
+        "main"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "scripts.dev_tools.collect_pr_context",
+      "name": "Python: Collect PR Context",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--potential-path",
+        "docs/features/potential/2025-12-16-promote-potential-bug.md",
+        "--promotion-type",
+        "bug"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "scripts.dev_tools.potential_to_issue",
+      "name": "Python: Promote Potential -> Issue (bug)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "-ItemName",
+        "'Lexile OpenAI Key'"
+      ],
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Load OpenAI Key",
+      "request": "launch",
+      "script": "${workspaceFolder}/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Link Parent/Child Issues",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "-InputPath",
+        "${workspaceFolder}/artifacts/pester/powershell-coverage.xml",
+        "-OutputPath",
+        "${workspaceFolder}/artifacts/pester/powershell-coverage.koverage.xml",
+        "-RepoRoot",
+        "${workspaceFolder}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Convert PoshQC Coverage to Relative",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/powershell/PoshQC/convert-poshqc-coverage.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "analyze",
+        "--input-path",
+        "examples/example_corpus/chapter1.txt",
+        "--config",
+        "examples/example_config.yaml"
+      ],
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true,
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Python: Analyze chapter1.txt",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "rewrite",
+        "--input-path",
+        "examples/example_corpus/chapter1.txt",
+        "--output-path",
+        "artifacts/vscode_chapter1",
+        "--config",
+        "examples/example_config.yaml",
+        "--rewrite-enabled",
+        "--openai-enabled",
+        "--openai-model",
+        "gpt-4.1-mini"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Python: Rewrite chapter1.txt",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "name": "Python: Current File",
+      "program": "${file}",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--languages",
+        "en"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
+      "name": "Step 0.1 - Build Gutenberg ID List",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--languages",
+        "en"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
+      "name": "Step 0.2 - Curate Gutenberg ID List",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "download"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 1 - Corpus Download",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--dump",
+        "data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2",
+        "--output",
+        "data/corpus/raw/simple_wiki/simplewiki_articles.jsonl"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
+      "name": "Step 2 - Extract Simple Wiki",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "normalize",
+        "--shard-size-tokens",
+        "100000"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 3 - Corpus Normalize",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "frequencies"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 4 - Corpus Frequencies",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "fetch-texts",
+        "--catalog",
+        "data/calibration/catalog/lexile_catalog.csv",
+        "--texts-root",
+        "data/calibration/texts"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 5 - Calibration Fetch Texts",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "build-dataset",
+        "--catalog",
+        "data/calibration/catalog/lexile_catalog.csv",
+        "--texts-root",
+        "data/calibration/texts",
+        "--output",
+        "data/calibration/calibration_dataset.parquet"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 6 - Calibration Build Dataset",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "fit",
+        "data/calibration/calibration_dataset.parquet",
+        "--out",
+        "data/model/lexile_regression_model.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 7 - Calibration Fit",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "${relativeFile}",
+        "--output",
+        "${relativeFile}"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true,
+      "module": "scripts.dev_tools.markdown_label_formatter",
+      "name": "Python: Format current markdown file",
+      "request": "launch",
+      "type": "debugpy"
+    }
+  ],
+  "version": "0.2.0"
 }
-
-

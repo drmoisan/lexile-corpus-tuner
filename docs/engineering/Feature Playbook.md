@@ -11,7 +11,7 @@ Key paths:
 Key scripts (PowerShell unless noted):
 - `new-potential-entry.ps1` – create a dated potential file and open backlog.
 - `scripts/dev_tools/potential_to_issue.py` – promote a potential to a GitHub issue, mark as promoted, move to promoted folder (Python).
-- `new-active-feature-folder.ps1` – create/seed `docs/features/active/<feature>/` from templates and matching potential/promoted doc; auto-fill issue/owner/last updated.
+- `scripts/dev_tools/new_active_feature_folder.py` – create/seed `docs/features/active/<feature>-<issue>/` from templates and matching potential/promoted doc; auto-fill issue/owner/last updated and move the promoted potential into the active folder as `issue.md` (Python).
 - `link-feature-docs.ps1` – add/update “Feature Docs” links in a GitHub issue (user-story/spec/plan).
 
 VS Code tasks wrap these scripts: see `.vscode/tasks.json` (e.g., “Feature: New Potential Entry”, “GitHub: Feature Issue from Potential”, “Feature: Create Active Folder”, “GitHub: Link Feature Docs”).
@@ -28,13 +28,13 @@ VS Code tasks wrap these scripts: see `.vscode/tasks.json` (e.g., “Feature: Ne
 - This creates the issue via `gh`, records the issue number in the potential file, and moves it to `docs/features/potential/promoted/`.
 - Issue body should include: Problem/Why, Proposed Behavior, Acceptance Criteria, Constraints/Risks, Test Conditions, and a link to the potential/promoted doc.
 
-## 2. Create the active feature folder
-- Run `scripts/new-active-feature-folder.ps1 -FeatureName <name>` (leave IssueNumber blank/auto to auto-read from the promoted doc).
-- Creates `docs/features/active/<name>/` with:
+-## 2. Create the active feature folder
+- Run `poetry run python -m scripts.dev_tools.new_active_feature_folder --feature-name <name> --type feature --issue-number <issue|auto>` (or VS Code task “Feature: Create Active Folder”).
+- Creates `docs/features/active/<name>-<issue>/` with:
   - `user-story.md`
   - `spec.md`
   - `plan.md`
-- Seeds Problem/Behavior/AC/Test Conditions from the promoted doc and fills headers (Issue/Owner/Last Updated).
+- Seeds Problem/Behavior/AC/Test Conditions from the promoted doc, fills headers (Issue/Owner/Last Updated), and moves the promoted potential file into the active folder as `issue.md`.
 
 ## 3. Branch
 - Name: `feature/<feature-name>-#<issue>`
