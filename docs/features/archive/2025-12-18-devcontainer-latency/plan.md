@@ -51,6 +51,6 @@
 - [x] [P6-T4] Run tests: `poetry run pytest` (full suite) and ensure zero failures; rerun the loop from [P6-T1] if any step changes files or fails
 
 **Phase 7 — PR & Handoff**
-- [ ] [P7-T1] Update [spec.md](../../active/2025-12-18-devcontainer-latency/spec.md) and the GitHub issue #55 with final decisions, benchmark results, and residual risks
-- [ ] [P7-T2] Prepare PR notes summarizing changes (devcontainer mounts, extension policy, docs updates), risks, and validation evidence; request review and link all artifacts for traceability
+- [x] [P7-T1] Update [spec.md](../../active/2025-12-18-devcontainer-latency/spec.md) and the GitHub issue #55 with final decisions, benchmark results, and residual risks
+- [x] [P7-T2] Prepare PR notes summarizing changes (devcontainer mounts, extension policy, docs updates), risks, and validation evidence; request review and link all artifacts for traceability
 

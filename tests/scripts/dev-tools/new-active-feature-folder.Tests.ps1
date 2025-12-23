@@ -1,10 +1,14 @@
 Set-StrictMode -Version Latest
 
-$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
-. (Resolve-Path -Path (Join-Path -Path $scriptRoot -ChildPath "../powershell/Support/TestHelpers.ps1"))
-
 Describe "new-active-feature-folder.ps1 helpers" {
     BeforeAll {
+        $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $PSCommandPath }
+        $testHelpersPath = Join-Path -Path $scriptRoot -ChildPath "../powershell/Support/TestHelpers.ps1"
+        if (-not (Test-Path $testHelpersPath)) {
+            throw "TestHelpers.ps1 not found at: $testHelpersPath"
+        }
+        . (Resolve-Path -Path $testHelpersPath)
+
         $script:scriptPath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\scripts\dev-tools\new-active-feature-folder.ps1"
     }
 
