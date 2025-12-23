@@ -234,25 +234,6 @@ API keys are resolved in this order:
 2. Config file: `openai.api_key`
 3. Environment variable: `os.environ[openai.api_key_env]`
 
-## Code Metrics
-
-### Lines of Code
-
-Count source lines using cloc:
-
-```bash
-# PowerShell
-pwsh scripts/dev-tools/run-cloc.ps1
-
-# Bash
-bash scripts/dev-tools/run-cloc.sh
-```
-
-**VS Code tasks:**
-
-- `Run cloc (PowerShell)`
-- `Run cloc (Bash)`
-
 ## Repository Navigation
 
 Use `scripts/dev-tools/tree.ps1` to print a directory tree for quick inspection (entries marked with the Windows `Hidden` attribute are included by default; use `-IncludeHidden:$false` to suppress them).
@@ -316,8 +297,6 @@ All development tasks are available via:
 - `Run All Checks` (sequential)
 - `Fix All` (Black + Ruff auto-fix)
 - `Load OpenAI Key`
-- `Run cloc (PowerShell)`
-- `Run cloc (Bash)`
 
 ### Debug Configurations
 

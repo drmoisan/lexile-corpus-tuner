@@ -11,8 +11,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     # Clipboard utilities for pyperclip fallback
     wl-clipboard \
     xclip \
-    # cloc for code metrics
-    cloc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PowerShell 7.5+ from Microsoft repository

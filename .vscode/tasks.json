@@ -111,20 +111,6 @@
     },
     {
       "args": [
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/scripts/dev-tools/run-cloc.ps1"
-      ],
-      "command": "pwsh",
-      "label": "Run cloc (PowerShell)",
-      "problemMatcher": [],
-      "type": "shell"
-    },
-    {
-      "args": [
         "run",
         "black",
         "."
