@@ -23,6 +23,10 @@ EXCLUDE_GLOBS: Sequence[str] = (
     "htmlcov/**",
     "coverage*/**",
     "**/node_modules/**",
+    ".venv",
+    ".venv/**",
+    "**/.venv",
+    "**/.venv/**",
 )
 
 

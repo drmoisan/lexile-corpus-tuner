@@ -20,6 +20,37 @@ if TYPE_CHECKING:
     from pytest import MonkeyPatch
 
 
+def _doc(
+    *,
+    source_id: str = "test",
+    text_id: str = "doc-1",
+    tokens: list[str] | None = None,
+    genre: str = "expository",
+    era_bucket: str = "post_2000",
+    intended_audience: str = "general",
+    publication_year: int | None = 2020,
+    grade_band: str | None = None,
+    weight: float | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_id": source_id,
+        "text_id": text_id,
+        "tokens": tokens or [],
+        "genre": genre,
+        "era_bucket": era_bucket,
+        "intended_audience": intended_audience,
+        "publication_year": publication_year,
+        "grade_band": grade_band,
+        "weight": weight,
+    }
+
+
+def _write_shard(path: Path, records: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record) + "\n")
+
+
 class TestCurrentVersion:
     """Tests for _current_version function."""
 
@@ -215,15 +246,26 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        # Create a shard file with token data
-        shard_data = [
-            {"source_id": "gutenberg", "tokens": ["the", "quick", "brown", "fox"]},
-            {"source_id": "gutenberg", "tokens": ["the", "lazy", "dog"]},
-        ]
         shard_file = shards_root / "shard-000001-gutenberg.jsonl"
-        with shard_file.open("w") as f:
-            for record in shard_data:
-                f.write(json.dumps(record) + "\n")
+        _write_shard(
+            shard_file,
+            [
+                _doc(
+                    source_id="gutenberg",
+                    text_id="gutenberg-1",
+                    tokens=["the", "quick", "brown", "fox"],
+                    genre="narrative",
+                    era_bucket="pre_1950",
+                ),
+                _doc(
+                    source_id="gutenberg",
+                    text_id="gutenberg-2",
+                    tokens=["the", "lazy", "dog"],
+                    genre="narrative",
+                    era_bucket="pre_1950",
+                ),
+            ],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -251,10 +293,19 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "test", "tokens": ["word"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(
+            shard_file,
+            [
+                _doc(
+                    source_id="test",
+                    text_id="doc-1",
+                    tokens=["word"],
+                    genre="expository",
+                    era_bucket="post_2000",
+                )
+            ],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -288,15 +339,15 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data: list[dict[str, str | list[str]]] = [
-            {"source_id": "test", "tokens": ["rare"]},
-            {"source_id": "test", "tokens": ["frequent", "frequent", "frequent"]},
-            {"source_id": "test", "tokens": ["medium", "medium"]},
-        ]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            for record in shard_data:
-                f.write(json.dumps(record) + "\n")
+        _write_shard(
+            shard_file,
+            [
+                _doc(text_id="doc-1", tokens=["rare"]),
+                _doc(text_id="doc-2", tokens=["frequent", "frequent", "frequent"]),
+                _doc(text_id="doc-3", tokens=["medium", "medium"]),
+            ],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -324,47 +375,61 @@ class TestComputeGlobalFrequencies:
     def test_applies_source_weights(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
-        """Test that source weights are applied to frequency computation."""
+        """Test that source weights are applied using config matrix."""
         # Arrange
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [
-            {"source_id": "high_weight", "tokens": ["word"]},
-            {"source_id": "low_weight", "tokens": ["word"]},
-        ]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            for record in shard_data:
-                f.write(json.dumps(record) + "\n")
+        _write_shard(
+            shard_file,
+            [
+                _doc(
+                    source_id="high_weight",
+                    text_id="hw",
+                    tokens=["word"],
+                    era_bucket="pre_1950",
+                ),
+                _doc(
+                    source_id="low_weight",
+                    text_id="lw",
+                    tokens=["word"],
+                    era_bucket="pre_1950",
+                ),
+            ],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
+        weighted_tsv = freq_root / "weighted.tsv"
+        weighted_meta = freq_root / "weighted.meta.json"
 
-        corpus_meta = tmp_path / "corpus_meta.json"
-        corpus_meta.write_text(
+        weight_config = tmp_path / "weights.yaml"
+        weight_config.write_text(
             json.dumps(
                 {
-                    "sources": [
-                        {"id": "high_weight", "weight": 2.0},
-                        {"id": "low_weight", "weight": 0.5},
-                    ]
+                    "weights": {
+                        "high_weight": {"pre_1950": 2.0},
+                        "low_weight": {"pre_1950": 0.5},
+                    }
                 }
-            )
+            ),
+            encoding="utf-8",
         )
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
+        monkeypatch.setattr(frequencies, "WEIGHTED_FREQ_TSV", weighted_tsv)
+        monkeypatch.setattr(frequencies, "WEIGHTED_FREQ_META", weighted_meta)
 
         # Act
-        frequencies.compute_global_frequencies()
+        frequencies.compute_global_frequencies(weighted=True, config_path=weight_config)
 
         # Assert
-        meta = json.loads(freq_meta.read_text())
+        meta = json.loads(weighted_meta.read_text())
         # Total weighted tokens should be 2*1 + 0.5*1 = 2.5
         assert meta["weighted_total_tokens"] == 2.5
 
@@ -374,21 +439,20 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "test", "tokens": ["a", "b", "c"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(
+            shard_file,
+            [_doc(tokens=["a", "b", "c"], text_id="doc-1")],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()
@@ -444,12 +508,11 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data: list[dict[str, str | list[str]]] = [
-            {"source_id": "test", "tokens": []}
-        ]  # Empty tokens
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(
+            shard_file,
+            [_doc(tokens=[], text_id="doc-empty")],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -469,6 +532,47 @@ class TestComputeGlobalFrequencies:
         # Assert
         assert "zero tokens" in caplog.text
 
+    def test_rejects_missing_required_metadata(
+        self,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Records missing required fields are skipped and outputs are not written."""
+
+        shards_root = tmp_path / "shards"
+        shards_root.mkdir()
+
+        shard_file = shards_root / "shard.jsonl"
+        # Missing era_bucket and intended_audience -> invalid
+        with shard_file.open("w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {
+                        "source_id": "test",
+                        "text_id": "doc-1",
+                        "tokens": ["word"],
+                        "genre": "expository",
+                    }
+                )
+                + "\n"
+            )
+
+        freq_root = tmp_path / "freq"
+        freq_tsv = freq_root / "word_frequencies.tsv"
+        freq_meta = freq_root / "meta.json"
+
+        monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
+        monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
+        monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
+        monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
+
+        with caplog.at_level(logging.WARNING):
+            frequencies.compute_global_frequencies()
+
+        assert not freq_tsv.exists()
+        assert "zero tokens" in caplog.text
+
     def test_skips_empty_lines_in_shards(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
     ) -> None:
@@ -478,8 +582,8 @@ class TestComputeGlobalFrequencies:
         shards_root.mkdir()
 
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write('{"source_id": "test", "tokens": ["word"]}\n')
+        with shard_file.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(_doc(tokens=["word"], text_id="doc-1")) + "\n")
             f.write("\n")  # Empty line
             f.write("   \n")  # Whitespace-only line
 
@@ -509,10 +613,10 @@ class TestComputeGlobalFrequencies:
         shards_root.mkdir()
 
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write('{"source_id": "test", "tokens": ["valid"]}\n')
+        with shard_file.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(_doc(tokens=["valid"], text_id="doc-1")) + "\n")
             f.write("invalid json\n")
-            f.write('{"source_id": "test", "tokens": ["also_valid"]}\n')
+            f.write(json.dumps(_doc(tokens=["also_valid"], text_id="doc-2")) + "\n")
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -541,9 +645,21 @@ class TestComputeGlobalFrequencies:
         shards_root.mkdir()
 
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write('{"source_id": "test"}\n')  # No tokens
-            f.write('{"source_id": "test", "tokens": ["word"]}\n')
+        with shard_file.open("w", encoding="utf-8") as f:
+            # Missing tokens -> skipped by validator
+            f.write(
+                json.dumps(
+                    {
+                        "source_id": "test",
+                        "text_id": "bad",
+                        "genre": "expository",
+                        "era_bucket": "post_2000",
+                        "intended_audience": "general",
+                    }
+                )
+                + "\n"
+            )
+            f.write(json.dumps(_doc(tokens=["word"], text_id="doc-1")) + "\n")
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
@@ -571,23 +687,20 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "unknown_source", "tokens": ["word"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(
+            shard_file,
+            [_doc(source_id="unknown_source", text_id="doc-1", tokens=["word"])],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
-        corpus_meta_content: dict[str, list[Any]] = {"sources": []}
-        corpus_meta.write_text(json.dumps(corpus_meta_content))
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()
@@ -605,21 +718,20 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "test", "tokens": ["word"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(
+            shard_file,
+            [_doc(tokens=["word"], text_id="doc-1")],
+        )
 
         freq_root = tmp_path / "freq"  # Does not exist yet
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()
@@ -635,21 +747,17 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "test", "tokens": ["word"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(shard_file, [_doc(tokens=["word"], text_id="doc-1")])
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()
@@ -673,21 +781,23 @@ class TestComputeGlobalFrequencies:
         shard1 = shards_root / "shard-001.jsonl"
         shard2 = shards_root / "shard-002.jsonl"
 
-        with shard1.open("w") as f:
-            f.write('{"source_id": "test", "tokens": ["word1", "word2"]}\n')
-        with shard2.open("w") as f:
-            f.write('{"source_id": "test", "tokens": ["word3", "word4"]}\n')
+        _write_shard(
+            shard1,
+            [_doc(tokens=["word1", "word2"], text_id="doc-1")],
+        )
+        _write_shard(
+            shard2,
+            [_doc(tokens=["word3", "word4"], text_id="doc-2")],
+        )
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()
@@ -709,28 +819,24 @@ class TestComputeGlobalFrequencies:
         shards_root = tmp_path / "shards"
         shards_root.mkdir()
 
-        shard_data = [{"source_id": "test", "tokens": ["word"]}]
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
-            f.write(json.dumps(shard_data[0]) + "\n")
+        _write_shard(shard_file, [_doc(tokens=["word"], text_id="doc-1")])
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         with caplog.at_level(logging.INFO):
             frequencies.compute_global_frequencies()
 
         # Assert
-        assert "Computed global frequencies" in caplog.text
+        assert "Computed frequencies" in caplog.text
 
     def test_handles_missing_source_id_in_record(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -741,19 +847,18 @@ class TestComputeGlobalFrequencies:
         shards_root.mkdir()
 
         shard_file = shards_root / "shard.jsonl"
-        with shard_file.open("w") as f:
+        with shard_file.open("w", encoding="utf-8") as f:
             f.write('{"tokens": ["word"]}\n')  # No source_id
+            f.write(json.dumps(_doc(tokens=["other"], text_id="doc-1")) + "\n")
 
         freq_root = tmp_path / "freq"
         freq_tsv = freq_root / "word_frequencies.tsv"
         freq_meta = freq_root / "meta.json"
-        corpus_meta = tmp_path / "corpus_meta.json"
 
         monkeypatch.setattr(frequencies, "SHARDS_ROOT", shards_root)
         monkeypatch.setattr(frequencies, "FREQ_ROOT", freq_root)
         monkeypatch.setattr(frequencies, "FREQ_TSV", freq_tsv)
         monkeypatch.setattr(frequencies, "FREQ_META", freq_meta)
-        monkeypatch.setattr(frequencies, "CORPUS_META_PATH", corpus_meta)
 
         # Act
         frequencies.compute_global_frequencies()

@@ -5,6 +5,7 @@
     "dockerfile": "Dockerfile"
   },
   "containerEnv": {
+    "BG_WORKTREE_PATH": "/workspaces/lexile-corpus-tuner-bg",
     "TZ": "America/New_York"
   },
   "customizations": {
@@ -91,7 +92,8 @@
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=${localWorkspaceFolder},target=/workspaces/lexile-corpus-host,type=bind,consistency=cached,readonly",
-    "source=${localWorkspaceFolder}/../lexile-artifacts,target=/workspaces/lexile-artifacts,type=bind,consistency=cached"
+    "source=${localWorkspaceFolder}/../lexile-artifacts,target=/workspaces/lexile-artifacts,type=bind,consistency=cached",
+    "source=${localWorkspaceFolderBasename}-workspace-bg,target=/workspaces/lexile-corpus-tuner-bg,type=volume"
   ],
   "name": "Lexile Corpus Tuner Dev Container",
   "postCreateCommand": "bash -lc 'set -euo pipefail; sudo mkdir -p /workspaces/lexile-corpus-tuner; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; if [ ! -d /workspaces/lexile-corpus-tuner/.git ] && [ -d /workspaces/lexile-corpus-host ]; then tar -C /workspaces/lexile-corpus-host --exclude=.venv --exclude=artifacts --exclude=data -cf - . | tar -C /workspaces/lexile-corpus-tuner -xf -; fi; sudo chown -R vscode:vscode /workspaces/lexile-corpus-tuner; bash .devcontainer/post-create.sh'",

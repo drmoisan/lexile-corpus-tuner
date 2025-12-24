@@ -56,6 +56,35 @@ else
     echo "⚠ Docker socket not found at /var/run/docker.sock"
 fi
 
+# -----------------------------------------------------------------------------
+# Background worktree for background tasks
+# -----------------------------------------------------------------------------
+echo ""
+echo "Ensuring background worktree..."
+BG_WORKTREE="${BG_WORKTREE_PATH:-/workspaces/lexile-corpus-tuner-bg}"
+
+if [ -d "$WORKSPACE_DIR/.git" ]; then
+    # Create directory with sudo and set ownership
+    sudo mkdir -p "$BG_WORKTREE"
+    sudo chown -R vscode:vscode "$BG_WORKTREE"
+
+    if ! git -C "$WORKSPACE_DIR" worktree list --porcelain | grep -Fq "worktree $BG_WORKTREE"; then
+        # Use detached HEAD at current commit to avoid branch conflicts
+        CURRENT_COMMIT="$(git -C "$WORKSPACE_DIR" rev-parse HEAD)"
+        git -C "$WORKSPACE_DIR" worktree add --detach "$BG_WORKTREE" "$CURRENT_COMMIT"
+        echo "✓ Created background worktree at $BG_WORKTREE (detached HEAD)"
+    else
+        echo "✓ Background worktree already exists at $BG_WORKTREE"
+    fi
+
+    if [ -d "$WORKSPACE_DIR/.venv" ] && [ ! -e "$BG_WORKTREE/.venv" ]; then
+        ln -s "$WORKSPACE_DIR/.venv" "$BG_WORKTREE/.venv"
+        echo "✓ Linked shared venv to background worktree"
+    fi
+else
+    echo "⚠ No git repository found at $WORKSPACE_DIR; skipping background worktree setup."
+fi
+
 # Create PowerShell profile with custom prompt
 echo ""
 echo "Creating PowerShell profile..."
