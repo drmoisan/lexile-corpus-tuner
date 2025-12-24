@@ -46,6 +46,7 @@ This directory contains the Docker Dev Container configuration for the Lexile Co
 
 ### Mounts and Storage Layout
 - Workspace stored on a named volume: `${localWorkspaceFolderBasename}-workspace -> /workspaces/lexile-corpus-tuner`
+- Dedicated background worktree volume: `${localWorkspaceFolderBasename}-workspace-bg -> /workspaces/lexile-corpus-tuner-bg` (used by background tasks)
 - Host workspace mounted read-only at `/workspaces/lexile-corpus-host` for initial bootstrap copy into the volume on first create (excludes `.venv`, `artifacts`, `data` to avoid slow transfers)
 - Dedicated artifact bind mount: `${localWorkspaceFolder}/../lexile-artifacts -> /workspaces/lexile-artifacts` (keeps large data outside the scanned code workspace)
 - Docker socket bind: `/var/run/docker.sock -> /var/run/docker.sock`
