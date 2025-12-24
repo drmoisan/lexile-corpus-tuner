@@ -48,17 +48,19 @@ This feature expands the corpus builder to support multiple data sources (Projec
 
 ## API / CLI Surface
 
+For detailed setup and download instructions, see [Source Curation & Download Guide](./source-curation-guide.md).
+
 - **Download:**
   ```bash
-  lexile-scoring-model-pipeline corpus download --sources "gutenberg,simple_wiki,oer"
+  poetry run lexile-scoring-model-pipeline corpus download --sources "gutenberg,simple_wiki,oer"
   ```
 - **Normalize:**
   ```bash
-  lexile-scoring-model-pipeline corpus normalize
+  poetry run lexile-scoring-model-pipeline corpus normalize
   ```
 - **Frequencies:**
   ```bash
-  lexile-scoring-model-pipeline corpus frequencies --config config.yaml --weighted
+  poetry run lexile-scoring-model-pipeline corpus frequencies --config config.yaml --weighted
   ```
 
 ## Data & State
