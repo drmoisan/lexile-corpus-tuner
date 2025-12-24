@@ -29,6 +29,8 @@ This feature expands the corpus builder to support multiple data sources (Projec
     - The `corpus frequencies` command will calculate global word frequencies using a weighted sum.
     - Weights are determined by a configuration mapping `source` and `era` to a scalar value (e.g., `gutenberg:pre-1950` = 0.2).
     - Formula: $Freq(w) = \frac{\sum (count(w, doc) \times weight(doc))}{\sum (length(doc) \times weight(doc))}$
+  - Required normalized fields: `source_id`, `text_id`, `tokens`, `genre`, `era_bucket`, `intended_audience`; optional: `publication_year`, `grade_band`, `weight`. Records missing required metadata are skipped before aggregation.
+  - Example weight matrix lives in [examples/example_config.yaml](../../../examples/example_config.yaml) (per-source, per-era buckets).
 
 ## Inputs / Outputs
 

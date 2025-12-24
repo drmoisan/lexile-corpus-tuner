@@ -5,8 +5,8 @@
     "dockerfile": "Dockerfile"
   },
   "containerEnv": {
-    "TZ": "America/New_York",
-    "BG_WORKTREE_PATH": "/workspaces/lexile-corpus-tuner-bg"
+    "BG_WORKTREE_PATH": "/workspaces/lexile-corpus-tuner-bg",
+    "TZ": "America/New_York"
   },
   "customizations": {
     "vscode": {

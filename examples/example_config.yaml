@@ -45,3 +45,29 @@ openai:
 #   api_key_env: OPENAI_API_KEY
 #   temperature: 0.35
 #   max_output_tokens: 450
+
+# Corpus builder example settings (source activation + weighting matrix)
+corpus_sources:
+  - gutenberg
+  - simple_wiki
+  - standard_wiki
+  - oer
+  - modern_fiction_cc
+weights:
+  gutenberg:
+    pre_1950: 0.3
+    "1950_2000": 0.5
+    post_2000: 0.7
+    unknown: 0.4
+  simple_wiki:
+    post_2000: 1.0
+    unknown: 0.8
+  standard_wiki:
+    post_2000: 1.0
+    unknown: 0.8
+  oer:
+    post_2000: 1.1
+    unknown: 0.9
+  modern_fiction_cc:
+    post_2000: 1.0
+    unknown: 0.9

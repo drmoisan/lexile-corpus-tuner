@@ -43,3 +43,16 @@ The current corpus relies heavily on Project Gutenberg, which introduces a stron
 - **Copyrighted Material:** We will not ingest copyrighted modern fiction or textbooks that are not under an open license (CC, OER, Public Domain).
 - **Perfect Dating:** We do not expect exact publication years for all Gutenberg texts; approximate eras or "unknown" handling is acceptable.
 
+## Usage Notes & Risks
+
+- **CLI examples**
+  - `poetry run lexile-scoring-model-pipeline corpus download --sources "gutenberg,simple_wiki,oer"`
+  - `poetry run lexile-scoring-model-pipeline corpus normalize --sources "gutenberg,simple_wiki,oer"`
+  - `poetry run lexile-scoring-model-pipeline corpus frequencies --weighted --config examples/example_config.yaml`
+- **Configuration**
+  - Weight matrix keys are `weights.<source>.<era_bucket>`; example defaults live in `examples/example_config.yaml`.
+  - Required normalized fields: `source_id`, `text_id`, `tokens`, `genre`, `era_bucket`, `intended_audience`; documents missing these are skipped before aggregation.
+- **Risks / caveats**
+  - Wikipedia dumps and normalized shards can be large; ensure sufficient disk for multi-source runs.
+  - Some Gutenberg texts lack reliable publication years; these are bucketed as `unknown` and receive default weights.
+

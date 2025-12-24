@@ -56,6 +56,71 @@ class TestClassifyGutenbergPath:
         # Assert
         assert result == "gutenberg_child"
 
+
+class TestMetadataExtraction:
+    """Tests for metadata inference and filtering."""
+
+    def test_gutenberg_metadata_infers_year_and_era(self) -> None:
+        """Gutenberg docs capture publication_year, era, and genre."""
+        raw_doc = normalize.RawDocument(
+            source_id="gutenberg_child",
+            text_id="g-1",
+            text="Published in 1875 with classic prose.",
+        )
+        meta_fn = normalize._build_metadata  # pyright: ignore[reportPrivateUsage]
+
+        meta = meta_fn(raw_doc, tokens=["word"])
+
+        assert meta.genre == "narrative"
+        assert meta.publication_year == 1875
+        assert meta.era_bucket == "pre_1950"
+        assert meta.intended_audience == "child"
+
+    def test_wiki_filters_and_metadata(self) -> None:
+        """Wikipedia docs must pass length/quality filters and set metadata."""
+        tokens = ["wiki"] * 200
+        text = "An encyclopedia article" + (" body" * 50)
+        passes = normalize._wiki_passes_filters(  # pyright: ignore[reportPrivateUsage]
+            text, tokens
+        )
+        meta_fn = normalize._build_metadata  # pyright: ignore[reportPrivateUsage]
+        meta = meta_fn(
+            normalize.RawDocument(source_id="simple_wiki", text_id="s-1", text=text),
+            tokens,
+        )
+
+        assert passes is True
+        assert meta.genre == "expository"
+        assert meta.era_bucket == "post_2000"
+        assert meta.intended_audience == "general"
+
+    def test_wiki_filters_reject_stub(self) -> None:
+        """Wikipedia filters reject stub content."""
+        tokens = ["stub"] * 200
+        text = "{{stub}} short entry"
+
+        passes = normalize._wiki_passes_filters(  # pyright: ignore[reportPrivateUsage]
+            text, tokens
+        )
+
+        assert passes is False
+
+    def test_oer_metadata_sets_grade_band(self) -> None:
+        """OER docs include instructional genre and grade band when provided."""
+        raw_doc = normalize.RawDocument(
+            source_id="openstax",
+            text_id="o-1",
+            text="OpenStax module",
+            extra={"grade_band": "6-8"},
+        )
+        meta_fn = normalize._build_metadata  # pyright: ignore[reportPrivateUsage]
+
+        meta = meta_fn(raw_doc, tokens=["lesson", "text"])
+
+        assert meta.genre == "instructional"
+        assert meta.grade_band == "6-8"
+        assert meta.intended_audience == "educational"
+
     def test_classifies_juvenile_in_filename(self, tmp_path: Path) -> None:
         """Test that 'juvenile' in filename is classified as gutenberg_child."""
         # Arrange
@@ -147,10 +212,10 @@ class TestIterGutenbergTexts:
 
         # Assert
         assert len(results) == 1
-        source_id, text_id, text = results[0]
-        assert source_id == "gutenberg_other"
-        assert text_id == "gutenberg-123"
-        assert text == "Test content for file 123."
+        doc = results[0]
+        assert doc.source_id == "gutenberg_other"
+        assert doc.text_id == "gutenberg-123"
+        assert doc.text == "Test content for file 123."
 
     def test_yields_multiple_files_sorted(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -170,8 +235,8 @@ class TestIterGutenbergTexts:
 
         # Assert
         assert len(results) == 2
-        assert results[0][1] == "gutenberg-a_file"
-        assert results[1][1] == "gutenberg-z_file"
+        assert results[0].text_id == "gutenberg-a_file"
+        assert results[1].text_id == "gutenberg-z_file"
 
     def test_returns_empty_when_dir_missing(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -213,7 +278,7 @@ class TestIterGutenbergTexts:
 
         # Assert - should only contain readable file
         assert len(results) == 1
-        assert results[0][1] == "gutenberg-readable"
+        assert results[0].text_id == "gutenberg-readable"
 
     def test_handles_nested_directories(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -233,7 +298,7 @@ class TestIterGutenbergTexts:
 
         # Assert
         assert len(results) == 1
-        assert results[0][1] == "gutenberg-deep"
+        assert results[0].text_id == "gutenberg-deep"
 
 
 class TestIterSimpleWikiTexts:
@@ -256,10 +321,10 @@ class TestIterSimpleWikiTexts:
 
         # Assert
         assert len(results) == 1
-        source_id, text_id, text = results[0]
-        assert source_id == "simple_wiki"
-        assert text_id == "simple_wiki-article"
-        assert text == "Wikipedia article content."
+        doc = results[0]
+        assert doc.source_id == "simple_wiki"
+        assert doc.text_id == "simple_wiki-article"
+        assert doc.text == "Wikipedia article content."
 
     def test_yields_jsonl_records(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -285,7 +350,7 @@ class TestIterSimpleWikiTexts:
         # Assert - The source code has duplicate jsonl processing loops
         # (lines 120-137 and 139-156). This results in each jsonl record
         # being yielded twice. Test verifies at least 2 records are processed.
-        jsonl_results = [r for r in results if "article" in r[1]]
+        jsonl_results = [r for r in results if "article" in r.text_id]
         assert len(jsonl_results) >= 2
 
     def test_uses_content_field_if_text_missing(
@@ -307,7 +372,7 @@ class TestIterSimpleWikiTexts:
         results = list(iter_fn())
 
         # Assert
-        texts = [r[2] for r in results]
+        texts = [r.text for r in results]
         assert any("Content field value" in t for t in texts)
 
     def test_skips_empty_lines(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
@@ -327,7 +392,7 @@ class TestIterSimpleWikiTexts:
         results = list(iter_fn())
 
         # Assert - should have valid records, not empty ones
-        assert all(r[2] for r in results)
+        assert all(r.text for r in results)
 
     def test_skips_invalid_json(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Test that invalid JSON lines are skipped."""
@@ -350,7 +415,7 @@ class TestIterSimpleWikiTexts:
         results = list(iter_fn())
 
         # Assert - should have valid records only
-        valid_results = [r for r in results if "valid" in r[2].lower()]
+        valid_results = [r for r in results if "valid" in r.text.lower()]
         assert len(valid_results) >= 2
 
     def test_skips_records_without_text_or_content(
@@ -375,7 +440,7 @@ class TestIterSimpleWikiTexts:
         results = list(iter_fn())
 
         # Assert - should only have records with text
-        assert all("Has text" in r[2] for r in results)
+        assert all("Has text" in r.text for r in results)
 
     def test_uses_index_for_id_if_missing(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -396,7 +461,7 @@ class TestIterSimpleWikiTexts:
         results = list(iter_fn())
 
         # Assert - text_id should contain stem and index
-        text_ids = [r[1] for r in results]
+        text_ids = [r.text_id for r in results]
         assert any("articles-0" in tid for tid in text_ids)
 
     def test_returns_empty_when_dir_missing(
@@ -437,10 +502,10 @@ class TestIterOerTexts:
 
         # Assert
         assert len(results) == 1
-        source_id, text_id, text = results[0]
-        assert source_id == "openstax"
-        assert text_id == "openstax-chapter1"
-        assert text == "OpenStax chapter content."
+        doc = results[0]
+        assert doc.source_id == "openstax"
+        assert doc.text_id == "openstax-chapter1"
+        assert doc.text == "OpenStax chapter content."
 
     def test_yields_ck12_txt_files(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -459,10 +524,10 @@ class TestIterOerTexts:
 
         # Assert
         assert len(results) == 1
-        source_id, text_id, text = results[0]
-        assert source_id == "ck12"
-        assert text_id == "ck12-lesson"
-        assert text == "CK-12 lesson content."
+        doc = results[0]
+        assert doc.source_id == "ck12"
+        assert doc.text_id == "ck12-lesson"
+        assert doc.text == "CK-12 lesson content."
 
     def test_yields_from_both_sources(
         self, tmp_path: Path, monkeypatch: MonkeyPatch
@@ -482,7 +547,7 @@ class TestIterOerTexts:
 
         # Assert
         assert len(results) == 2
-        sources = [r[0] for r in results]
+        sources = [r.source_id for r in results]
         assert "openstax" in sources
         assert "ck12" in sources
 
@@ -504,7 +569,7 @@ class TestIterOerTexts:
 
         # Assert
         assert len(results) >= 1
-        texts = [r[2] for r in results]
+        texts = [r.text for r in results]
         assert any("Chapter 1" in t for t in texts)
 
     def test_returns_empty_when_dirs_missing(
@@ -544,7 +609,7 @@ class TestIterOerTexts:
 
         # Assert
         assert len(results) == 1
-        assert results[0][2] == "Readable"
+        assert results[0].text == "Readable"
 
 
 class TestIterRawTexts:
@@ -568,7 +633,7 @@ class TestIterRawTexts:
         results = list(normalize.iter_raw_texts())
 
         # Assert
-        texts = [r[2] for r in results]
+        texts = [r.text for r in results]
         assert any("Gutenberg" in t for t in texts)
         assert any("Wiki" in t for t in texts)
         assert any("OpenStax" in t for t in texts)
@@ -780,7 +845,8 @@ class TestNormalizeAllSources:
         (raw_root / "gutenberg").mkdir(parents=True)
         (raw_root / "gutenberg" / "book.txt").write_text("Gutenberg content here")
         (raw_root / "simple_wiki").mkdir(parents=True)
-        (raw_root / "simple_wiki" / "article.txt").write_text("Wiki content here")
+        wiki_tokens = " ".join(["wiki"] * 200)
+        (raw_root / "simple_wiki" / "article.txt").write_text(wiki_tokens)
 
         norm_root = tmp_path / "normalized"
         shards_root = norm_root / "shards"
