@@ -122,7 +122,27 @@ class TestRunGit:
         assert args_tuple == (["git", "status", "-sb"],)
         assert kwargs_dict["capture_output"] is True
         assert kwargs_dict["text"] is True
+        assert kwargs_dict["encoding"] == "utf-8"
+        assert kwargs_dict["errors"] == "replace"
         assert kwargs_dict["check"] is True
+
+    def test_handles_none_stdout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that run_git handles None stdout gracefully."""
+
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str | None]:
+            return subprocess.CompletedProcess(
+                args=["git", "status"],
+                returncode=0,
+                stdout=None,
+                stderr="",
+            )
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+
+        result = run_git(["status"])
+        assert result == ""
 
 
 class TestCollectCommitContext:

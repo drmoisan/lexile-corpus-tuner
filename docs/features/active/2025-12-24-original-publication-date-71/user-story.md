@@ -7,8 +7,8 @@
 
 ## Story Statement
 
-- As a corpus engineer, I want to enrich Gutenberg metadata with an original publication year, so that downstream filters and weighting can de-emphasize outdated language.
-- As a data scientist building difficulty models, I want a confidence-scored `original_pub_year` alongside the PG `issued_date`, so that I can segment, weight, and evaluate content by era without corrupting the PG release metadata.
+- As a corpus engineer, I want to enrich Gutenberg metadata with an original publication year plus a confidence flag while keeping `issued_date` untouched, so bulk pipelines can downweight older language without corrupting PG release data.
+- As a data scientist building difficulty models, I want `original_pub_year` + `pub_year_confidence` available with nullable values when unknown, so I can weight segments by era and audit match quality.
 
 ## Problem / Why
 
@@ -18,31 +18,31 @@ The Gutenberg books list does not have a reliable field for first publication da
 ## Personas & Scenarios
 
 - Persona: Corpus engineer
-  - Cares about scalable metadata enrichment over 60k+ Gutenberg rows with checkpointing and rate-limit compliance.
-  - Constraints: external API quotas; noisy title/author strings; no manual curation budget.
-  - Goal: batch-enrich parquet with `original_pub_year` plus confidence flag without breaking existing schema.
-  - Frustration: PG “Issued” is not the original publication year; bulk metadata lacks this field.
+  - Cares about scalable enrichment over 60k+ Gutenberg rows with rate limits, retries, checkpoint/resume, and optional response caching.
+  - Constraints: external API quotas; noisy title/author strings; no manual curation; must avoid overwriting existing schema fields.
+  - Goal: batch-enrich parquet with `original_pub_year` + `pub_year_confidence` while leaving `issued_date` intact and producing resumable artifacts.
+  - Frustration: PG “Issued” is not original publication; bulk metadata lacks that year.
 - Persona: Data scientist (Lexile estimator)
-  - Cares about clean signals to weight documents by era for frequency tables and model calibration.
-  - Constraints: needs nullable values when unknown; avoids false positives from fuzzy matches.
-  - Goal: segment corpora by era buckets to counter Gutenberg age bias; retain PG release date for provenance.
-- Scenario: A corpus engineer runs the enrichment CLI on `data/meta/gutenberg_books.parquet`, which reads rows, batches Open Library lookups with throttling, writes `original_pub_year` and `pub_year_confidence`, checkpoints progress every N rows, and emits a summary report (matched/unmatched/null). A data scientist then filters documents to favor 1990+ narrative content and downweights pre-1950 items using the new field while leaving PG `issued_date` intact.
+  - Cares about clean, nullable era signals to weight documents for frequency tables and calibration.
+  - Constraints: avoids false positives; needs confidence bands (high/low/none) to gate usage.
+  - Goal: segment corpora by era buckets and downweight older narrative while preserving PG release provenance.
+- Scenario: A corpus engineer runs the enrichment CLI against `data/meta/gutenberg_books.parquet` with Open Library as primary, optional Wikidata/LOC fallback, throttling, retries, checkpoint every N rows, and optional cache. The run writes `original_pub_year`, `pub_year_confidence`, and `original_pub_source`, emits summary counts (matched high/low, unmatched/null, API errors), and can resume from checkpoint. A data scientist then filters/weights by era (e.g., favor 1990+) while keeping `issued_date` for provenance and ignoring rows with `pub_year_confidence=none`.
 
 
 ## Acceptance Criteria
 
-- [ ] New enrichment script/CLI populates `original_pub_year` for Gutenberg rows where a confident external match exists; leaves null otherwise.
-- [ ] `issued_date` (PG release) remains unchanged and is not repurposed for original publication year.
-- [ ] Adds `pub_year_confidence` (e.g., high/low/none) to indicate match quality.
-- [ ] Runs end-to-end over the full Gutenberg parquet (>60k rows) with resumable checkpointing and rate-limit compliance.
-- [ ] Unit tests cover matching logic (exact vs fuzzy), confidence labeling, and null-handling.
-- [ ] Integration test (with mocked APIs) covers batch processing, throttling, and parquet update.
+- [ ] Enrichment CLI populates `original_pub_year` where a confident external match exists; leaves null otherwise and records `original_pub_source`.
+- [ ] `issued_date` (PG release) remains unchanged and is never repurposed.
+- [ ] Adds `pub_year_confidence` with explicit bands: `high` (exact/strong match), `low` (fuzzy above threshold), `none` (no acceptable match).
+- [ ] Runs end-to-end over full Gutenberg parquet (>60k rows) with throttling, retries, and resumable checkpointing; emits run summary counts (matched high/low, null, errors).
+- [ ] Unit tests cover normalization, exact vs fuzzy match selection, confidence labeling, null-handling, and source tagging.
+- [ ] Integration test (mocked APIs) covers batch processing, throttling, checkpoint resume, parquet write, and summary reporting.
 
 
 ## Non-Goals
 
-- Inferencing full publication dates or editions; only the year is targeted.
-- Manual curation or hand-edited year fixes at scale.
-- Replacing or overwriting PG `issued_date`.
+- Inferencing full publication dates or edition-level details; only year is targeted.
+- Manual curation or hand-edited fixes at scale.
+- Overwriting or repurposing PG `issued_date`.
 - Guaranteeing coverage for all Gutenberg titles; null is acceptable when no confident match exists.
-- Building a general-purpose bibliographic reconciler beyond the needs of this corpus pipeline.
+- Building a general-purpose bibliographic reconciler or scraping beyond documented Open Library / Wikidata/LOC endpoints.

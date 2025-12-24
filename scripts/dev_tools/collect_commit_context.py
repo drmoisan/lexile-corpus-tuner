@@ -19,12 +19,16 @@ def run_git(args: list[str], allow_error: bool = False) -> str:
             ["git", *args],  # noqa: S607
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=not allow_error,
         )
-        return result.stdout.strip()
+        stdout = result.stdout or ""
+        return stdout.strip()
     except subprocess.CalledProcessError as e:
         if allow_error:
-            return e.stdout.strip() if e.stdout else ""
+            stdout = e.stdout or ""
+            return stdout.strip()
         raise
 
 
