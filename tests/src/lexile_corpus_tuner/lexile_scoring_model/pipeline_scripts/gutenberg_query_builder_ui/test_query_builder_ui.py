@@ -396,8 +396,9 @@ class TestEdgeCases:
 
         query_str = constraint.to_query_string()
 
-        # Should wrap in double quotes, preserving internal quotes
-        assert query_str == 'title:Say "Hello"'
+        # Should wrap in double quotes with escaped internal quotes
+        # since value has spaces
+        assert query_str == 'title:"Say \\"Hello\\""'
 
 
 class TestIntegrationWithQueryEngine:

@@ -17,6 +17,27 @@ def test_constraint_contains() -> None:
     assert constraint.to_query_string() == "title:Fiction"
 
 
+def test_constraint_contains_with_spaces() -> None:
+    """Test that values with spaces are quoted in contains operator."""
+    constraint = QueryConstraintModel(
+        "bookshelves", "contains", "Category: Children & Young Adult Reading"
+    )
+    assert (
+        constraint.to_query_string()
+        == 'bookshelves:"Category: Children & Young Adult Reading"'
+    )
+
+
+def test_constraint_contains_with_colon() -> None:
+    """Test that values with colons are quoted in contains operator."""
+    constraint = QueryConstraintModel(
+        "bookshelves", "contains", "Category: Classics of Literature"
+    )
+    assert (
+        constraint.to_query_string() == 'bookshelves:"Category: Classics of Literature"'
+    )
+
+
 def test_constraint_list_value() -> None:
     constraint = QueryConstraintModel("subjects", "contains", ["Fiction", "Adventure"])
 

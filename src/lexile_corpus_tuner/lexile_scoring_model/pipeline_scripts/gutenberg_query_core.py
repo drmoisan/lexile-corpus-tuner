@@ -23,6 +23,11 @@ class QueryConstraintModel:
             return f"({' OR '.join(terms)})"
 
         if self.operator == "contains":
+            # Quote value if it contains spaces or special characters
+            if " " in self.value or ":" in self.value or '"' in self.value:
+                # Escape any quotes in the value
+                escaped_value = self.value.replace('"', '\\"')
+                return f'{self.field}:"{escaped_value}"'
             return f"{self.field}:{self.value}"
         if self.operator == "=":
             return f'{self.field}="{self.value}"'
