@@ -13,6 +13,7 @@ Lexile Corpus Tuner is a toolkit for measuring, constraining, and rewriting a co
   - Download and consolidate the mega-corpus
   - Analyze the mega-corpus and individual texts to extract meta-metrics
   - Calibrate these metrics by fitting a model based on word frequency and sentence length to known lexile levels
+  - Normalize corpora into 1k–3k token windows with metadata (source, genre, publication_year, era_bucket, intended_audience, grade_band) and optional weighting for frequency calculations
 
 ## Install
 
@@ -92,6 +93,12 @@ poetry run lexile-scoring-model-pipeline calibration fit \
 
 # 6) Analyze new text with the calibrated analyzer
 poetry run lexile-scoring-model-pipeline analyze text path/to/doc.txt --json-output report.json
+
+# Optional corpus controls
+# Limit work to selected sources and apply weighting for bias correction
+poetry run lexile-scoring-model-pipeline corpus download --sources "gutenberg,simple_wiki,oer"
+poetry run lexile-scoring-model-pipeline corpus normalize --sources "gutenberg,simple_wiki,oer"
+poetry run lexile-scoring-model-pipeline corpus frequencies --weighted --config examples/example_config.yaml
 ```
 
 ### Gutenberg Corpus Explorer
