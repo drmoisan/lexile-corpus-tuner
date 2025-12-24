@@ -20,6 +20,14 @@
 - [ ] [P0-T3] Read docs/features/active/2025-12-24-original-publication-date-71/issue.md to extract issue #71 acceptance criteria and constraints
 - [ ] [P0-T4] Read docs/features/active/2025-12-24-original-publication-date-71/user-story.md and spec.md to understand the current draft
 - [ ] [P0-T5] Read artifacts/chats/251224 Corpus Design Summary.md to pull intended end-state behavior and motivations
+- [ ] [P0-T6] Run baseline Ruff (`poetry run ruff check`) and record pass/fail (no fixes)
+- [ ] [P0-T7] Run baseline Pyright (`poetry run pyright`) and record pass/fail
+- [ ] [P0-T8] Run baseline Pytest (with coverage if required) and record pass/fail: `poetry run pytest` (or coverage variant if the plan enforces coverage)
+- [ ] [P0-T9] Run baseline JSON format check (`poetry run python -m scripts.dev_tools.format_json --check`) and record pass/fail
+- [ ] [P0-T10] Run baseline JSON schema validation (`poetry run python -m scripts.dev_tools.validate_json`) and record pass/fail
+- [ ] [P0-T11] Run baseline PowerShell format (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCFormat -Root '.' }"`) and record pass/fail
+- [ ] [P0-T12] Run baseline PowerShell analyze (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCAnalyze -Root '.' }"`) and record pass/fail
+- [ ] [P0-T13] Run baseline PowerShell tests (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCTest -Root '.' }"`) and record pass/fail
 
 **Phase 1 — Requirements Alignment**
 - [ ] [P1-T1] Extract key requirements from the corpus design summary (API sources, confidence scoring, throttling, checkpointing, null-handling) into an internal note
@@ -45,6 +53,18 @@
 - [ ] [P4-T1] Cross-check user-story.md and spec.md for consistent terminology (original_pub_year, pub_year_confidence, issued_date), APIs, and flags
 - [ ] [P4-T2] Verify Definition of Done in spec.md covers docs and tests and aligns with acceptance criteria
 - [ ] [P4-T3] Proofread both documents for clarity, completeness, and adherence to scope of issue #71
+
+**Phase 5 — Final QA: Toolchain Loop**
+- [ ] [P5-T1] Run Black on the workspace or touched files (`poetry run black .`)
+- [ ] [P5-T2] Run Ruff (`poetry run ruff check`); if it changes anything, rerun Black then repeat the loop
+- [ ] [P5-T3] Run Pyright (`poetry run pyright`); fix issues and restart loop from Black if needed
+- [ ] [P5-T4] Run Pytest (coverage if enforced); fix issues and restart loop from Black if needed
+- [ ] [P5-T5] Run JSON format (`poetry run python -m scripts.dev_tools.format_json --check`); if it would reformat, run without --check and restart the loop
+- [ ] [P5-T6] Run JSON schema validation (`poetry run python -m scripts.dev_tools.validate_json`); fix and restart loop if it fails
+- [ ] [P5-T7] Run PowerShell format (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCFormat -Root '.' }"`); if it changes anything, restart loop from JSON format
+- [ ] [P5-T8] Run PowerShell analyze (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCAnalyze -Root '.' }"`); fix and restart loop from JSON format if it fails
+- [ ] [P5-T9] Run PowerShell tests (`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { Import-Module './scripts/powershell/PoshQC'; Invoke-PoshQCTest -Root '.' }"`); fix and restart loop from JSON format if it fails
+- [ ] [P5-T10] Report final toolchain status (JSON format/validate; PowerShell format/analyze/test; Black/Ruff/Pyright/Pytest) and confirm all tasks are checked off
 
 ## Test Plan
 

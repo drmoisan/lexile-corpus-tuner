@@ -224,7 +224,7 @@ def test_promote_potential_failure_does_not_move_file() -> None:
     assert "## Acceptance Criteria\n(not provided in potential file)" in body
     assert "## Constraints & Risks\n(not provided in potential file)" in body
     assert "## Test Conditions\n(not provided in potential file)" in body
-    assert str(potential.relative_to(workspace)) in body
+    assert potential.relative_to(workspace).as_posix() in body
     assert "line1" in messages and "line2" in messages
 
 

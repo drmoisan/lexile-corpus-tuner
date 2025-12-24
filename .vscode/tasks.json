@@ -122,7 +122,7 @@
       },
       "label": "QC: 1 Black: format",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -143,7 +143,7 @@
       },
       "label": "QC: 2 Ruff: lint",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -165,7 +165,7 @@
       },
       "label": "QC: 2 Ruff: fix",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -185,7 +185,7 @@
       },
       "label": "QC: 3 Pyright: type-check",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -205,7 +205,7 @@
       },
       "label": "QC: 4 Pytest: run tests",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -228,7 +228,7 @@
       },
       "label": "QC: 4 Pytest: run tests with coverage",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -253,7 +253,7 @@
       },
       "label": "PoshQC: 1 format",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -278,7 +278,7 @@
       },
       "label": "PoshQC: 2 analyze",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -303,7 +303,7 @@
       },
       "label": "PoshQC: 2b autofix (PSSA -Fix)",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -328,7 +328,7 @@
       },
       "label": "PoshQC: 4 test (Pester)",
       "presentation": {
-        "close": true,
+        "close": false,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false

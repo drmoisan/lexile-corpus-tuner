@@ -336,7 +336,7 @@ def promote_potential(
         except ValueError:
             return str(resolved)
 
-    relative_path = _relative_path()
+    relative_path = Path(_relative_path()).as_posix()
 
     if promotion_type == "bug":
         bug_sections = {

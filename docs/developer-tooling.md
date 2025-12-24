@@ -56,8 +56,7 @@ pip install -e .[llm-openai]       # With OpenAI
 ```bash
 poetry run black .
 ```
-
-**VS Code task:** `Black: format`
+Prefer the command above instead of the legacy `QC: 1 Black: format` task.
 
 ### Linting: Ruff
 
@@ -75,11 +74,7 @@ poetry run ruff check
 ```bash
 poetry run ruff check --fix
 ```
-
-**VS Code tasks:**
-
-- `Ruff: lint` - Check for issues
-- `Ruff: fix` - Auto-fix issues
+Prefer these commands instead of the `QC: 2 Ruff: lint` / `QC: 2 Ruff: fix` tasks.
 
 ### PowerShell: Formatter (Invoke-Formatter) + Linting (PSScriptAnalyzer)
 
@@ -87,7 +82,7 @@ poetry run ruff check --fix
 - **Install tools (once)**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/install-powershell-tools.ps1`
 - **Format**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
 - **Lint**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
-- **VS Code tasks**: `QC: PowerShell: format`, `QC: PowerShell: analyze`
+- Prefer these commands instead of the `QC: PowerShell: format` / `QC: PowerShell: analyze` tasks.
 
 ### Type Checking: Pyright
 
@@ -100,8 +95,7 @@ poetry run ruff check --fix
 ```bash
 poetry run pyright
 ```
-
-**VS Code task:** `Pyright: type-check`
+Prefer the command above instead of the `QC: 3 Pyright: type-check` task.
 
 ### Testing: Pytest
 
@@ -119,11 +113,7 @@ poetry run pytest
 ```bash
 poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
 ```
-
-**VS Code tasks:**
-
-- `Pytest: run tests` - Run all tests (default test task)
-- `Pytest: run tests with coverage` - Run with coverage report
+Prefer these commands instead of the `QC: 4 Pytest: run tests` / `QC: 4 Pytest: run tests with coverage` tasks.
 
 ### JSON Config Quality: jq + jsonschema
 
@@ -150,17 +140,25 @@ poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-re
 
 - **Configuration**: `scripts/powershell/PoshQC/settings/pester.runsettings.psd1`
 - **Run tests**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
-- **VS Code task**: `QC: PowerShell: test (Pester)`
+- Prefer the command above instead of the `QC: PowerShell: test (Pester)` task.
 
 ## Integrated Workflows
 
 ### Run All Checks (Sequential)
 
-Runs JSON format → JSON validate → Black → Ruff → Pyright → Pytest in sequence (plus PowerShell format/analyze/test):
+Run JSON format → JSON validate → Black → Ruff → Pyright → Pytest in sequence (plus PowerShell format/analyze/test when applicable):
 
 ```bash
-# VS Code task
-Run All Checks
+poetry run python -m scripts.dev_tools.format_json
+poetry run python -m scripts.dev_tools.validate_json
+poetry run black .
+poetry run ruff check
+poetry run pyright
+poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
+# If PowerShell code changed
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1
+pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1
 ```
 
 ### Fix All (Automated)
@@ -173,8 +171,7 @@ poetry run python -m scripts.dev_tools.fix_all
 # PowerShell wrapper (delegates to Python for compatibility)
 pwsh scripts/dev-tools/fix-all.ps1
 ```
-
-**VS Code task:** `Fix All`
+Use the commands above instead of the `QC: 0 Fix All` task.
 
 ## Secret Management
 

@@ -76,7 +76,8 @@ class GitClient:
             return self._cwd
 
         top = self.run(["rev-parse", "--show-toplevel"]).stdout
-        return Path(top).resolve()
+        # Preserve git's reported root without forcing OS-specific drive resolution
+        return Path(top)
 
     def rev_parse(self, ref: str) -> str:
         return self.run(["rev-parse", "--verify", ref]).stdout
