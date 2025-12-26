@@ -148,6 +148,30 @@
     },
     {
       "args": [
+        "--input",
+        "data/meta/gutenberg_books.parquet",
+        "--output",
+        "data/meta/gutenberg_books_enhanced.parquet",
+        "--checkpoint",
+        "data/meta/.original_pub_year.ckpt",
+        "--cache-dir",
+        "data/cache/original_pub_year",
+        "--rate-limit",
+        "5",
+        "--batch-size",
+        "50",
+        "--fuzzy-threshold",
+        "0.9"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year",
+      "name": "Step 1.5 - Enrich Original Pub Year",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
         "--dump",
         "data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2",
         "--output",

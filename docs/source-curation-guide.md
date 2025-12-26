@@ -31,6 +31,49 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.b
 
 *Note: This process can take several minutes to complete the first time.*
 
+### Step 1.5: Enrich Gutenberg Metadata with Original Publication Year
+
+After generating `gutenberg_books.parquet`, run the enrichment pipeline to add `original_pub_year`, `pub_year_confidence` (high/low/none), and `original_pub_source` while preserving the existing `issued_date` field.
+
+**Command:**
+```bash
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year \
+  --input data/meta/gutenberg_books.parquet \
+  --output data/meta/gutenberg_books_enhanced.parquet \
+  --checkpoint data/meta/.original_pub_year.ckpt \
+  --cache-dir data/cache/original_pub_year \
+  --rate-limit 5 \
+  --batch-size 50 \
+  --fuzzy-threshold 0.9
+```
+```powershell
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year `
+  --input data/meta/gutenberg_books.parquet `
+  --output data/meta/gutenberg_books_enhanced.parquet `
+  --checkpoint data/meta/.original_pub_year.ckpt `
+  --cache-dir data/cache/original_pub_year `
+  --rate-limit 5 `
+  --batch-size 50 `
+  --fuzzy-threshold 0.9
+```
+
+**What this does:**
+1. Normalizes title/author strings and queries Open Library for candidates (respects rate limit and retries).
+2. Selects the best match (exact → fuzzy) and records source + confidence; leaves nulls when no acceptable match.
+3. Supports resume via checkpoint file and optional cache to avoid repeat lookups.
+4. Writes enriched parquet to the output path without altering other columns.
+
+**Flags to adjust (common):**
+- `--rate-limit` (requests/sec) and `--batch-size` for throughput vs. quota.
+- `--fuzzy-threshold` or `--disable-fuzzy` to tighten/loosen fuzzy matching.
+- `--enable-wikidata` / `--enable-loc` to try fallbacks after Open Library.
+- `--checkpoint-every` to control how often progress is saved.
+
+**Tips:**
+- Keep the input parquet read-only; write to a new output file so you can diff/rollback.
+- If rerunning, delete or move the checkpoint when you need a full refresh.
+- Cache directory can be reused across runs to reduce API calls.
+
 ### Step 2: (Optional) Curate the List
 
 By default, `gutenberg_ids.txt` contains *all* English books. If you want to download only a specific subset (e.g., only "Fiction"), you can filter this list.
