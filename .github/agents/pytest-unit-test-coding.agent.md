@@ -216,3 +216,4 @@ Your response must include:
 - Creating analyzer/type-check debt “to be fixed later”
 - Claiming success without running the toolchain
 - Utilizing type ignore
+- Adding lint/typing suppressions (e.g., `# noqa`, `# type: ignore`) unless explicitly authorized in the instructions files
