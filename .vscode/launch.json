@@ -77,7 +77,7 @@
       "justMyCode": true,
       "module": "lexile_corpus_tuner.cli",
       "name": "Python: Analyze chapter1.txt",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -98,7 +98,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Python: Rewrite chapter1.txt",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -118,7 +118,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
       "name": "Step 0.1 - Build Gutenberg ID List",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -130,7 +130,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
       "name": "Step 0.2 - Curate Gutenberg ID List",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -142,7 +142,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 1 - Corpus Download",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -166,7 +166,6 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year.__main__",
       "name": "Step 1.5 - Enrich Original Pub Year",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "request": "launch",
       "type": "debugpy"
     },
@@ -180,7 +179,6 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
       "name": "Step 2 - Extract Simple Wiki",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "request": "launch",
       "type": "debugpy"
     },
@@ -194,7 +192,6 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 3 - Corpus Normalize",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "request": "launch",
       "type": "debugpy"
     },
@@ -206,7 +203,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 4 - Corpus Frequencies",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -222,7 +219,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 5 - Calibration Fetch Texts",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -240,7 +237,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 6 - Calibration Build Dataset",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
@@ -255,7 +252,7 @@
       "cwd": "${workspaceFolder}",
       "module": "lexile_corpus_tuner.cli",
       "name": "Step 7 - Calibration Fit",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      
       "request": "launch",
       "type": "debugpy"
     },
