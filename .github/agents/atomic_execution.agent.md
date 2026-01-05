@@ -58,6 +58,7 @@ You MUST NOT:
 - Reorder tasks “for efficiency.”
 - Replace the plan with a different approach.
 - Perform work that is not described by the plan.
+- Create private todo lists. You MUST use the plan as the todo list.
 
 ### 1.3 Allowed behavior (bounded execution discretion)
 - You may perform **micro-actions** that are mechanically necessary to complete the *current* task (e.g., inspect files, run a command, make small edits), as long as they do not create an additional independent outcome.

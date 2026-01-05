@@ -133,7 +133,9 @@ def select_best_match(
 
     best: MatchCandidate | None = None
     best_score = 0.0
-    # Evaluate each provider candidate, preferring exact matches before fuzzy ones.
+    earliest_exact_year: int | None = None
+    earliest_exact_source: str | None = None
+    # Track earliest exact match; fall back to fuzzy scoring when none exist.
     for candidate in candidates:
         cand_title = normalize_text(candidate.title)
         cand_author = normalize_text(candidate.author)
@@ -143,11 +145,12 @@ def select_best_match(
             if normalized_author
             else False
         )
-        # Short-circuit when title matches exactly and authors overlap with a year.
+        # Accumulate the earliest exact title match with overlapping authors.
         if exact_title and author_overlap and candidate.year is not None:
-            return MatchResult(
-                year=candidate.year, confidence="high", source=candidate.source
-            )
+            if earliest_exact_year is None or candidate.year < earliest_exact_year:
+                earliest_exact_year = candidate.year
+                earliest_exact_source = candidate.source
+            continue
 
         if disable_fuzzy:
             continue
@@ -165,6 +168,11 @@ def select_best_match(
                 source=candidate.source,
                 score=score,
             )
+
+    if earliest_exact_year is not None and earliest_exact_source is not None:
+        return MatchResult(
+            year=earliest_exact_year, confidence="high", source=earliest_exact_source
+        )
 
     if best is not None:
         return MatchResult(year=best.year, confidence="low", source=best.source)

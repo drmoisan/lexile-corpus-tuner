@@ -2,13 +2,13 @@
 
 - Date captured: 2026-01-05
 - Author: Dan Moisan
-- Status: Promoted -> docs/features/active/improper-match-short-circuit/ (Issue #72)
+- Status: Fixed in feature/original-publication-date-71 (Issue #72)
 
 > Automation note: Keep the section headings below unchanged; the promotion tooling maps each of them into the GitHub bug issue template.
 
 - Issue: #72
 - Issue URL: https://github.com/drmoisan/lexile-corpus-tuner/issues/72
-- Last Updated: 2026-01-05
+- Last Updated: 2026-01-05 (validated fix)
 ## Summary
 
 `select_best_match` short-circuits on the first exact title/author overlap, causing later candidates with earlier publication years to be ignored; regression test shows it returns 2014 instead of the earliest year 1956 for duplicated Moby Dick entries.
@@ -68,4 +68,11 @@ Short-circuit in `select_best_match` treats the first exact title/author overlap
 ## Next Step
 
 - [x] Promote to GitHub issue (bug-report template)
-- [ ] Move to active fix folder / branch
+- [x] Move to active fix folder / branch
+
+## Resolution
+
+- Updated `select_best_match` to track the earliest exact title/author match instead of short-circuiting on the first candidate.
+- Validation:
+    - `poetry run pytest tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_match_utils.py`
+    - Toolchain: `poetry run black .` → `poetry run ruff check` → `poetry run pyright` → `poetry run pytest`
