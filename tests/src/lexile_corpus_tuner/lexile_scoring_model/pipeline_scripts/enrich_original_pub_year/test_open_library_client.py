@@ -202,7 +202,11 @@ def test_search_raises_after_max_retries(monkeypatch: pytest.MonkeyPatch) -> Non
         backoff_cap=1.0,
     )
 
-    with pytest.raises(requests.HTTPError):
+    with pytest.raises(enrich.open_library_client.OpenLibrarySearchError) as exc_info:
         client.search("X", "Y")
 
+    assert exc_info.value.title == "X"
+    assert exc_info.value.author == "Y"
+    assert exc_info.value.attempts == 2
+    assert "boom" in str(exc_info.value.last_error)
     assert sleep_calls == [0.25]

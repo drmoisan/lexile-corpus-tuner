@@ -8,6 +8,47 @@ import requests
 from .constants import OPEN_LIBRARY_URL
 from .match_candidate import MatchCandidate
 
+
+class OpenLibrarySearchError(Exception):
+    """
+    Raised when Open Library search fails after all retry attempts.
+
+    Purpose:
+        Provide clear context about which title/author lookup failed and why.
+
+    Attributes:
+        title (str): The title being searched.
+        author (str): The author being searched.
+        attempts (int): Number of attempts made before failure.
+        last_error (Exception): The underlying exception that caused the failure.
+    """
+
+    def __init__(
+        self, title: str, author: str, attempts: int, last_error: Exception
+    ) -> None:
+        """
+        Initialize the exception with search context.
+
+        Args:
+            title (str): Title being searched.
+            author (str): Author being searched.
+            attempts (int): Number of retry attempts made.
+            last_error (Exception): The underlying error that triggered this.
+
+        Side Effects:
+            None.
+        """
+        self.title = title
+        self.author = author
+        self.attempts = attempts
+        self.last_error = last_error
+        message = (
+            f"Open Library search failed after {attempts} attempts "
+            f"for title='{title}', author='{author}': {last_error}"
+        )
+        super().__init__(message)
+
+
 if TYPE_CHECKING:
     from .http_client import HttpClient
 
@@ -132,10 +173,12 @@ class OpenLibraryClient:
                 response.raise_for_status()
                 payload = response.json()
                 break
-            except Exception:
+            except Exception as exc:
                 attempt += 1
                 if attempt >= self._max_retries:
-                    raise
+                    raise OpenLibrarySearchError(
+                        title=title, author=author, attempts=attempt, last_error=exc
+                    ) from exc
                 delay = min(
                     self._backoff_initial * (2 ** (attempt - 1)), self._backoff_cap
                 )

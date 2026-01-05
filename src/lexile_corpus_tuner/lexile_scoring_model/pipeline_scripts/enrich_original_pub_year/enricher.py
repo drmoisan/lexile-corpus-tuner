@@ -26,8 +26,49 @@ from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
 from .match_utils import is_missing_year, normalize_text, select_best_match
 from .noop_fallback import NoopFallback
-from .open_library_client import OpenLibraryClient
+from .open_library_client import OpenLibraryClient, OpenLibrarySearchError
 from .summary import Summary
+
+
+class EnrichmentError(Exception):
+    """
+    Raised when enrichment fails for a specific row.
+
+    Purpose:
+        Provide clear context about which row failed enrichment and why.
+
+    Attributes:
+        row_index (int): Zero-based row index in the dataframe.
+        title (str): The title being enriched.
+        author (str): The author being enriched.
+        cause (Exception): The underlying exception that caused the failure.
+    """
+
+    def __init__(
+        self, row_index: int, title: str, author: str, cause: Exception
+    ) -> None:
+        """
+        Initialize the exception with row context.
+
+        Args:
+            row_index (int): Zero-based index of the row that failed.
+            title (str): Title from the failing row.
+            author (str): Author from the failing row.
+            cause (Exception): The underlying error that triggered this.
+
+        Side Effects:
+            None.
+        """
+        self.row_index = row_index
+        self.title = title
+        self.author = author
+        self.cause = cause
+        message = (
+            f"Enrichment failed at row {row_index} "
+            f"(title='{title}', author='{author}'): {cause}"
+        )
+        super().__init__(message)
+
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -106,15 +147,26 @@ def enrich_dataframe(
         if cached is not None:
             result = cached
         else:
+            try:
+                candidates = client.search(title, authors)
+            except OpenLibrarySearchError as exc:
+                raise EnrichmentError(
+                    row_index=idx, title=title, author=authors, cause=exc
+                ) from exc
             result = select_best_match(
-                candidates=client.search(title, authors),
+                candidates=candidates,
                 normalized_title=normalized_title,
                 normalized_author=normalized_author,
                 threshold=config.fuzzy_threshold,
                 disable_fuzzy=config.disable_fuzzy,
             )
             if result.confidence == "none":
-                fallback_candidates = fallback_client.search(title, authors)
+                try:
+                    fallback_candidates = fallback_client.search(title, authors)
+                except Exception as exc:
+                    raise EnrichmentError(
+                        row_index=idx, title=title, author=authors, cause=exc
+                    ) from exc
                 result = select_best_match(
                     candidates=fallback_candidates,
                     normalized_title=normalized_title,
