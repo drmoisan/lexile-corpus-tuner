@@ -12,8 +12,41 @@ if TYPE_CHECKING:
 @dataclass
 class EnrichmentConfig:
     """
-    Configuration for enrichment behavior, including rate limits, retries, fuzziness,
-    checkpointing, and I/O paths.
+    Configuration for publication-year enrichment, covering I/O paths and tuning knobs.
+
+    Purpose:
+        Capture all runtime controls for the enrichment pipeline so callers can
+        construct configurations programmatically or via CLI parsing.
+
+    Usage:
+        Pass an instance to `enrich_dataframe` or `enrich_parquet` to steer cache
+        locations, checkpointing cadence, HTTP behavior, and fuzzy matching.
+
+    Flow:
+        Values are consumed by cache, checkpoint, HTTP, and matching components
+        without further mutation once set.
+
+    Invariants / Constraints:
+        Paths must be writable when enrichment is expected to persist cache or
+        checkpoints. Rate limit and backoff values must be positive to avoid
+        zero-division or runaway retry behavior.
+
+    Attributes:
+        input_path (Path): Source parquet to enrich.
+        output_path (Path): Destination parquet path for enriched results.
+        checkpoint_path (Path): Location for resumable progress markers.
+        cache_dir (Path): Directory for cached match results.
+        rate_limit (float): Requests per second allowed against the HTTP source.
+        batch_size (int): Rows to process per batch when batching is used upstream.
+        max_retries (int): Maximum retry attempts per HTTP request.
+        backoff_initial (float): Base delay before exponential backoff.
+        backoff_cap (float): Maximum delay between retries.
+        fuzzy_threshold (float): Minimum similarity for fuzzy matches to be accepted.
+        disable_fuzzy (bool): When True, only exact matches are considered valid.
+        timeout_seconds (float): HTTP timeout per request.
+        checkpoint_every (int): Frequency (rows) for writing checkpoints.
+        enable_wikidata (bool): Toggle for optional Wikidata fallback client.
+        enable_loc (bool): Toggle for optional Library of Congress fallback client.
     """
 
     input_path: Path

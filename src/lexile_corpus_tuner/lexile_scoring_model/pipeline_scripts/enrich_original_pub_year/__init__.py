@@ -37,8 +37,23 @@ if TYPE_CHECKING:
 
 def normalize_text(value: str) -> str:
     """
-    Return a normalized string for stable matching by lowercasing, stripping
-    punctuation, and collapsing whitespace.
+    Normalize text for stable matching by removing punctuation and collapsing space.
+
+    Purpose:
+        Provide deterministic normalization so cache keys and similarity checks are
+        consistent across runs.
+
+    Args:
+        value (str): Raw title or author value from the dataset.
+
+    Returns:
+        str: Lowercased, punctuation-stripped, whitespace-collapsed string.
+
+    Raises:
+        None
+
+    Side Effects:
+        None.
     """
     cleaned = re.sub(r"[^\w\s]", " ", value).lower()
     collapsed = re.sub(r"\s+", " ", cleaned).strip()
@@ -47,7 +62,23 @@ def normalize_text(value: str) -> str:
 
 def _is_missing_year(value: object) -> bool:
     """
-    Detect missing year values (None/NaN) while allowing zeros and integers through.
+    Detect missing year values, treating NaN-like values as absent but keeping zeros.
+
+    Purpose:
+        Distinguish truly missing data from valid numeric values so enrichment does
+        not overwrite legitimate zeros.
+
+    Args:
+        value (object): Original value from the dataframe.
+
+    Returns:
+        bool: True when the value should be considered missing.
+
+    Raises:
+        None
+
+    Side Effects:
+        None.
     """
     if value is None:
         return True
@@ -57,7 +88,25 @@ def _is_missing_year(value: object) -> bool:
 
 
 def _similarity(a: str, b: str) -> float:
-    """Compute token-level Jaccard similarity between two normalized strings."""
+    """
+    Compute token-level Jaccard similarity between two normalized strings.
+
+    Purpose:
+        Score overlap between candidate and target strings for fuzzy matching.
+
+    Args:
+        a (str): Normalized string to compare.
+        b (str): Normalized string to compare.
+
+    Returns:
+        float: Jaccard similarity in the range [0.0, 1.0].
+
+    Raises:
+        None
+
+    Side Effects:
+        None.
+    """
     if not a and not b:
         return 1.0
     if not a or not b:
@@ -79,10 +128,33 @@ def select_best_match(
     threshold: float,
     disable_fuzzy: bool,
 ) -> MatchResult:
-    """Pick the best candidate using exact match first, then optional fuzzy scoring."""
+    """
+    Choose the strongest candidate, preferring exact matches then fuzzy scoring.
+
+    Purpose:
+        Encapsulate match selection rules so enrichment can remain deterministic and
+        testable.
+
+    Args:
+        candidates (Iterable[MatchCandidate]): Provider results to evaluate.
+        normalized_title (str): Normalized target title.
+        normalized_author (str): Normalized target author list.
+        threshold (float): Minimum similarity required for fuzzy acceptance.
+        disable_fuzzy (bool): When True, only exact matches are eligible.
+
+    Returns:
+        MatchResult: Selected year with confidence and source metadata.
+
+    Raises:
+        None
+
+    Side Effects:
+        None.
+    """
 
     best: MatchCandidate | None = None
     best_score = 0.0
+    # Evaluate each provider candidate, preferring exact matches before fuzzy ones.
     for candidate in candidates:
         cand_title = normalize_text(candidate.title)
         cand_author = normalize_text(candidate.author)
@@ -92,6 +164,7 @@ def select_best_match(
             if normalized_author
             else False
         )
+        # Short-circuit when title matches exactly and authors overlap with a year.
         if exact_title and author_overlap and candidate.year is not None:
             return MatchResult(
                 year=candidate.year, confidence="high", source=candidate.source
@@ -103,6 +176,7 @@ def select_best_match(
         title_score = _similarity(normalized_title, cand_title)
         author_score = _similarity(normalized_author, cand_author)
         score = (title_score + author_score) / 2.0
+        # Track the best-scoring fuzzy candidate above the acceptance threshold.
         if score >= threshold and score >= best_score and candidate.year is not None:
             best_score = score
             best = MatchCandidate(
@@ -130,6 +204,32 @@ def enrich_dataframe(
     """
     Enrich a dataframe in memory using cache, checkpoints, fuzzy matching, and optional
     fallback clients.
+
+    Purpose:
+        Orchestrate publication-year lookups for each row while supporting caching
+        and resumability.
+
+    Args:
+        df (pd.DataFrame): Input dataframe containing title and author columns.
+        config (EnrichmentConfig): Runtime tuning parameters for enrichment.
+        client (OpenLibraryClient): Primary search client for Open Library.
+        cache (CacheStore | None): Optional cache implementation; default creates a
+            `FileCache`.
+        checkpoint (CheckpointStore | None): Optional checkpoint store; default uses
+            `FileCheckpoint`.
+        fallback (FallbackClient | None): Optional secondary catalog client; defaults
+            to `NoopFallback`.
+
+    Returns:
+        EnrichmentResult: Enriched dataframe plus processing summary metrics.
+
+    Side Effects:
+        May perform network I/O, disk reads/writes for cache and checkpoints, and
+        sleeps for rate limiting.
+
+    Raises:
+        Exception: Propagates errors from HTTP requests, cache/checkpoint I/O, or
+        fallback lookups.
     """
 
     working = df.copy()
@@ -143,8 +243,10 @@ def enrich_dataframe(
     results_conf: list[Confidence] = []
     results_source: list[str | None] = []
 
+    # Walk each row, resuming from any prior checkpoint to avoid reprocessing.
     for idx, row in enumerate(working.itertuples(index=False), start=0):
         if idx < start_index:
+            # Preserve previously processed rows by copying stored values.
             existing_year = getattr(row, "original_pub_year", None)
             is_missing_year = _is_missing_year(existing_year)
             results_year.append(None if is_missing_year else existing_year)
@@ -158,6 +260,7 @@ def enrich_dataframe(
         normalized_author = normalize_text(authors)
 
         cache_key = f"{normalized_title}__{normalized_author}"
+        # Prefer cache hits to avoid unnecessary network requests.
         cached = cache_store.get(cache_key)
         if cached is not None:
             result = cached
@@ -170,6 +273,7 @@ def enrich_dataframe(
                 disable_fuzzy=config.disable_fuzzy,
             )
             if result.confidence == "none":
+                # Try secondary catalogs only when primary matching yields nothing.
                 fallback_candidates = fallback_client.search(title, authors)
                 result = select_best_match(
                     candidates=fallback_candidates,
@@ -186,6 +290,7 @@ def enrich_dataframe(
         summary.record(result)
 
         if (idx + 1) % config.checkpoint_every == 0:
+            # Persist progress at configured cadence to enable resumable runs.
             checkpoint_store.save(idx + 1, summary)
 
     working["original_pub_year"] = results_year
@@ -199,6 +304,22 @@ def enrich_parquet(config: EnrichmentConfig) -> Summary:
     """
     Load parquet, enrich publication years, write output parquet, and emit a JSON
     summary to stdout.
+
+    Purpose:
+        CLI-friendly wrapper around `enrich_dataframe` that handles I/O and logging.
+
+    Args:
+        config (EnrichmentConfig): Pre-parsed configuration for paths and tuning.
+
+    Returns:
+        Summary: Metrics captured during enrichment.
+
+    Side Effects:
+        Reads and writes parquet files, writes cache/checkpoint files, and prints
+        JSON to stdout.
+
+    Raises:
+        Exception: Propagates errors from `enrich_dataframe` or file operations.
     """
 
     df = pd.read_parquet(config.input_path)  # type: ignore[reportUnknownMemberType]
@@ -234,7 +355,21 @@ def enrich_parquet(config: EnrichmentConfig) -> Summary:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    """Build the CLI argument parser with defaults matching EnrichmentConfig."""
+    """
+    Build the CLI argument parser with defaults matching `EnrichmentConfig`.
+
+    Purpose:
+        Centralize CLI definitions for reuse in tests and entry points.
+
+    Returns:
+        argparse.ArgumentParser: Parser ready to consume CLI arguments.
+
+    Raises:
+        None
+
+    Side Effects:
+        None.
+    """
 
     parser = argparse.ArgumentParser(
         description=(
@@ -300,7 +435,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def parse_args(argv: list[str] | None = None) -> EnrichmentConfig:
-    """Parse CLI arguments into an EnrichmentConfig instance."""
+    """
+    Parse CLI arguments into an `EnrichmentConfig` instance.
+
+    Purpose:
+        Convert raw CLI input into a strongly typed configuration.
+
+    Args:
+        argv (list[str] | None): Argument list override for testing.
+
+    Returns:
+        EnrichmentConfig: Parsed and validated configuration object.
+
+    Raises:
+        SystemExit: When required arguments are missing or invalid.
+
+    Side Effects:
+        Reads process arguments when `argv` is None.
+    """
 
     parser = build_arg_parser()
     args = parser.parse_args(argv)
@@ -327,6 +479,21 @@ def main(argv: list[str] | None = None) -> int:
     """
     CLI entry point; run enrichment and return a shell-friendly exit code for
     schedulers.
+
+    Purpose:
+        Provide a simple executable boundary for schedulers or manual invocation.
+
+    Args:
+        argv (list[str] | None): Optional argument override for testing.
+
+    Returns:
+        int: Zero on success; non-zero on failure.
+
+    Side Effects:
+        Executes enrichment, performing I/O and network requests.
+
+    Raises:
+        None (returns exit codes instead of propagating errors within this boundary).
     """
 
     config = parse_args(argv)

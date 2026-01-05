@@ -13,7 +13,28 @@ if TYPE_CHECKING:
 
 
 class OpenLibraryClient:
-    """HTTP client for Open Library search with polite rate limiting and retries."""
+    """
+    HTTP client for Open Library search with rate limiting and bounded retries.
+
+    Purpose:
+        Encapsulate network access and response parsing so enrichment can request
+        candidate publication years without duplicating HTTP logic.
+
+    Usage:
+        Instantiate once per run (optionally injecting a custom HTTP client) and
+        call `search` for each title/author pair.
+
+    Flow:
+        Applies rate limiting, retries with exponential backoff on errors, then
+        converts the JSON payload into `MatchCandidate` objects.
+
+    Invariants / Constraints:
+        Rate limit values must be positive to avoid divide-by-zero, and retries are
+        capped by `max_retries` to prevent infinite loops.
+
+    Side Effects:
+        Performs network I/O and sleeps to honor rate limits and backoff delays.
+    """
 
     def __init__(
         self,
@@ -25,6 +46,28 @@ class OpenLibraryClient:
         backoff_initial: float = 0.5,
         backoff_cap: float = 8.0,
     ) -> None:
+        """
+        Configure the client with rate limiting, timeouts, and retry settings.
+
+        Purpose:
+            Allow callers to tune network behavior and inject custom HTTP clients.
+
+        Args:
+            http (HttpClient | None): Custom HTTP client; defaults to
+                `requests.Session`.
+            rate_limit (float): Requests per second; values <= 0 disable limiting.
+            timeout_seconds (float): Timeout per HTTP request.
+            max_retries (int): Maximum attempts before surfacing the error.
+            backoff_initial (float): Initial backoff delay in seconds.
+            backoff_cap (float): Maximum backoff delay between retries.
+
+        Raises:
+            None
+
+        Side Effects:
+            None.
+        """
+
         self._http = http or requests.Session()
         self._rate_limit = rate_limit
         self._timeout_seconds = timeout_seconds
@@ -34,6 +77,19 @@ class OpenLibraryClient:
         self._backoff_cap = backoff_cap
 
     def _respect_rate_limit(self) -> None:
+        """
+        Sleep as needed to maintain the configured requests-per-second ceiling.
+
+        Purpose:
+            Enforce polite network behavior toward upstream providers.
+
+        Raises:
+            None
+
+        Side Effects:
+            Updates `_last_request` and may block the caller with `time.sleep`.
+        """
+
         if self._rate_limit <= 0:
             return
         min_interval = 1.0 / self._rate_limit
@@ -44,8 +100,29 @@ class OpenLibraryClient:
         self._last_request = time.monotonic()
 
     def search(self, title: str, author: str) -> list[MatchCandidate]:
+        """
+        Look up candidate publication years for a given title and author.
+
+        Purpose:
+            Provide raw candidates from Open Library for downstream selection.
+
+        Args:
+            title (str): Title text from the dataset row.
+            author (str): Author text from the dataset row.
+
+        Returns:
+            list[MatchCandidate]: Parsed results from Open Library.
+
+        Raises:
+            Exception: Propagates if all retry attempts fail.
+
+        Side Effects:
+            Performs network I/O and may sleep due to rate limiting or backoff.
+        """
+
         params = {"title": title, "author": author, "limit": "5"}
         attempt = 0
+        # Retry until a successful response or until the attempt budget is exhausted.
         while True:
             self._respect_rate_limit()
             try:
@@ -71,6 +148,7 @@ class OpenLibraryClient:
         docs_raw_value_list: list[object] = []
         if isinstance(docs_raw_value, list):
             docs_raw_value_list = cast(list[object], docs_raw_value)
+        # Normalize the docs payload into dictionaries we can safely traverse.
         docs_raw: list[dict[str, object]] = []
         for doc_value in docs_raw_value_list:
             if not isinstance(doc_value, dict):
@@ -79,6 +157,7 @@ class OpenLibraryClient:
             docs_raw.append(doc)
 
         candidates: list[MatchCandidate] = []
+        # Convert raw documents into typed match candidates for downstream selection.
         for doc in docs_raw:
             cand_title = str(doc.get("title", ""))
             author_list_raw = doc.get("author_name", [])

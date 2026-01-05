@@ -1,162 +1,238 @@
 ---
-description: 'Guidelines for GitHub Copilot to write comments to achieve self-explanatory code with less comments. Examples are in JavaScript but it should work on any language that has comments.'
-applyTo: '**'
+description: "Guidelines for agent-authored code: mandatory robust docstrings + intent-level comments for control flow and multi-step blocks. Optimized for strongly-typed Python repos."
+applyTo: "**/*.py"
 ---
 
-# Self-explanatory Code Commenting Instructions
+# Intent-First Docstrings & Comments (Python, strongly typed)
 
 ## Core Principle
-**Write code that speaks for itself. Comment only when necessary to explain WHY, not WHAT.**
-We do not need comments most of the time.
 
-## Commenting Guidelines
+Write code that is readable, but **assume the maintainer may not know the intent** (common with agent-authored code).
+Therefore:
 
-### ❌ AVOID These Comment Types
+- **Docstrings are mandatory** for classes and functions/methods (including private helpers).
+- Inline comments are used to explain **intent, flow, and decision logic**—especially around iteration and branching.
+- Avoid low-value “narrate the obvious” comments.
 
-**Obvious Comments**
-```javascript
-// Bad: States the obvious
-let counter = 0;  // Initialize counter to zero
-counter++;  // Increment counter by one
+The goal is that a reader can understand the **purpose, usage, and flow** without reverse-engineering the implementation.
+
+---
+
+## 1) Mandatory class docstrings (robust)
+
+Every class must have a docstring that covers, at minimum:
+
+- **Purpose**: what the class represents or coordinates.
+- **Responsibilities**: what it does and does *not* do (scope boundaries).
+- **How it is intended to be used**: lifecycle, typical call pattern, collaboration with other objects.
+- **High-level flow**: the main steps the class performs or orchestrates.
+- **Key invariants / constraints**: expectations that must hold (e.g., sorted inputs, non-null IDs, caching semantics).
+- **Important side effects**: I/O, persistence, network calls, mutation, concurrency considerations.
+- **Attributes** (when non-obvious): what the stored fields mean and how they are populated.
+
+Preferred structure (Google-style, typed) for consistency:
+
+```python
+class Example:
+    """
+    One-sentence summary of the class’s role.
+
+    Purpose:
+        What problem this class solves and where it fits in the system.
+
+    Usage:
+        Typical usage pattern (brief pseudo-code is acceptable).
+
+    Flow:
+        High-level steps this class performs, in order.
+
+    Invariants / Constraints:
+        Key assumptions that callers must respect.
+
+    Side Effects:
+        External calls, mutation, persistence, logging, etc.
+
+    Attributes:
+        field_name (Type): Meaning and lifecycle (if not obvious from the name).
+    """
+````
+
+---
+
+## 2) Mandatory function/method docstrings (robust, C#-like completeness)
+
+Every function/method must have a docstring that includes:
+
+* **Purpose** and behavior (what it accomplishes).
+* **Parameters**: meaning, constraints, and how used (types included, even if hinted).
+* **Returns**: meaning and shape of return value (or explicitly say `None` for procedures).
+* **Raises**: key exceptions that are part of the contract (not every incidental exception, but contract-relevant ones).
+* **Side effects**: if it mutates inputs, writes to disk/DB, emits events, etc.
+
+Template:
+
+```python
+def method(self, x: XType, y: YType) -> ReturnType:
+    """
+    One-sentence summary of the method’s outcome.
+
+    Purpose:
+        What this method is responsible for and why it exists.
+
+    Args:
+        x (XType): Meaning, constraints, and how it influences behavior.
+        y (YType): Meaning, constraints, and how it influences behavior.
+
+    Returns:
+        ReturnType: What is returned and how to interpret it.
+
+    Raises:
+        SomeError: When/why this is raised (contract-level).
+
+    Side Effects:
+        Describe mutations, I/O, persistence, logging, caching, etc.
+    """
 ```
 
-**Redundant Comments**
-```javascript
-// Bad: Comment repeats the code
-function getUserName() {
-    return user.name;  // Return the user's name
-}
+Notes:
+
+* Keep docstrings accurate and **contract-oriented**. If behavior changes, docstrings must be updated.
+* If the method is a thin wrapper around another call, say so explicitly (and why the wrapper exists).
+* For `@property` accessors, docstrings should describe **what is exposed and the semantics** (cached vs computed, cost, invariants).
+
+---
+
+## 3) Loops and list comprehensions must be explained
+
+Any `for` loop, `while` loop, or non-trivial list/dict/set comprehension must have an **intent comment** immediately above it.
+
+Good:
+
+```python
+# Aggregate per-user totals while preserving first-seen ordering for stable output.
+for row in rows:
+    ...
 ```
 
-**Outdated Comments**
-```javascript
-// Bad: Comment doesn't match the code
-// Calculate tax at 5% rate
-const tax = price * 0.08;  // Actually 8%
+For comprehensions, if the intent cannot be explained cleanly in one short comment, prefer expanding to an explicit loop.
+
+Good:
+
+```python
+# Keep only canonicalized URLs that pass validation; used to drive dedupe and matching.
+valid_urls = [u for u in urls if (u := canonicalize(u)) and is_valid(u)]
 ```
 
-### ✅ WRITE These Comment Types
+Better (when complex):
 
-**Complex Business Logic**
-```javascript
-// Good: Explains WHY this specific calculation
-// Apply progressive tax brackets: 10% up to 10k, 20% above
-const tax = calculateProgressiveTax(income, [0.10, 0.20], [10000]);
+```python
+# Canonicalize + validate URLs before feeding them into the dedupe pipeline.
+valid_urls: list[str] = []
+for raw in urls:
+    canon = canonicalize(raw)
+    if canon and is_valid(canon):
+        valid_urls.append(canon)
 ```
 
-**Non-obvious Algorithms**
-```javascript
-// Good: Explains the algorithm choice
-// Using Floyd-Warshall for all-pairs shortest paths
-// because we need distances between all nodes
-for (let k = 0; k < vertices; k++) {
-    for (let i = 0; i < vertices; i++) {
-        for (let j = 0; j < vertices; j++) {
-            // ... implementation
-        }
-    }
-}
+---
+
+## 4) Branching must explain decision logic (if/elif/else, match/case)
+
+For any conditional branching beyond a trivial guard clause, add a comment that explains:
+
+* **The decision criteria** (what distinguishes branches).
+* **Why the ordering matters** (if it does).
+* **The business/system rationale** (why this branching exists).
+
+Good:
+
+```python
+# Branch by identifier quality:
+# - Prefer stable external IDs when present (prevents duplicate entities).
+# - Fall back to email match when IDs are missing.
+# - Finally, create a new entity if no safe match exists.
+if external_id:
+    ...
+elif email:
+    ...
+else:
+    ...
 ```
 
-**Regex Patterns**
-```javascript
-// Good: Explains what the regex matches
-// Match email format: username@domain.extension
-const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+For `match/case`, include a short “routing table” explanation:
+
+```python
+# Dispatch by event type:
+# - "upsert" modifies or creates a record
+# - "delete" tombstones but preserves audit trail
+# - other events are ignored (forward compatibility)
+match event.type:
+    ...
 ```
 
-**API Constraints or Gotchas**
-```javascript
-// Good: Explains external constraint
-// GitHub API rate limit: 5000 requests/hour for authenticated users
-await rateLimiter.wait();
-const response = await fetch(githubApiUrl);
+---
+
+## 5) “Forest through the trees”: comment multi-step blocks that achieve a larger objective
+
+When a sequence of tactical lines collectively accomplishes a larger goal, precede the block with a **meta-what + why** comment.
+
+Good:
+
+```python
+# Enrich the dataset with original publish metadata:
+# inner-join on `source_id`, then remove duplicates to ensure one row per canonical entity.
+merged = left.merge(right, on="source_id", how="inner")
+merged = merged.drop_duplicates(subset=["canonical_id"])
 ```
 
-## Decision Framework
+If the block is substantial, strongly prefer extracting it into a helper method so the **docstring becomes the primary explanation**. If extraction is not done now, write the comment so that refactoring later is straightforward (describe inputs/outputs of the block).
 
-Before writing a comment, ask:
-1. **Is the code self-explanatory?** → No comment needed
-2. **Would a better variable/function name eliminate the need?** → Refactor instead
-3. **Does this explain WHY, not WHAT?** → Good comment
-4. **Will this help future maintainers?** → Good comment
+---
 
-## Special Cases for Comments
+## 6) Do not number notes
 
-### Public APIs
-```javascript
-/**
- * Calculate compound interest using the standard formula.
- * 
- * @param {number} principal - Initial amount invested
- * @param {number} rate - Annual interest rate (as decimal, e.g., 0.05 for 5%)
- * @param {number} time - Time period in years
- * @param {number} compoundFrequency - How many times per year interest compounds (default: 1)
- * @returns {number} Final amount after compound interest
- */
-function calculateCompoundInterest(principal, rate, time, compoundFrequency = 1) {
-    // ... implementation
-}
-```
+In code comments and docstrings, **do not** use fragile numbered notes like:
 
-### Configuration and Constants
-```javascript
-// Good: Explains the source or reasoning
-const MAX_RETRIES = 3;  // Based on network reliability studies
-const API_TIMEOUT = 5000;  // AWS Lambda timeout is 15s, leaving buffer
-```
+* `NOTE 1: ...`
+* `NOTE 2: ...`
 
-### Annotations
-```javascript
-// TODO: Replace with proper user authentication after security review
-// FIXME: Memory leak in production - investigate connection pooling
-// HACK: Workaround for bug in library v2.1.0 - remove after upgrade
-// NOTE: This implementation assumes UTC timezone for all calculations
-// WARNING: This function modifies the original array instead of creating a copy
-// PERF: Consider caching this result if called frequently in hot path
-// SECURITY: Validate input to prevent SQL injection before using in query
-// BUG: Edge case failure when array is empty - needs investigation
-// REFACTOR: Extract this logic into separate utility function for reusability
-// DEPRECATED: Use newApiFunction() instead - this will be removed in v3.0
-```
+Prefer comments without tags for general explanations. But if a tag is necessary (e.g. follow-up is needed), use unnumbered tags instead:
 
-## Anti-Patterns to Avoid
+* `TODO: ...`
+* `WARNING: ...`
+* `PERF: ...`
+* `SECURITY: ...`
 
-### Dead Code Comments
-```javascript
-// Bad: Don't comment out code
-// const oldFunction = () => { ... };
-const newFunction = () => { ... };
-```
+---
 
-### Changelog Comments
-```javascript
-// Bad: Don't maintain history in comments
-// Modified by John on 2023-01-15
-// Fixed bug reported by Sarah on 2023-02-03
-function processData() {
-    // ... implementation
-}
-```
+## 7) “What vs why”: allow “meta-what” when it explains intent at the right level
 
-### Divider Comments
-```javascript
-// Bad: Don't use decorative comments
-//=====================================
-// UTILITY FUNCTIONS
-//=====================================
-```
+We still avoid line-by-line narration (e.g., “increment counter”), but we explicitly allow “meta-what” comments that describe what a *block* of code is doing, especially when the intent is not obvious from individual lines.
 
-## Quality Checklist
+Rule of thumb:
 
-Before committing, ensure your comments:
-- [ ] Explain WHY, not WHAT
-- [ ] Are grammatically correct and clear
-- [ ] Will remain accurate as code evolves
-- [ ] Add genuine value to code understanding
-- [ ] Are placed appropriately (above the code they describe)
-- [ ] Use proper spelling and professional language
+* **Bad**: Restates a single obvious line.
+* **Good**: Explains the intent of a loop/branch/multi-step block and how it supports the method’s purpose.
 
-## Summary
+---
 
-Remember: **The best comment is the one you don't need to write because the code is self-documenting.**
+## Anti-patterns (still avoid)
+
+* Outdated comments that contradict code.
+* Changelog/history comments in source.
+* Decorative dividers.
+* Commented-out dead code.
+
+---
+
+## Quality checklist
+
+Before finalizing code:
+
+* Docstrings exist for every class and every function/method.
+* Docstrings explain purpose, usage, flow, args, returns, and contract-level raises/side effects.
+* Loops/comprehensions have intent comments (or are expanded for clarity).
+* Branching has decision-logic comments.
+* Multi-step blocks have meta-what + rationale comments.
+* No numbered notes in comments/docstrings.
+* Comments remain accurate and add real explanatory value.
