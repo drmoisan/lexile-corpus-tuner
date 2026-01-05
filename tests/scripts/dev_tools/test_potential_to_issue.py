@@ -311,6 +311,62 @@ def test_promote_potential_bug_missing_sections_use_placeholders() -> None:
     assert "## Logs / Screenshots\n(not provided in potential file)" in body
 
 
+def test_promote_potential_normalizes_smart_punctuation_in_issue_body_and_title() -> (
+    None
+):
+    workspace = Path("/workspace")
+    potential = workspace / "docs/features/potential/smart.md"
+    fs = FakeFileSystem()
+    fs.files[potential] = "\n".join(
+        [
+            "# “Curly” Feature (Potential Bug)",
+            "## Summary",
+            (
+                "Title uses “smart” quotes and an en dash – "
+                "plus non-breaking space\u00a0here."
+            ),
+            "## Environment",
+            "- OS: “Windows”\u00a0",
+            "## Steps to Reproduce",
+            "1. step one with “quote”",
+            "## Expected Behavior",
+            "expected with em dash — and quote “",
+            "## Actual Behavior",
+            "actual with smart apostrophe ’",
+            "## Impact / Severity",
+            "medium",
+            "## Logs / Screenshots",
+            "none",
+        ]
+    )
+
+    create_result = mod.GhResult(["Created: https://example.com/issues/400"], 0)
+    view_result = mod.GhResult(
+        [
+            '{"number":400,"title":"t","url":"https://example.com/issues/400","author":{"login":"me"},"updatedAt":"2024-03-01T00:00:00Z"}',
+        ],
+        0,
+    )
+    gh = FakeGhClient(create_result, view_result)
+
+    mod.promote_potential(
+        potential_path=str(potential),
+        promotion_type="bug",
+        fs=fs,
+        gh=gh,
+        workspace=workspace,
+    )
+
+    verb, (title, body, label) = gh.calls[0]
+    assert verb == "create"
+    assert label == "bug"
+
+    assert "Curly" in title and "“" not in title and "”" not in title
+    assert "smart" in body and "“" not in body and "”" not in body
+    assert "–" not in body and "—" not in body
+    assert "\u00a0" not in body
+
+
 def test_promote_potential_raises_on_missing_file() -> None:
     fs = FakeFileSystem()
     with pytest.raises(mod.PromotionError):
