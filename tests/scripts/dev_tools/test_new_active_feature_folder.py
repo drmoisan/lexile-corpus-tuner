@@ -641,9 +641,12 @@ def test_issue_fetcher_returns_none_when_gh_missing() -> None:
 
 
 def test_code_launcher_returns_false_when_code_missing() -> None:
-    result = mod.default_code_launcher([Path("/test.md")])
-    # If code is missing, returns False; if present, may return True
-    assert isinstance(result, bool)
+    with mock.patch("shutil.which", return_value=None):
+        with mock.patch("subprocess.run") as mock_run:
+            result = mod.default_code_launcher([Path("/test.md")])
+
+    assert result is False
+    mock_run.assert_not_called()
 
 
 def test_apply_header_and_sections_skips_missing_file() -> None:

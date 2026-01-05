@@ -12,6 +12,7 @@ from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
 from requests import Response
 
 EnrichmentConfig = enrich.EnrichmentConfig
+HttpClient = enrich.HttpClient
 MatchCandidate = enrich.MatchCandidate
 MatchResult = enrich.MatchResult
 OpenLibraryClient = enrich.OpenLibraryClient
@@ -211,7 +212,6 @@ def test_enrich_dataframe_checkpoint_resume_skips_completed_rows() -> None:
         checkpoint=checkpoint,
     )
     value = cast(object, result.dataframe.loc[0, "original_pub_year"])
-    # Pyright pandas stubs mark isna partially unknown for object inputs.
     assert pd.isna(value)  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
     assert result.dataframe.loc[1, "original_pub_year"] == 2005
     assert checkpoint.saved is not None
@@ -273,7 +273,6 @@ def test_parse_args_sets_defaults_and_overrides() -> None:
 def test_openlibrary_client_respects_rate_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # minimal smoke: ensure search calls HTTP once and returns candidates
     class StubResponse(Response):
         def __init__(self, payload: dict[str, object]):
             super().__init__()
@@ -305,7 +304,9 @@ def test_openlibrary_client_respects_rate_limit(
             )
 
     client = OpenLibraryClient(
-        http=cast(enrich.HttpClient, StubHttp()), rate_limit=1000.0, timeout_seconds=1.0
+        http=cast(HttpClient, StubHttp()),
+        rate_limit=1000.0,
+        timeout_seconds=1.0,
     )
     result = client.search("Book", "A")
     assert result[0].year == 1900
