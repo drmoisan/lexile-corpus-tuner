@@ -164,7 +164,7 @@
         "0.9"
       ],
       "cwd": "${workspaceFolder}",
-      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year.__main__",
       "name": "Step 1.5 - Enrich Original Pub Year",
       "python": "${workspaceFolder}/.venv/Scripts/python.exe",
       "request": "launch",
