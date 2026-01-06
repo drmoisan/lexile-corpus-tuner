@@ -21,7 +21,7 @@ from .match_candidate import MatchCandidate
 from .match_result import Confidence, MatchResult
 from .match_utils import normalize_text, select_best_match
 from .noop_fallback import NoopFallback
-from .open_library_client import OpenLibraryClient
+from .open_library_client import OpenLibraryClient, OpenLibrarySearchError
 from .summary import Summary
 
 _CLI_EXPORTS = {"build_arg_parser", "parse_args", "main"}
@@ -81,6 +81,7 @@ __all__ = [
     "MatchResult",
     "NoopFallback",
     "OpenLibraryClient",
+    "OpenLibrarySearchError",
     "Summary",
     "DEFAULT_CACHE_DIR",
     "DEFAULT_CHECKPOINT",

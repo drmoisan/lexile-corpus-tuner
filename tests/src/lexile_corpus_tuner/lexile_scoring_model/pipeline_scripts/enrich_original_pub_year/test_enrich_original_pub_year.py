@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 from pathlib import Path
 from typing import cast
@@ -16,6 +17,7 @@ HttpClient = enrich.HttpClient
 MatchCandidate = enrich.MatchCandidate
 MatchResult = enrich.MatchResult
 OpenLibraryClient = enrich.OpenLibraryClient
+OpenLibrarySearchError = enrich.OpenLibrarySearchError
 Summary = enrich.Summary
 enrich_dataframe = enrich.enrich_dataframe
 normalize_text = enrich.normalize_text
@@ -188,6 +190,56 @@ def test_enrich_dataframe_uses_fallback_when_primary_none() -> None:
     assert fallback.calls == 1
     assert result.dataframe.loc[0, "original_pub_year"] == 1950
     assert result.dataframe.loc[0, "original_pub_source"] == "wikidata"
+
+
+def test_enrich_dataframe_continues_after_primary_error() -> None:
+    df = make_df()
+
+    class ErrorThenSuccessClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def search(self, title: str, author: str) -> list[MatchCandidate]:
+            self.calls += 1
+            if self.calls == 1:
+                raise OpenLibrarySearchError(
+                    title=title,
+                    author=author,
+                    attempts=5,
+                    last_error=Exception("500"),
+                )
+            return [
+                MatchCandidate(
+                    title=title,
+                    author=author,
+                    year=1899,
+                    source="openlibrary",
+                    score=0.0,
+                )
+            ]
+
+    client = ErrorThenSuccessClient()
+    checkpoint = MemoryCheckpoint()
+
+    result = enrich_dataframe(
+        df,
+        config=EnrichmentConfig(input_path=Path("in")),
+        client=client,  # type: ignore[arg-type]
+        cache=MemoryCache(),
+        checkpoint=checkpoint,
+    )
+
+    assert client.calls == 2
+    error_year = cast(float, result.dataframe.loc[0, "original_pub_year"])
+    assert math.isnan(error_year)
+    assert result.dataframe.loc[0, "pub_year_confidence"] == "none"
+    assert result.dataframe.loc[0, "original_pub_source"] == "openlibrary_error"
+    assert result.dataframe.loc[1, "original_pub_year"] == 1899
+    assert result.dataframe.loc[1, "original_pub_source"] == "openlibrary"
+    assert result.summary.errors == 1
+    assert result.summary.matched_high == 1
+    assert result.summary.matched_none == 1
+    assert checkpoint.saved is not None
 
 
 def test_enrich_dataframe_checkpoint_resume_skips_completed_rows() -> None:

@@ -24,6 +24,7 @@ import pandas as pd
 from .enrichment_result import EnrichmentResult
 from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
+from .match_result import MatchResult
 from .match_utils import is_missing_year, normalize_text, select_best_match
 from .noop_fallback import NoopFallback
 from .open_library_client import OpenLibraryClient, OpenLibrarySearchError
@@ -77,7 +78,7 @@ if TYPE_CHECKING:
     from .checkpoint_store import CheckpointStore
     from .enrichment_config import EnrichmentConfig
     from .fallback_client import FallbackClient
-    from .match_result import Confidence, MatchResult
+    from .match_result import Confidence
 
 
 def enrich_dataframe(
@@ -149,32 +150,39 @@ def enrich_dataframe(
         else:
             try:
                 candidates = client.search(title, authors)
-            except OpenLibrarySearchError as exc:
-                raise EnrichmentError(
-                    row_index=idx, title=title, author=authors, cause=exc
-                ) from exc
-            result = select_best_match(
-                candidates=candidates,
-                normalized_title=normalized_title,
-                normalized_author=normalized_author,
-                threshold=config.fuzzy_threshold,
-                disable_fuzzy=config.disable_fuzzy,
-            )
-            if result.confidence == "none":
-                try:
-                    fallback_candidates = fallback_client.search(title, authors)
-                except Exception as exc:
-                    raise EnrichmentError(
-                        row_index=idx, title=title, author=authors, cause=exc
-                    ) from exc
+            except OpenLibrarySearchError:
+                summary.record_error()
+                result = MatchResult(
+                    year=None, confidence="none", source="openlibrary_error"
+                )
+            else:
                 result = select_best_match(
-                    candidates=fallback_candidates,
+                    candidates=candidates,
                     normalized_title=normalized_title,
                     normalized_author=normalized_author,
                     threshold=config.fuzzy_threshold,
                     disable_fuzzy=config.disable_fuzzy,
                 )
-            cache_store.set(cache_key, result)
+                if result.confidence == "none":
+                    try:
+                        fallback_candidates = fallback_client.search(title, authors)
+                    except Exception:
+                        summary.record_error()
+                        result = MatchResult(
+                            year=None,
+                            confidence="none",
+                            source="fallback_error",
+                        )
+                    else:
+                        result = select_best_match(
+                            candidates=fallback_candidates,
+                            normalized_title=normalized_title,
+                            normalized_author=normalized_author,
+                            threshold=config.fuzzy_threshold,
+                            disable_fuzzy=config.disable_fuzzy,
+                        )
+                if result.source not in {"openlibrary_error", "fallback_error"}:
+                    cache_store.set(cache_key, result)
 
         results_year.append(result.year)
         results_conf.append(result.confidence)
