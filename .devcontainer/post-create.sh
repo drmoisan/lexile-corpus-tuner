@@ -40,9 +40,24 @@ STALE_DATA_DIRS=(
     "$WORKSPACE_DIR/data/sets"
 )
 
+is_mount_point() {
+    local target="$1"
+    # Prefer mountpoint when available; fall back to /proc/self/mounts grep.
+    if command -v mountpoint >/dev/null 2>&1; then
+        mountpoint -q "$target" && return 0
+        return 1
+    fi
+
+    # Fallback: exact path match in mount table
+    if grep -E "[[:space:]]${target//\//\\/}[[:space:]]" /proc/self/mounts >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
 for dir in "${STALE_DATA_DIRS[@]}"; do
     if [ -d "$dir" ]; then
-        if mountpoint -q "$dir"; then
+        if is_mount_point "$dir"; then
             echo "Skipping $dir (mounted)"
             continue
         fi

@@ -91,7 +91,7 @@
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=${localWorkspaceFolder},target=/workspaces/lexile-corpus-host,type=bind,consistency=cached,readonly",
-    "source=${localWorkspaceFolder}/../lexile-artifacts,target=/workspaces/lexile-artifacts,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/artifacts,target=/workspaces/lexile-corpus-tuner/artifacts,type=bind,consistency=cached",
     "source=${localWorkspaceFolderBasename}-workspace-bg,target=/workspaces/lexile-corpus-tuner-bg,type=volume",
     "source=${localWorkspaceFolder}/data/cache,target=/workspaces/lexile-corpus-tuner/data/cache,type=bind,consistency=cached",
     "source=${localWorkspaceFolder}/data/freq,target=/workspaces/lexile-corpus-tuner/data/freq,type=bind,consistency=cached",
