@@ -724,6 +724,26 @@
       },
       "problemMatcher": [],
       "type": "shell"
+    },
+    {
+      "args": [
+        "run",
+        "python",
+        "scripts/dev_tools/resolve_file_prompt.py",
+        "--template",
+        "${workspaceFolder}/.github/prompts/generate-atomic-plan.prompt.md",
+        "--target",
+        "${file}"
+      ],
+      "command": "poetry",
+      "detail": "Resolves ${file} in the atomic plan prompt with the active file path and copies to clipboard.",
+      "label": "Dev: Resolve Atomic Plan Prompt",
+      "presentation": {
+        "panel": "new",
+        "reveal": "always"
+      },
+      "problemMatcher": [],
+      "type": "shell"
     }
   ],
   "version": "2.0.0"

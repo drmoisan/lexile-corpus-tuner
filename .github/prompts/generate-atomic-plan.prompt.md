@@ -43,7 +43,7 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 
 ## Output
 
-Please fill out the template given in the `plan.md` file within the active feature folder. 
+Please fill out the template given in `${file}`. 
 
 ## Template Validation Rules
 
