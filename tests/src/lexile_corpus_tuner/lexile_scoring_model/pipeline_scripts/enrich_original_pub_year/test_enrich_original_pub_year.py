@@ -77,10 +77,6 @@ class FakeClient:
         return list(self._candidates)
 
 
-class FakeFallback(FakeClient):
-    pass
-
-
 def make_df() -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -148,63 +144,6 @@ def test_enrich_parquet_writes_output_and_summary(
     confidences = written_df["pub_year_confidence"].tolist()
     assert years == [2001, 2001]
     assert confidences == ["high", "high"]
-
-
-def test_enrich_parquet_uses_loc_fallback_when_enabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    df = make_df()
-
-    class StubDF(pd.DataFrame):
-        pass
-
-    def stub_read_parquet(_path: Path) -> pd.DataFrame:  # pragma: no cover - patched
-        return StubDF(df.copy())
-
-    def stub_to_parquet(
-        self: pd.DataFrame, path: Path, index: bool = False
-    ) -> None:  # noqa: ARG002
-        return None
-
-    class PrimaryEmpty:
-        def __init__(self, *args: object, **kwargs: object) -> None:  # noqa: ANN401
-            self.calls = 0
-
-        def search(self, _title: str, _author: str) -> list[MatchCandidate]:
-            self.calls += 1
-            return []
-
-    class StubLocFallback:
-        def __init__(self, *args: object, **kwargs: object) -> None:  # noqa: ANN401
-            self.calls = 0
-
-        def search(self, title: str, author: str) -> list[MatchCandidate]:
-            self.calls += 1
-            return [
-                MatchCandidate(
-                    title=title,
-                    author=author,
-                    year=1985,
-                    source="loc",
-                    score=0.0,
-                )
-            ]
-
-    monkeypatch.setattr(enricher.pd, "read_parquet", stub_read_parquet)
-    monkeypatch.setattr(pd.DataFrame, "to_parquet", stub_to_parquet)
-    monkeypatch.setattr(enricher, "OpenLibraryClient", PrimaryEmpty)
-    monkeypatch.setattr(enricher, "LocFallbackClient", StubLocFallback)
-    monkeypatch.setattr(enricher, "FileCache", make_memory_cache)
-    monkeypatch.setattr(enricher, "FileCheckpoint", make_memory_checkpoint)
-
-    config = EnrichmentConfig(
-        input_path=Path("in.parquet"),
-        output_path=Path("out.parquet"),
-        enable_loc=True,
-    )
-
-    result = enrich_parquet(config)
-    assert result.matched_high == 2
 
 
 def test_normalize_text_strips_punctuation_and_casefolds() -> None:
@@ -300,34 +239,6 @@ def test_enrich_dataframe_uses_cache_and_skips_client_call() -> None:
     assert result.dataframe.loc[0, "original_pub_source"] == "cached"
 
 
-def test_enrich_dataframe_uses_fallback_when_primary_none() -> None:
-    df = make_df().head(1)
-    primary = FakeClient([])
-    fallback = FakeFallback(
-        [
-            MatchCandidate(
-                title="Sample Book",
-                author="Jane Doe",
-                year=1950,
-                source="wikidata",
-                score=0.0,
-            )
-        ]
-    )
-    result = enrich_dataframe(
-        df,
-        config=EnrichmentConfig(input_path=Path("in")),
-        client=primary,  # type: ignore[arg-type]
-        cache=MemoryCache(),
-        checkpoint=MemoryCheckpoint(),
-        fallback=fallback,  # type: ignore[arg-type]
-    )
-    assert primary.calls == 1
-    assert fallback.calls == 1
-    assert result.dataframe.loc[0, "original_pub_year"] == 1950
-    assert result.dataframe.loc[0, "original_pub_source"] == "wikidata"
-
-
 def test_enrich_dataframe_continues_after_primary_error() -> None:
     df = make_df()
 
@@ -366,7 +277,7 @@ def test_enrich_dataframe_continues_after_primary_error() -> None:
     )
 
     assert client.calls == 2
-    error_year = cast(float, result.dataframe.loc[0, "original_pub_year"])
+    error_year = cast("float", result.dataframe.loc[0, "original_pub_year"])
     assert math.isnan(error_year)
     assert result.dataframe.loc[0, "pub_year_confidence"] == "none"
     assert result.dataframe.loc[0, "original_pub_source"] == "openlibrary_error"
@@ -399,7 +310,7 @@ def test_enrich_dataframe_checkpoint_resume_skips_completed_rows() -> None:
         cache=MemoryCache(),
         checkpoint=checkpoint,
     )
-    value = cast(object, result.dataframe.loc[0, "original_pub_year"])
+    value = cast("object", result.dataframe.loc[0, "original_pub_year"])
     assert pd.isna(value)  # type: ignore[reportUnknownMemberType,reportUnknownArgumentType]
     assert result.dataframe.loc[1, "original_pub_year"] == 2005
     assert checkpoint.saved is not None
@@ -492,7 +403,7 @@ def test_openlibrary_client_respects_rate_limit(
             )
 
     client = OpenLibraryClient(
-        http=cast(HttpClient, StubHttp()),
+        http=cast("HttpClient", StubHttp()),
         rate_limit=1000.0,
         timeout_seconds=1.0,
     )

@@ -35,18 +35,15 @@ class EnrichmentConfig:
         input_path (Path): Source parquet to enrich.
         output_path (Path): Destination parquet path for enriched results.
         checkpoint_path (Path): Location for resumable progress markers.
-        cache_dir (Path): Directory for cached match results.
-        rate_limit (float): Requests per second allowed against the HTTP source.
-        batch_size (int): Rows to process per batch when batching is used upstream.
-        max_retries (int): Maximum retry attempts per HTTP request.
-        backoff_initial (float): Base delay before exponential backoff.
-        backoff_cap (float): Maximum delay between retries.
-        fuzzy_threshold (float): Minimum similarity for fuzzy matches to be accepted.
-        disable_fuzzy (bool): When True, only exact matches are considered valid.
-        timeout_seconds (float): HTTP timeout per request.
-        checkpoint_every (int): Frequency (rows) for writing checkpoints.
-        enable_wikidata (bool): Toggle for optional Wikidata fallback client.
-        enable_loc (bool): Toggle for optional Library of Congress fallback client.
+         cache_dir (Path): Directory for cached match results.
+         rate_limit (float): Requests per second allowed against the HTTP source.
+         max_retries (int): Maximum retry attempts per HTTP request.
+         backoff_initial (float): Base delay before exponential backoff.
+         backoff_cap (float): Maximum delay between retries.
+         fuzzy_threshold (float): Minimum similarity for fuzzy matches to be accepted.
+         disable_fuzzy (bool): When True, only exact matches are considered valid.
+         timeout_seconds (float): HTTP timeout per request.
+         checkpoint_every (int): Frequency (rows) for writing checkpoints.
     """
 
     input_path: Path
@@ -54,7 +51,6 @@ class EnrichmentConfig:
     checkpoint_path: Path = DEFAULT_CHECKPOINT
     cache_dir: Path = DEFAULT_CACHE_DIR
     rate_limit: float = 5.0
-    batch_size: int = 50
     max_retries: int = 5
     backoff_initial: float = 0.5
     backoff_cap: float = 8.0
@@ -62,5 +58,3 @@ class EnrichmentConfig:
     disable_fuzzy: bool = False
     timeout_seconds: float = 10.0
     checkpoint_every: int = 500
-    enable_wikidata: bool = False
-    enable_loc: bool = False

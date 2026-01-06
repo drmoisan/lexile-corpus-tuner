@@ -15,7 +15,7 @@ Enrich the Gutenberg parquet (`gutenberg_books.parquet`) with an additional fiel
 
 Planned approach (practical and scalable):
 - Primary enrichment: call the **Open Library Search API** to retrieve `first_publish_year` for each Gutenberg ID using title + author matching; store as `original_pub_year` (integer) and keep the existing PG `issued_date` unchanged.
-- Write the selected `first_publish_year` into the output parquet (default: `gutenberg_books_enhanced.parquet`) as `original_pub_year`, leaving `issued_date` untouched.
+- Write the selected `first_publish_year` into the output parquet (default: `data/meta/gutenberg/gutenberg_books_enhanced.parquet`) as `original_pub_year`, leaving `issued_date` untouched.
 - Preserve partial coverage: do not overwrite records lacking a confident match; instead, set `original_pub_year` to null and retain a `pub_year_confidence` flag (e.g., `high` when exact title+author match, `low` when fuzzy).
 - Keep pipeline batchable over >60k titles with request throttling, retry, and checkpointing similar to existing Gutendex fetch.
 
@@ -31,7 +31,7 @@ Out of scope:
 	- CLI flags: input parquet path, output parquet path (can be in-place), rate-limit (req/sec), max retries/backoff, checkpoint path, optional fuzzy-match toggle/threshold.
 	- Env vars/config: HTTP timeout, user agent, cache directory (optional local JSON cache per PG ID).
 - Outputs (artifacts, logs, telemetry)
-	- Updated parquet (default output path: `data/meta/gutenberg_books_enhanced.parquet`; in-place allowed when explicitly set) with added columns: `original_pub_year` (int or null, sourced from Open Library `first_publish_year` or fallbacks), `pub_year_confidence` (enum: high/low/none), optionally `original_pub_source` (e.g., openlibrary, wikidata, loc).
+	- Updated parquet (default output path: `data/meta/gutenberg/gutenberg_books_enhanced.parquet`; in-place allowed when explicitly set) with added columns: `original_pub_year` (int or null, sourced from Open Library `first_publish_year`), `pub_year_confidence` (enum: high/low/none), and `original_pub_source` (e.g., `openlibrary`, `openlibrary_error` when calls fail).
 	- Checkpoint file capturing last processed offset/batch.
 	- Run summary (counts: total rows processed, matched high/low, unmatched, API errors, nulls) emitted to stdout/log.
 	- Optional cache file storing raw API responses keyed by Gutenberg ID or normalized title+author.
@@ -68,7 +68,7 @@ Out of scope:
 
 List notable constraints (performance, compatibility, scope) or risks.
 
-- Open Library and other bibliographic APIs enforce rate limits; bulk runs must throttle and checkpoint.
+- Open Library enforces rate limits; bulk runs must throttle and checkpoint.
 - Title/author strings can be noisy; fuzzy matching may yield false positives—must gate by confidence and prefer exact matches when available.
 - Coverage is partial: many older PG titles may have no external publication year; data should remain nullable.
 - Network/API dependencies introduce fragility; implement retries with backoff and allow cached results.

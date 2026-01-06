@@ -19,8 +19,8 @@ class MatchResult:
         year (int | None): Selected publication year; `None` when unmatched.
         confidence (Confidence): `"high"`, `"low"`, or `"none"` depending on match
         quality.
-        source (str | None): Identifier for the provider or fallback that supplied
-        the match.
+        source (str | None): Identifier for the provider that supplied the match
+        (e.g., "openlibrary" or "openlibrary_error").
     """
 
     year: int | None

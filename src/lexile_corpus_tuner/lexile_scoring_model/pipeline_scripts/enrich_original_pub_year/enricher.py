@@ -20,15 +20,12 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
-import requests
 
 from .enrichment_result import EnrichmentResult
 from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
-from .loc_fallback_client import LocFallbackClient
 from .match_result import MatchResult
 from .match_utils import is_missing_year, normalize_text, select_best_match
-from .noop_fallback import NoopFallback
 from .open_library_client import OpenLibraryClient, OpenLibrarySearchError
 from .summary import Summary
 
@@ -79,23 +76,7 @@ if TYPE_CHECKING:
     from .cache_store import CacheStore
     from .checkpoint_store import CheckpointStore
     from .enrichment_config import EnrichmentConfig
-    from .fallback_client import FallbackClient
-    from .match_candidate import MatchCandidate
     from .match_result import Confidence
-
-
-class _ChainedFallback:
-    """Fallback client that tries multiple sources sequentially."""
-
-    def __init__(self, clients: list[FallbackClient]) -> None:
-        self._clients = clients
-
-    def search(self, title: str, author: str) -> list[MatchCandidate]:
-        for client in self._clients:
-            results = client.search(title, author)
-            if results:
-                return results
-        return []
 
 
 def enrich_dataframe(
@@ -105,11 +86,9 @@ def enrich_dataframe(
     client: OpenLibraryClient,
     cache: CacheStore | None = None,
     checkpoint: CheckpointStore | None = None,
-    fallback: FallbackClient | None = None,
 ) -> EnrichmentResult:
     """
-    Enrich a dataframe in memory using cache, checkpoints, fuzzy matching, and optional
-    fallback clients.
+    Enrich a dataframe in memory using cache, checkpoints, and fuzzy matching.
 
     Purpose:
         Orchestrate publication-year lookups for each row while supporting caching
@@ -123,8 +102,6 @@ def enrich_dataframe(
             `FileCache`.
         checkpoint (CheckpointStore | None): Optional checkpoint store; default uses
             `FileCheckpoint`.
-        fallback (FallbackClient | None): Optional secondary catalog client; defaults
-            to `NoopFallback`.
 
     Returns:
         EnrichmentResult: Enriched dataframe plus processing summary metrics.
@@ -138,7 +115,6 @@ def enrich_dataframe(
     summary = Summary()
     cache_store = cache or FileCache(config.cache_dir)
     checkpoint_store = checkpoint or FileCheckpoint(config.checkpoint_path)
-    fallback_client = fallback or NoopFallback()
 
     start_index = checkpoint_store.load()
     results_year: list[int | None] = []
@@ -180,25 +156,7 @@ def enrich_dataframe(
                     threshold=config.fuzzy_threshold,
                     disable_fuzzy=config.disable_fuzzy,
                 )
-                if result.confidence == "none":
-                    try:
-                        fallback_candidates = fallback_client.search(title, authors)
-                    except Exception:
-                        summary.record_error()
-                        result = MatchResult(
-                            year=None,
-                            confidence="none",
-                            source="fallback_error",
-                        )
-                    else:
-                        result = select_best_match(
-                            candidates=fallback_candidates,
-                            normalized_title=normalized_title,
-                            normalized_author=normalized_author,
-                            threshold=config.fuzzy_threshold,
-                            disable_fuzzy=config.disable_fuzzy,
-                        )
-                if result.source not in {"openlibrary_error", "fallback_error"}:
+                if result.source != "openlibrary_error":
                     cache_store.set(cache_key, result)
 
         results_year.append(result.year)
@@ -207,13 +165,6 @@ def enrich_dataframe(
         summary.record(result)
 
         should_checkpoint = (idx + 1) % config.checkpoint_every == 0
-        if config.batch_size > 0:
-            processed_since_resume = idx + 1 - start_index
-            if (
-                processed_since_resume > 0
-                and processed_since_resume % config.batch_size == 0
-            ):
-                should_checkpoint = True
         if should_checkpoint:
             checkpoint_store.save(idx + 1, summary)
 
@@ -244,20 +195,6 @@ def enrich_parquet(config: EnrichmentConfig) -> Summary:
     """
 
     df = pd.read_parquet(config.input_path)  # type: ignore[reportUnknownMemberType]
-    fallback_clients: list[FallbackClient] = []
-    if config.enable_loc or config.enable_wikidata:
-        fallback_clients.append(
-            LocFallbackClient(
-                http=requests.Session(), timeout_seconds=config.timeout_seconds
-            )
-        )
-
-    if not fallback_clients:
-        fallback_client = NoopFallback()
-    elif len(fallback_clients) == 1:
-        fallback_client = fallback_clients[0]
-    else:
-        fallback_client = _ChainedFallback(fallback_clients)
     result = enrich_dataframe(
         df,
         config=config,
@@ -270,7 +207,6 @@ def enrich_parquet(config: EnrichmentConfig) -> Summary:
         ),
         cache=FileCache(config.cache_dir),
         checkpoint=FileCheckpoint(config.checkpoint_path),
-        fallback=fallback_client,
     )
     config.output_path.parent.mkdir(parents=True, exist_ok=True)
     result.dataframe.to_parquet(  # type: ignore[reportUnknownMemberType]

@@ -56,7 +56,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Enrich Gutenberg parquet with original publication year "
-            "using Open Library and fallbacks."
+            "using Open Library."
         ),
     )
     parser.add_argument("--input", required=True, type=Path, help="Input parquet path")
@@ -65,7 +65,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_OUTPUT,
         help=(
-            "Output parquet path (default: data/meta/gutenberg_books_enhanced.parquet)"
+            "Output parquet path (default: "
+            "data/meta/gutenberg/gutenberg_books_enhanced.parquet)"
         ),
     )
     parser.add_argument(
@@ -76,9 +77,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--rate-limit", type=float, default=5.0, help="Requests per second"
-    )
-    parser.add_argument(
-        "--batch-size", type=int, default=50, help="Batch size for processing"
     )
     parser.add_argument(
         "--max-retries", type=int, default=5, help="Max retries per request"
@@ -106,12 +104,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--timeout-seconds", type=float, default=10.0, help="HTTP timeout per request"
-    )
-    parser.add_argument(
-        "--enable-wikidata", action="store_true", help="Enable Wikidata fallback lookup"
-    )
-    parser.add_argument(
-        "--enable-loc", action="store_true", help="Enable LOC fallback lookup"
     )
     return parser
 
@@ -144,7 +136,6 @@ def parse_args(argv: list[str] | None = None) -> EnrichmentConfig:
         checkpoint_path=args.checkpoint,
         cache_dir=args.cache_dir,
         rate_limit=args.rate_limit,
-        batch_size=args.batch_size,
         max_retries=args.max_retries,
         backoff_initial=args.backoff_initial,
         backoff_cap=args.backoff_cap,
@@ -152,8 +143,6 @@ def parse_args(argv: list[str] | None = None) -> EnrichmentConfig:
         disable_fuzzy=args.disable_fuzzy,
         checkpoint_every=args.checkpoint_every,
         timeout_seconds=args.timeout_seconds,
-        enable_wikidata=args.enable_wikidata,
-        enable_loc=args.enable_loc,
     )
 
 

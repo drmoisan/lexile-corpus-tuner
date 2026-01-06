@@ -14,13 +14,11 @@ from .constants import (
 from .enricher import enrich_dataframe, enrich_parquet
 from .enrichment_config import EnrichmentConfig
 from .enrichment_result import EnrichmentResult
-from .fallback_client import FallbackClient
 from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
 from .match_candidate import MatchCandidate
 from .match_result import Confidence, MatchResult
 from .match_utils import normalize_text, select_best_match
-from .noop_fallback import NoopFallback
 from .open_library_client import OpenLibraryClient, OpenLibrarySearchError
 from .summary import Summary
 
@@ -73,13 +71,11 @@ __all__ = [
     "Confidence",
     "EnrichmentConfig",
     "EnrichmentResult",
-    "FallbackClient",
     "FileCache",
     "FileCheckpoint",
     "HttpClient",
     "MatchCandidate",
     "MatchResult",
-    "NoopFallback",
     "OpenLibraryClient",
     "OpenLibrarySearchError",
     "Summary",
