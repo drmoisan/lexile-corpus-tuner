@@ -93,7 +93,7 @@ For a visual interface to build complex queries (e.g., "Subject contains Fiction
 ```bash
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 ```
-*This tool allows you to construct queries visually, preview results, and export the matching IDs directly to `data/meta/gutenberg/gutenberg_ids.txt`.*
+*This tool allows you to construct queries visually, preview results, and export the matching IDs directly to `data/meta/gutenberg/gutenberg_ids.txt` via **File → Export Results…** (default type: Gutenberg ID List).* 
 
 **In Dev Container:** After rebuilding the container with the desktop-lite feature, access the GUI via:
 1. Open browser to `http://localhost:6080`
