@@ -25,6 +25,34 @@ export WORKSPACE_DIR
 echo "Workspace directory: $WORKSPACE_DIR"
 
 # -----------------------------------------------------------------------------
+# Remove stale data subdirectories that can linger on the named workspace volume
+# -----------------------------------------------------------------------------
+# The workspace lives on a named Docker volume for performance. Because we seed
+# the volume from the host with exclusions (notably the entire data/ tree),
+# old container-only folders under data/ can persist across rebuilds. These
+# stale directories (e.g., data/gutenberg, data/sets) do not exist on the host
+# and should not remain inside the container. Clean them here unless they are
+# active mount points.
+echo ""
+echo "Cleaning stale data directories..."
+STALE_DATA_DIRS=(
+    "$WORKSPACE_DIR/data/gutenberg"
+    "$WORKSPACE_DIR/data/sets"
+)
+
+for dir in "${STALE_DATA_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        if mountpoint -q "$dir"; then
+            echo "Skipping $dir (mounted)"
+            continue
+        fi
+
+        echo "Removing stale directory: $dir"
+        rm -rf "$dir"
+    fi
+done
+
+# -----------------------------------------------------------------------------
 # Fix Docker socket permissions
 # -----------------------------------------------------------------------------
 # The docker-outside-of-docker feature creates a docker group, but the socket
