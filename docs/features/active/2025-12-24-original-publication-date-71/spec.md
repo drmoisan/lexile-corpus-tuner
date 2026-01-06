@@ -16,19 +16,19 @@ Enrich the Gutenberg parquet (`gutenberg_books.parquet`) with an additional fiel
 Planned approach (practical and scalable):
 - Primary enrichment: call the **Open Library Search API** to retrieve `first_publish_year` for each Gutenberg ID using title + author matching; store as `original_pub_year` (integer) and keep the existing PG `issued_date` unchanged.
 - Write the selected `first_publish_year` into the output parquet (default: `gutenberg_books_enhanced.parquet`) as `original_pub_year`, leaving `issued_date` untouched.
-- Fallback coverage (optional, if enabled):
-	- If Open Library has no match, attempt Wikidata/LOC lookups when an identifier (LCCN/ISBN) is present.
-	- If an Open Library match exists but lacks year, keep `original_pub_year` null.
 - Preserve partial coverage: do not overwrite records lacking a confident match; instead, set `original_pub_year` to null and retain a `pub_year_confidence` flag (e.g., `high` when exact title+author match, `low` when fuzzy).
 - Keep pipeline batchable over >60k titles with request throttling, retry, and checkpointing similar to existing Gutendex fetch.
+
+Out of scope:
+- Wikidata / Library of Congress fallbacks are tracked as a separate potential feature (see `docs/features/potential/2026-01-06-enhance-gutenberg-wiki-loc-fallback.md`).
 
 
 ## Inputs / Outputs
 
 - Inputs (CLI flags, files, env vars)
 	- Input parquet: `data/meta/gutenberg/gutenberg_books.parquet` (or user-specified path).
-	- API base: Open Library Search (`https://openlibrary.org/search.json`), optional Wikidata/LOC endpoints when enabled.
-	- CLI flags: input parquet path, output parquet path (can be in-place), batch size, rate-limit (req/sec), max retries/backoff, checkpoint path, optional fuzzy-match toggle/threshold.
+	- API base: Open Library Search (`https://openlibrary.org/search.json`).
+	- CLI flags: input parquet path, output parquet path (can be in-place), rate-limit (req/sec), max retries/backoff, checkpoint path, optional fuzzy-match toggle/threshold.
 	- Env vars/config: HTTP timeout, user agent, cache directory (optional local JSON cache per PG ID).
 - Outputs (artifacts, logs, telemetry)
 	- Updated parquet (default output path: `data/meta/gutenberg_books_enhanced.parquet`; in-place allowed when explicitly set) with added columns: `original_pub_year` (int or null, sourced from Open Library `first_publish_year` or fallbacks), `pub_year_confidence` (enum: high/low/none), optionally `original_pub_source` (e.g., openlibrary, wikidata, loc).
@@ -39,13 +39,12 @@ Planned approach (practical and scalable):
 ## API / CLI Surface
 
 - CLI command (draft):
-	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year --input data/meta/gutenberg/gutenberg_books.parquet --output data/meta/gutenberg/gutenberg_books_enhanced.parquet --checkpoint data/meta/gutenberg/.original_pub_year.ckpt --rate-limit 5 --batch-size 50 --max-retries 5 --fuzzy-threshold 0.9`
+	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year --input data/meta/gutenberg/gutenberg_books.parquet --output data/meta/gutenberg/gutenberg_books_enhanced.parquet --checkpoint data/meta/gutenberg/.original_pub_year.ckpt --rate-limit 5 --max-retries 5 --fuzzy-threshold 0.9`
 - Flags:
 	- `--input`: source parquet path (required)
 	- `--output`: destination parquet path (defaults to input for in-place)
 	- `--checkpoint`: path for resumable progress (required for long runs)
 	- `--rate-limit`: requests per second (default conservative to respect Open Library)
-	- `--batch-size`: number of rows per request window
 	- `--max-retries`, `--initial-backoff`: network resilience
 	- `--fuzzy-threshold`: minimum similarity for non-exact matches; `--disable-fuzzy` to require exact match
 	- `--cache-dir`: optional on-disk cache for API responses
@@ -60,7 +59,7 @@ Planned approach (practical and scalable):
 - Data flow:
 	1) Read parquet rows; extract `id`, `title`, `authors`.
 	2) Normalize title/author (casefold, strip punctuation) for matching.
-	3) Query Open Library (and optional fallbacks) with throttling and retries.
+	3) Query Open Library with throttling and retries.
 	4) Select best candidate per row; derive `original_pub_year` and `pub_year_confidence`.
 	5) Write updated parquet; persist checkpoint and optional cache.
 - State changes: add columns to the Gutenberg parquet; checkpoint files to support resume; optional cached API responses for reuse.

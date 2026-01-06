@@ -43,7 +43,6 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.e
   --checkpoint data/meta/gutenberg/.original_pub_year.ckpt \
   --cache-dir data/cache/original_pub_year \
   --rate-limit 5 \
-  --batch-size 50 \
   --fuzzy-threshold 0.9
 ```
 ```powershell
@@ -53,7 +52,6 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.e
   --checkpoint data/meta/gutenberg/.original_pub_year.ckpt `
   --cache-dir data/cache/original_pub_year `
   --rate-limit 5 `
-  --batch-size 50 `
   --fuzzy-threshold 0.9
 ```
 
@@ -64,9 +62,8 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.e
 4. Writes enriched parquet to the output path without altering other columns.
 
 **Flags to adjust (common):**
-- `--rate-limit` (requests/sec) and `--batch-size` for throughput vs. quota.
+- `--rate-limit` (requests/sec) for throughput vs. quota.
 - `--fuzzy-threshold` or `--disable-fuzzy` to tighten/loosen fuzzy matching.
-- `--enable-wikidata` / `--enable-loc` to try fallbacks after Open Library.
 - `--checkpoint-every` to control how often progress is saved.
 
 **Tips:**

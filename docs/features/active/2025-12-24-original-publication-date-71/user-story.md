@@ -28,6 +28,8 @@ The Gutenberg books list does not have a reliable field for first publication da
   - Goal: segment corpora by era buckets and downweight older narrative while preserving PG release provenance.
 - Scenario: A corpus engineer runs the enrichment CLI against `data/meta/gutenberg/gutenberg_books.parquet` with Open Library as primary, optional Wikidata/LOC fallback, throttling, retries, checkpoint every N rows, and optional cache. The run writes `original_pub_year`, `pub_year_confidence`, and `original_pub_source`, emits summary counts (matched high/low, unmatched/null, API errors), and can resume from checkpoint. A data scientist then filters/weights by era (e.g., favor 1990+) while keeping `issued_date` for provenance and ignoring rows with `pub_year_confidence=none`.
 
+- Scenario: A corpus engineer runs the enrichment CLI against `data/meta/gutenberg/gutenberg_books.parquet` with Open Library as the source, throttling, retries, checkpoint every N rows, and optional cache. The run writes `original_pub_year`, `pub_year_confidence`, and `original_pub_source`, emits summary counts (matched high/low, unmatched/null, API errors), and can resume from checkpoint. A data scientist then filters/weights by era (e.g., favor 1990+) while keeping `issued_date` for provenance and ignoring rows with `pub_year_confidence=none`.
+
 
 ## Acceptance Criteria
 
@@ -37,6 +39,10 @@ The Gutenberg books list does not have a reliable field for first publication da
 - [ ] Runs end-to-end over full Gutenberg parquet (>60k rows) with throttling, retries, and resumable checkpointing; emits run summary counts (matched high/low, null, errors).
 - [ ] Unit tests cover normalization, exact vs fuzzy match selection, confidence labeling, null-handling, and source tagging.
 - [ ] Integration test (mocked APIs) covers batch processing, throttling, checkpoint resume, parquet write, and summary reporting.
+
+## Related potential feature
+
+- Wikidata / Library of Congress fallback is tracked separately in `docs/features/potential/2026-01-06-enhance-gutenberg-wiki-loc-fallback.md`.
 
 
 ## Non-Goals

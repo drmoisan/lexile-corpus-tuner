@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import math
 import time
+from importlib import import_module
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
-import pytest  # noqa: TCH002 - pytest is required at runtime for tests
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
     enrich_original_pub_year as enrich,
 )
 from requests import Response
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    import pytest
 
 EnrichmentConfig = enrich.EnrichmentConfig
 HttpClient = enrich.HttpClient
@@ -20,9 +25,15 @@ OpenLibraryClient = enrich.OpenLibraryClient
 OpenLibrarySearchError = enrich.OpenLibrarySearchError
 Summary = enrich.Summary
 enrich_dataframe = enrich.enrich_dataframe
+enrich_parquet = enrich.enrich_parquet
 normalize_text = enrich.normalize_text
 parse_args = enrich.parse_args
 select_best_match = enrich.select_best_match
+
+enricher: ModuleType = import_module(
+    "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts."
+    "enrich_original_pub_year.enricher"
+)
 
 
 class MemoryCache:
@@ -48,6 +59,14 @@ class MemoryCheckpoint:
         self.saved = (index, summary)
 
 
+def make_memory_cache(_cache_dir: Path) -> MemoryCache:
+    return MemoryCache()
+
+
+def make_memory_checkpoint(_checkpoint_path: Path) -> MemoryCheckpoint:
+    return MemoryCheckpoint()
+
+
 class FakeClient:
     def __init__(self, candidates: list[MatchCandidate] | None = None) -> None:
         self._candidates = candidates or []
@@ -69,6 +88,123 @@ def make_df() -> pd.DataFrame:
             {"id": 2, "title": "Another Tale", "authors": "John Smith"},
         ]
     )
+
+
+def test_enrich_parquet_writes_output_and_summary(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    df = make_df()
+
+    class StubDF(pd.DataFrame):
+        pass
+
+    written_path: Path | None = None
+    written_df: pd.DataFrame | None = None
+
+    def stub_read_parquet(_path: Path) -> pd.DataFrame:  # pragma: no cover - patched
+        return StubDF(df.copy())
+
+    def stub_to_parquet(
+        self: pd.DataFrame, path: Path, index: bool = False
+    ) -> None:  # noqa: ARG002
+        nonlocal written_path, written_df
+        written_path = path
+        written_df = self.copy()
+
+    class StubClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:  # noqa: ANN401
+            self.calls = 0
+
+        def search(self, title: str, author: str) -> list[MatchCandidate]:
+            self.calls += 1
+            return [
+                MatchCandidate(
+                    title=title,
+                    author=author,
+                    year=2001,
+                    source="openlibrary",
+                    score=0.0,
+                )
+            ]
+
+    monkeypatch.setattr(enricher.pd, "read_parquet", stub_read_parquet)
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", stub_to_parquet)
+    monkeypatch.setattr(enricher, "OpenLibraryClient", StubClient)
+    monkeypatch.setattr(enricher, "FileCache", make_memory_cache)
+    monkeypatch.setattr(enricher, "FileCheckpoint", make_memory_checkpoint)
+
+    config = EnrichmentConfig(
+        input_path=Path("in.parquet"), output_path=Path("out.parquet")
+    )
+    summary = enrich_parquet(config)
+
+    out = capsys.readouterr().out
+    assert "matched_high" in out
+    assert summary.matched_high == 2
+    assert written_path is not None
+    assert written_path == Path("out.parquet")
+    assert written_df is not None
+    years = written_df["original_pub_year"].tolist()
+    confidences = written_df["pub_year_confidence"].tolist()
+    assert years == [2001, 2001]
+    assert confidences == ["high", "high"]
+
+
+def test_enrich_parquet_uses_loc_fallback_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    df = make_df()
+
+    class StubDF(pd.DataFrame):
+        pass
+
+    def stub_read_parquet(_path: Path) -> pd.DataFrame:  # pragma: no cover - patched
+        return StubDF(df.copy())
+
+    def stub_to_parquet(
+        self: pd.DataFrame, path: Path, index: bool = False
+    ) -> None:  # noqa: ARG002
+        return None
+
+    class PrimaryEmpty:
+        def __init__(self, *args: object, **kwargs: object) -> None:  # noqa: ANN401
+            self.calls = 0
+
+        def search(self, _title: str, _author: str) -> list[MatchCandidate]:
+            self.calls += 1
+            return []
+
+    class StubLocFallback:
+        def __init__(self, *args: object, **kwargs: object) -> None:  # noqa: ANN401
+            self.calls = 0
+
+        def search(self, title: str, author: str) -> list[MatchCandidate]:
+            self.calls += 1
+            return [
+                MatchCandidate(
+                    title=title,
+                    author=author,
+                    year=1985,
+                    source="loc",
+                    score=0.0,
+                )
+            ]
+
+    monkeypatch.setattr(enricher.pd, "read_parquet", stub_read_parquet)
+    monkeypatch.setattr(pd.DataFrame, "to_parquet", stub_to_parquet)
+    monkeypatch.setattr(enricher, "OpenLibraryClient", PrimaryEmpty)
+    monkeypatch.setattr(enricher, "LocFallbackClient", StubLocFallback)
+    monkeypatch.setattr(enricher, "FileCache", make_memory_cache)
+    monkeypatch.setattr(enricher, "FileCheckpoint", make_memory_checkpoint)
+
+    config = EnrichmentConfig(
+        input_path=Path("in.parquet"),
+        output_path=Path("out.parquet"),
+        enable_loc=True,
+    )
+
+    result = enrich_parquet(config)
+    assert result.matched_high == 2
 
 
 def test_normalize_text_strips_punctuation_and_casefolds() -> None:

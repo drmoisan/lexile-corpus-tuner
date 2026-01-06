@@ -494,7 +494,7 @@ class QueryBuilderApp:
         ids_series = cast(Any, self.last_results["id"])
         raw_ids = cast(list[int | float | str], ids_series.tolist())
 
-        # Collect unique, non-null IDs and normalize to integers for downloader.
+        # Collect unique IDs and normalize to integers for downstream use.
         unique_ids: set[int] = {
             int(value) for value in raw_ids if not pandas_is_na(value)
         }

@@ -20,10 +20,12 @@ import json
 from typing import TYPE_CHECKING
 
 import pandas as pd
+import requests
 
 from .enrichment_result import EnrichmentResult
 from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
+from .loc_fallback_client import LocFallbackClient
 from .match_result import MatchResult
 from .match_utils import is_missing_year, normalize_text, select_best_match
 from .noop_fallback import NoopFallback
@@ -78,7 +80,22 @@ if TYPE_CHECKING:
     from .checkpoint_store import CheckpointStore
     from .enrichment_config import EnrichmentConfig
     from .fallback_client import FallbackClient
+    from .match_candidate import MatchCandidate
     from .match_result import Confidence
+
+
+class _ChainedFallback:
+    """Fallback client that tries multiple sources sequentially."""
+
+    def __init__(self, clients: list[FallbackClient]) -> None:
+        self._clients = clients
+
+    def search(self, title: str, author: str) -> list[MatchCandidate]:
+        for client in self._clients:
+            results = client.search(title, author)
+            if results:
+                return results
+        return []
 
 
 def enrich_dataframe(
@@ -189,7 +206,15 @@ def enrich_dataframe(
         results_source.append(result.source)
         summary.record(result)
 
-        if (idx + 1) % config.checkpoint_every == 0:
+        should_checkpoint = (idx + 1) % config.checkpoint_every == 0
+        if config.batch_size > 0:
+            processed_since_resume = idx + 1 - start_index
+            if (
+                processed_since_resume > 0
+                and processed_since_resume % config.batch_size == 0
+            ):
+                should_checkpoint = True
+        if should_checkpoint:
             checkpoint_store.save(idx + 1, summary)
 
     working["original_pub_year"] = results_year
@@ -219,7 +244,20 @@ def enrich_parquet(config: EnrichmentConfig) -> Summary:
     """
 
     df = pd.read_parquet(config.input_path)  # type: ignore[reportUnknownMemberType]
-    fallback_client: FallbackClient = NoopFallback()
+    fallback_clients: list[FallbackClient] = []
+    if config.enable_loc or config.enable_wikidata:
+        fallback_clients.append(
+            LocFallbackClient(
+                http=requests.Session(), timeout_seconds=config.timeout_seconds
+            )
+        )
+
+    if not fallback_clients:
+        fallback_client = NoopFallback()
+    elif len(fallback_clients) == 1:
+        fallback_client = fallback_clients[0]
+    else:
+        fallback_client = _ChainedFallback(fallback_clients)
     result = enrich_dataframe(
         df,
         config=config,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from . import http_client as _http_client
 from .cache_store import CacheStore
 from .checkpoint_store import CheckpointStore
 from .constants import (
@@ -16,7 +17,6 @@ from .enrichment_result import EnrichmentResult
 from .fallback_client import FallbackClient
 from .file_cache import FileCache
 from .file_checkpoint import FileCheckpoint
-from .http_client import HttpClient
 from .match_candidate import MatchCandidate
 from .match_result import Confidence, MatchResult
 from .match_utils import normalize_text, select_best_match
@@ -93,3 +93,6 @@ __all__ = [
     "enrich_parquet",
     "Path",
 ]
+
+# Expose HttpClient via module attribute without relying on type-check-only imports.
+HttpClient = _http_client.HttpClient
