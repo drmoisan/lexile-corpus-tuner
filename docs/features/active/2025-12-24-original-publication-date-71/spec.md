@@ -26,7 +26,7 @@ Planned approach (practical and scalable):
 ## Inputs / Outputs
 
 - Inputs (CLI flags, files, env vars)
-	- Input parquet: `data/meta/gutenberg_books.parquet` (or user-specified path).
+	- Input parquet: `data/meta/gutenberg/gutenberg_books.parquet` (or user-specified path).
 	- API base: Open Library Search (`https://openlibrary.org/search.json`), optional Wikidata/LOC endpoints when enabled.
 	- CLI flags: input parquet path, output parquet path (can be in-place), batch size, rate-limit (req/sec), max retries/backoff, checkpoint path, optional fuzzy-match toggle/threshold.
 	- Env vars/config: HTTP timeout, user agent, cache directory (optional local JSON cache per PG ID).
@@ -39,7 +39,7 @@ Planned approach (practical and scalable):
 ## API / CLI Surface
 
 - CLI command (draft):
-	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year --input data/meta/gutenberg_books.parquet --output data/meta/gutenberg_books_enhanced.parquet --checkpoint data/meta/.original_pub_year.ckpt --rate-limit 5 --batch-size 50 --max-retries 5 --fuzzy-threshold 0.9`
+	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year --input data/meta/gutenberg/gutenberg_books.parquet --output data/meta/gutenberg/gutenberg_books_enhanced.parquet --checkpoint data/meta/gutenberg/.original_pub_year.ckpt --rate-limit 5 --batch-size 50 --max-retries 5 --fuzzy-threshold 0.9`
 - Flags:
 	- `--input`: source parquet path (required)
 	- `--output`: destination parquet path (defaults to input for in-place)
@@ -90,4 +90,4 @@ List notable constraints (performance, compatibility, scope) or risks.
 - [ ] Recommended specifics:
 - Unit: title/author normalization, exact vs fuzzy match selection, confidence scoring, null/default behaviors.
 - Integration (mocked APIs): batch run over a small fixture parquet, with throttling and checkpoint resume.
-- CLI example: run enrichment over `data/meta/gutenberg_books.parquet` and emit summary counts (total rows, matched, unmatched, null years).
+- CLI example: run enrichment over `data/meta/gutenberg/gutenberg_books.parquet` and emit summary counts (total rows, matched, unmatched, null years).

@@ -26,8 +26,8 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.b
 **What this does:**
 1.  Connects to the Gutendex API.
 2.  Downloads metadata for all available English books (incrementally, saving progress).
-3.  Saves the full metadata to `data/meta/gutenberg_books.parquet`.
-4.  Saves a list of all English book IDs to `data/meta/gutenberg_ids.txt`.
+3.  Saves the full metadata to `data/meta/gutenberg/gutenberg_books.parquet`.
+4.  Saves a list of all English book IDs to `data/meta/gutenberg/gutenberg_ids.txt`.
 
 *Note: This process can take several minutes to complete the first time.*
 
@@ -38,9 +38,9 @@ After generating `gutenberg_books.parquet`, run the enrichment pipeline to add `
 **Command:**
 ```bash
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year \
-  --input data/meta/gutenberg_books.parquet \
-  --output data/meta/gutenberg_books_enhanced.parquet \
-  --checkpoint data/meta/.original_pub_year.ckpt \
+  --input data/meta/gutenberg/gutenberg_books.parquet \
+  --output data/meta/gutenberg/gutenberg_books_enhanced.parquet \
+  --checkpoint data/meta/gutenberg/.original_pub_year.ckpt \
   --cache-dir data/cache/original_pub_year \
   --rate-limit 5 \
   --batch-size 50 \
@@ -48,9 +48,9 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.e
 ```
 ```powershell
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year `
-  --input data/meta/gutenberg_books.parquet `
-  --output data/meta/gutenberg_books_enhanced.parquet `
-  --checkpoint data/meta/.original_pub_year.ckpt `
+  --input data/meta/gutenberg/gutenberg_books.parquet `
+  --output data/meta/gutenberg/gutenberg_books_enhanced.parquet `
+  --checkpoint data/meta/gutenberg/.original_pub_year.ckpt `
   --cache-dir data/cache/original_pub_year `
   --rate-limit 5 `
   --batch-size 50 `
@@ -79,7 +79,7 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.e
 By default, `gutenberg_ids.txt` contains *all* English books. If you want to download only a specific subset (e.g., only "Fiction"), you can filter this list.
 
 **Option A: Manual Editing**
-Open `data/meta/gutenberg_ids.txt` and remove IDs you don't want.
+Open `data/meta/gutenberg/gutenberg_ids.txt` and remove IDs you don't want.
 
 **Option B: Interactive Explorer**
 Use the CLI explorer to query the metadata file you just created:
@@ -93,7 +93,7 @@ For a visual interface to build complex queries (e.g., "Subject contains Fiction
 ```bash
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui
 ```
-*This tool allows you to construct queries visually, preview results, and export the matching IDs directly to `data/meta/gutenberg_ids.txt`.*
+*This tool allows you to construct queries visually, preview results, and export the matching IDs directly to `data/meta/gutenberg/gutenberg_ids.txt`.*
 
 **In Dev Container:** After rebuilding the container with the desktop-lite feature, access the GUI via:
 1. Open browser to `http://localhost:6080`
@@ -104,7 +104,7 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.g
 
 ### Step 3: Download Texts
 
-Once `data/meta/gutenberg_ids.txt` is ready, run the pipeline to download the actual text files.
+Once `data/meta/gutenberg/gutenberg_ids.txt` is ready, run the pipeline to download the actual text files.
 
 **Command:**
 ```bash

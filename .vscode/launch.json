@@ -149,11 +149,11 @@
     {
       "args": [
         "--input",
-        "data/meta/gutenberg_books.parquet",
+        "data/meta/gutenberg/gutenberg_books.parquet",
         "--output",
-        "data/meta/gutenberg_books_enhanced.parquet",
+        "data/meta/gutenberg/gutenberg_books_enhanced.parquet",
         "--checkpoint",
-        "data/meta/.original_pub_year.ckpt",
+        "data/meta/gutenberg/.original_pub_year.ckpt",
         "--cache-dir",
         "data/cache/original_pub_year",
         "--rate-limit",

@@ -9,8 +9,8 @@ Purpose:
 Usage:
     python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.
     enrich_original_pub_year \
-        --input data/meta/gutenberg_books.parquet \
-        --output data/meta/gutenberg_books_enhanced.parquet
+        --input data/meta/gutenberg/gutenberg_books.parquet \
+        --output data/meta/gutenberg/gutenberg_books_enhanced.parquet
 
 Flow:
     Import the CLI main function and execute it, returning its exit code.

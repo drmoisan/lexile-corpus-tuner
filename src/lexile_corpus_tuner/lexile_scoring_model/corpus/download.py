@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 RAW_ROOT = Path("data/corpus/raw")
 GUTENBERG_DIR = RAW_ROOT / "gutenberg"
 SIMPLE_WIKI_DIR = RAW_ROOT / "simple_wiki"
-GUTENBERG_IDS_FILE = Path("data/meta/gutenberg_ids.txt")
+GUTENBERG_IDS_FILE = Path("data/meta/gutenberg/gutenberg_ids.txt")
 OER_MANIFEST = Path("data/meta/oer_sources.json")
 DEFAULT_SIMPLE_WIKI_URL = (
     "https://dumps.wikimedia.org/simplewiki/latest/"

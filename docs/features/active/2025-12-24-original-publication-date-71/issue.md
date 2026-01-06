@@ -49,7 +49,7 @@ List notable constraints (performance, compatibility, scope) or risks.
 Recommended specifics:
 - Unit: title/author normalization, exact vs fuzzy match selection, confidence scoring, null/default behaviors.
 - Integration (mocked APIs): batch run over a small fixture parquet, with throttling and checkpoint resume.
-- CLI example: run enrichment over `data/meta/gutenberg_books.parquet` and emit summary counts (total rows, matched, unmatched, null years).
+- CLI example: run enrichment over `data/meta/gutenberg/gutenberg_books.parquet` and emit summary counts (total rows, matched, unmatched, null years).
 
 ## Next Step
 

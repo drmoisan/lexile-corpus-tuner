@@ -784,5 +784,5 @@ Combined examples:
 
 if __name__ == "__main__":
     # Default path based on project structure
-    default_path = Path("data/meta/gutenberg_books.parquet")
+    default_path = Path("data/meta/gutenberg/gutenberg_books.parquet")
     interactive_explorer(default_path)
