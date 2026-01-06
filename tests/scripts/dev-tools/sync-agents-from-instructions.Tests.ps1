@@ -47,6 +47,8 @@ line2
                     { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "python-unit-test.instructions.md") } { return "python unit" }
                     { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "powershell-code-change.instructions.md") } { return "ps code" }
                     { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "powershell-unit-test.instructions.md") } { return "ps unit" }
+                    { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "codexer.instructions.md") } { return "codexer unit" }
+                    { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "self-explanatory-code-commenting.instructions.md") } { return "self-explanatory-code-commenting unit" }
                     default { throw "Unexpected path $Path" }
                 }
             }
@@ -61,6 +63,8 @@ line2
             $result.Content | Should -Match "copilot body"
             $result.Content | Should -Match "general code"
             $result.Content | Should -Match "ps unit"
+            $result.Content | Should -Match "codexer unit"
+            $result.Content | Should -Match "self-explanatory-code-commenting unit"
         }
     }
 

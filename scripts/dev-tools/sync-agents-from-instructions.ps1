@@ -10,7 +10,9 @@ $sections = @(
     @{ Key = "python-code-change"; Title = "Python Code Change Policy"; FileName = "python-code-change.instructions.md" },
     @{ Key = "python-unit-test"; Title = "Python Unit Test Policy"; FileName = "python-unit-test.instructions.md" },
     @{ Key = "powershell-code-change"; Title = "PowerShell Code Change Policy"; FileName = "powershell-code-change.instructions.md" },
-    @{ Key = "powershell-unit-test"; Title = "PowerShell Unit Test Policy"; FileName = "powershell-unit-test.instructions.md" }
+    @{ Key = "powershell-unit-test"; Title = "PowerShell Unit Test Policy"; FileName = "powershell-unit-test.instructions.md" },
+    @{ Key = "codexer"; Title = "Codexer Policy"; FileName = "codexer.instructions.md" },
+    @{ Key = "self-explanatory-code-commenting"; Title = "Code Commenting and Docstring Policy"; FileName = "self-explanatory-code-commenting.instructions.md" }
 )
 
 function Get-InstructionsBody {

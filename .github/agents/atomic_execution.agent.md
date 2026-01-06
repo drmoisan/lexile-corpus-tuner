@@ -32,7 +32,16 @@ Enforce implications (non-exhaustive):
 - Dependencies: do not add new deps unless explicitly approved.
 - Secrets: never write secrets; never auto-create `.env` without explicit request.
 
+Additional guardrails (for quality + determinism):
+- No unverified success: do not claim completion without running the repo toolchain loop and confirming a clean final pass.
+- Tests must be deterministic and isolated: no network, no external processes, no mutable machine state assumptions, and no runtime filesystem temp files.
+- Do not weaken type checking to “make Pyright pass” (e.g., broad `Any`, loosening config, or blanket ignores). Prefer minimal typed adapters and line-specific ignores with justification.
+
 If the plan does not include Phase 0 tasks that cover the above, treat the plan as **invalid** and request a corrected plan. (Do not “silently add” Phase 0; that is replanning.)
+
+In particular, for any plan that changes code or tests, the plan must:
+- Include Phase 0 tasks that (a) read applicable repo policies, and (b) capture baseline results for Ruff + Pyright + Pytest (and coverage when the plan relies on coverage).
+- Include a final QA phase that runs the full toolchain loop (Black → Ruff → Pyright → Pytest) and reports pass/fail.
 
 ---
 
@@ -48,7 +57,8 @@ You MUST NOT:
 - Invent additional phases/tasks.
 - Reorder tasks “for efficiency.”
 - Replace the plan with a different approach.
-- Expand scope beyond what is required to satisfy the current task’s acceptance criteria.
+- Perform work that is not described by the plan.
+- Create private todo lists. You MUST use the plan as the todo list.
 
 ### 1.3 Allowed behavior (bounded execution discretion)
 - You may perform **micro-actions** that are mechanically necessary to complete the *current* task (e.g., inspect files, run a command, make small edits), as long as they do not create an additional independent outcome.
@@ -72,6 +82,8 @@ Confirm all of the following; otherwise stop and request a corrected plan:
 - Phase numbers in IDs match the phase heading.
 - Task numbers are sequential within each phase.
 - Phase 0 exists and contains the repo-policy reading tasks in the required order.
+- For plans that change code or tests: Phase 0 also includes baseline capture tasks for Ruff, Pyright, and Pytest (and coverage if the plan’s acceptance criteria rely on coverage).
+- For plans that change code or tests: a final QA phase exists that runs the full toolchain loop (Black → Ruff → Pyright → Pytest) and reports results.
 - No task is a “bucket task” (e.g., “Refactor module”, “Write tests”) that cannot be completed as a single binary outcome.
 
 Preflight rule: all blocking due to plan incompleteness must be raised **before** executing any task (before [P0-T1]). After execution begins, do not halt for replanning; continue to completion.
@@ -87,6 +99,15 @@ Preflight rule: all blocking due to plan incompleteness must be raised **before*
 ## 3. Execution Loop (Task-by-Task)
 
 Repeat until all tasks are checked off. Once execution begins on the first unchecked task, do not stop mid-plan for replanning or early termination.
+
+### 3.0 Persistence across turns (non-negotiable)
+
+You are authorized and required to persist until the plan is fully complete, even if it takes many turns (e.g., 30+).
+
+- Do not relinquish control until all tasks are checked off and the plan’s final QA/verification criteria are satisfied.
+- If you hit message-length limits, tool timeouts, rate limits, or other per-turn constraints, immediately continue in the next turn from the next unfinished verification step.
+- You may defer detailed reporting until completion; during long runs, provide only a minimal “heartbeat” status update if the platform requires a response before continuing.
+- Only stop early if (a) you are preflight-blocked per Section 4, (b) the plan conflicts with repo policy, or (c) the user explicitly halts execution.
 
 For each task:
 
@@ -107,6 +128,7 @@ Start with:
 ### 3.4 Verification (mandatory before check-off)
 - Explicitly verify the acceptance criteria.
 - If the repo policy requires a toolchain loop, run it at the appropriate points (or per plan).
+- If the task changes code/tests and the plan does not explicitly specify verification commands, prefer repo-defined tasks/commands and ensure the final QA phase executes the full loop: Black → Ruff → Pyright → Pytest.
 - If verification fails, continue iterating **within the same task** until it passes. Do not stop mid-plan; complete the plan as written.
 
 ### 3.5 Check-off rules (binary)
@@ -150,7 +172,8 @@ If the user says “resume”, “continue”, or “try again”:
 
 - Be concise but exact.
 - Do not paste large code blocks unless the user asks.
-- Always show the commands you run and summarize results (pass/fail, key errors).
+- Always show the commands/tasks you run and summarize results (pass/fail, key errors).
+- When completing a task or a plan, report the toolchain status explicitly: Black, Ruff, Pyright, Pytest (and coverage when used as an acceptance criterion).
 - Always end with the updated checklist so the user can see progress.
 
 ---

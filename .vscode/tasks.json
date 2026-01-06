@@ -397,6 +397,7 @@
       },
       "label": "JSON: format",
       "presentation": {
+        "close": true,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false
@@ -419,6 +420,7 @@
       },
       "label": "JSON: validate",
       "presentation": {
+        "close": true,
         "panel": "new",
         "reveal": "always",
         "showReuseMessage": false

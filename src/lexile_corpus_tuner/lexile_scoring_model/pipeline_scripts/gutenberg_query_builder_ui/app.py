@@ -434,8 +434,10 @@ class QueryBuilderApp:
 
         filepath = filedialog.asksaveasfilename(
             title="Export Results",
-            defaultextension=".csv",
+            defaultextension=".txt",
+            initialfile=str(Path("data/meta/gutenberg/gutenberg_ids.txt")),
             filetypes=[
+                ("Gutenberg ID List", "*.txt"),
                 ("CSV Files", "*.csv"),
                 ("Parquet Files", "*.parquet"),
                 ("All Files", "*.*"),
@@ -446,8 +448,10 @@ class QueryBuilderApp:
                 path = Path(filepath)
                 if path.suffix == ".parquet":
                     pandas_to_parquet(self.last_results, path)
-                else:
+                elif path.suffix == ".csv":
                     pandas_to_csv(self.last_results, path)
+                else:
+                    self._export_id_list(path)
                 self.status_bar.config(
                     text=f"Exported {len(self.last_results)} results to {filepath}"
                 )
@@ -470,6 +474,39 @@ class QueryBuilderApp:
             self.status_bar.config(text="Query copied to clipboard")
         else:
             self.status_bar.config(text="No query to copy")
+
+    def _export_id_list(self, path: Path) -> None:
+        """Export unique Gutenberg IDs to a newline-delimited text file.
+
+        Args:
+            path: Destination path for the ID list.
+
+        Raises:
+            ValueError: If the results are missing the `id` column or no IDs exist.
+        """
+
+        if self.last_results is None:
+            raise ValueError("No results to export")
+
+        if "id" not in self.last_results.columns:
+            raise ValueError("Results do not contain an 'id' column")
+
+        ids_series = cast(Any, self.last_results["id"])
+        raw_ids = cast(list[int | float | str], ids_series.tolist())
+
+        # Collect unique IDs and normalize to integers for downstream use.
+        unique_ids: set[int] = {
+            int(value) for value in raw_ids if not pandas_is_na(value)
+        }
+
+        if not unique_ids:
+            raise ValueError("No valid Gutenberg IDs to export")
+
+        sorted_ids = sorted(unique_ids)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "\n".join(str(ebook_id) for ebook_id in sorted_ids), encoding="utf-8"
+        )
 
     def _run_query(self) -> None:
         """Execute current query and display results."""

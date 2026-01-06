@@ -34,12 +34,40 @@ class SubprocessRunner(CommandRunner):
         cwd: Path | None = None,
         allow_error: bool = False,
     ) -> CommandResult:
+        """
+        Execute a command using subprocess and capture its output.
+
+        Purpose:
+            Run the provided arguments while capturing stdout, stderr, and the exit
+            code for downstream processing.
+
+        Args:
+            args (Sequence[str]): Command and arguments to execute.
+            cwd (Path | None): Optional working directory for the subprocess.
+            allow_error (bool): When False, raise on non-zero exit codes; otherwise
+                return the captured result regardless of status.
+
+        Returns:
+            CommandResult: Captured stdout, stderr, and exit code.
+
+        Raises:
+            RuntimeError: If the subprocess exits non-zero and allow_error is False.
+
+        Side Effects:
+            Spawns a subprocess decoded as UTF-8 with replacement for undecodable
+            bytes to avoid Windows code-page failures.
+        """
+        # We only invoke git with argument lists we construct, not user-supplied
+        # input.
         completed = subprocess.run(  # noqa: S603
             args,
             cwd=str(cwd) if cwd else None,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
+            shell=False,
         )
 
         stdout = (completed.stdout or "").rstrip("\n")
@@ -76,7 +104,8 @@ class GitClient:
             return self._cwd
 
         top = self.run(["rev-parse", "--show-toplevel"]).stdout
-        return Path(top).resolve()
+        # Preserve git's reported root without forcing OS-specific drive resolution
+        return Path(top)
 
     def rev_parse(self, ref: str) -> str:
         return self.run(["rev-parse", "--verify", ref]).stdout

@@ -283,7 +283,10 @@ def default_code_launcher(files: Iterable[Path]) -> bool:
     code_cmd = shutil.which("code")
     if not code_cmd:
         return False
-    subprocess.run([code_cmd, *[str(f) for f in files]], check=False)  # noqa: S603
+    subprocess.run(  # noqa: S603
+        [code_cmd, *[f.as_posix() for f in files]],
+        check=False,
+    )
     return True
 
 

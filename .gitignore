@@ -47,6 +47,7 @@ htmlcov/
 .vscode/*
 !.vscode/tasks.json
 !.vscode/launch.json
+!.vscode/schemas
 
 # OS files
 .DS_Store
@@ -63,6 +64,7 @@ data/model/
 # Training Metadata
 data/meta/*
 !data/meta/corpus_sources.json
+data/cache
 
 # Tools
 tools/actionlint

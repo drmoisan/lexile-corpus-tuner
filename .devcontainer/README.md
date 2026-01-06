@@ -63,16 +63,16 @@ Poetry creates a virtual environment at `/workspace/.venv` which is:
 - Default shell: **PowerShell** (`pwsh`)
 - Bash available as alternative
 
-### All Repository Tasks Available
-All VS Code tasks from `.vscode/tasks.json` work in the container:
-- `QC: 1 Black: format`
-- `QC: 2 Ruff: lint`
-- `QC: 3 Pyright: type-check`
-- `QC: 4 Pytest: run tests`
-- `PoshQC: 1 format`
-- `PoshQC: 2 analyze`
-- `PoshQC: 4 test (Pester)`
-- `QC: 5 Run All Checks`
+### Common Commands (preferred over VS Code tasks)
+Use the Poetry and PowerShell commands directly instead of the `QC: ...` tasks:
+- `poetry run black .`
+- `poetry run ruff check`
+- `poetry run pyright`
+- `poetry run pytest`
+- `poetry run python -m scripts.dev_tools.fix_all`
+- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
 
 ## Rebuilding the Container
 

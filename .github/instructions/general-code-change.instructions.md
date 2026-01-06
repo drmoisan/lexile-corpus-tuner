@@ -22,7 +22,11 @@ Language-specific standards (e.g. for Python) are defined in additional instruct
 
 ---
 
-## Bugfix Workflow (all languages)
+## Bugfix Workflow (all languages, defects only)
+
+Use this workflow only when addressing a bug or defect. Feature work, refactors, and
+new capabilities should follow the general planning steps and design principles
+rather than this bugfix sequence.
 
 1. **Create a failing regression test first**
    - Add the smallest deterministic test that reproduces the bug using the project’s standard test layout (prefer the module’s existing test file; use `tests/bugs/<YYYY>/<issue>-<desc>.py` only when no clear home exists).

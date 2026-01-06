@@ -143,7 +143,7 @@ Directory names to exclude from processing.
 function Invoke-PoshQCFormat {
     [CmdletBinding()]
     param(
-        [string] $Root = (Get-Location).Path,
+        [string] $Root,
         [string] $SettingsPath = $script:PssaSettings,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
         [scriptblock] $EnsureModule = {
@@ -163,6 +163,10 @@ function Invoke-PoshQCFormat {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    if (-not $Root) {
+        $Root = $PWD.ProviderPath
+    }
 
     & $EnsureModule 'PSScriptAnalyzer' "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 
@@ -204,7 +208,7 @@ Directory names to exclude from analysis.
 function Invoke-PoshQCAnalyze {
     [CmdletBinding()]
     param(
-        [string] $Root = (Get-Location).Path,
+        [string] $Root,
         [string] $SettingsPath = $script:PssaSettings,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
         [scriptblock] $EnsureModule = {
@@ -225,6 +229,10 @@ function Invoke-PoshQCAnalyze {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    if (-not $Root) {
+        $Root = $PWD.ProviderPath
+    }
 
     & $EnsureModule 'PSScriptAnalyzer' "PSScriptAnalyzer is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 
@@ -288,7 +296,7 @@ function Convert-PoshQCCoverageToRelative {
     param(
         [Parameter()][string] $InputPath,
         [Parameter()][string] $OutputPath,
-        [Parameter()][string] $RepoRoot = (Get-Location).Path,
+        [Parameter()][string] $RepoRoot,
         [Parameter()][string] $InputContent,
         [switch] $PassThru,
         [scriptblock] $ResolvePath = { param([string] $Path) (Resolve-Path -Path $Path -ErrorAction Stop).Path },
@@ -314,6 +322,10 @@ function Convert-PoshQCCoverageToRelative {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    if (-not $RepoRoot) {
+        $RepoRoot = $PWD.ProviderPath
+    }
 
     if (-not $InputPath -and -not $InputContent) {
         & $Logger 'No coverage input provided; skipping conversion.'
@@ -387,7 +399,7 @@ Skip creation of Koverage-friendly coverage copy.
 function Invoke-PoshQCTest {
     [CmdletBinding()]
     param(
-        [string] $Root = (Get-Location).Path,
+        [string] $Root,
         [string] $SettingsPath = $script:PesterSettings,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
         [string] $KoverageOutputPath,
@@ -491,6 +503,10 @@ function Invoke-PoshQCTest {
     )
 
     $ErrorActionPreference = 'Stop'
+
+    if (-not $Root) {
+        $Root = $PWD.ProviderPath
+    }
 
     & $EnsureModule 'Pester' "Pester is not installed. Run Install-PoshQCTool (alias Install-PoshQCTools) first."
 

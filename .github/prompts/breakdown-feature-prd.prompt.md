@@ -1,5 +1,5 @@
 ---
-agent: 'agent'
+agent: 'prd_creator'
 description: 'Prompt for creating Product Requirements Documents (PRDs) for new features, based on an Epic.'
 ---
 
