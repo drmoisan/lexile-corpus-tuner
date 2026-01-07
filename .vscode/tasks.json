@@ -90,6 +90,17 @@
       "description": "Parent tracking issue number (e.g., 10)",
       "id": "ParentIssueNumber",
       "type": "promptString"
+    },
+    {
+      "default": "Python Engineer (Strongly Typed, Testable, Pytest-First)",
+      "description": "Agent personality to inject into the template",
+      "id": "ExecutePlanAgent",
+      "options": [
+        "Python Engineer (Strongly Typed, Testable, Pytest-First)",
+        "Python Execution Only",
+        "atomic_executor"
+      ],
+      "type": "pickString"
     }
   ],
   "tasks": [
@@ -664,7 +675,9 @@
         "python",
         "${workspaceFolder}/scripts/dev_tools/resolve_execute_plan_prompt.py",
         "--feature",
-        "${input:ExecutePlanFeatureFolder}"
+        "${input:ExecutePlanFeatureFolder}",
+        "--agent",
+        "${input:ExecutePlanAgent}"
       ],
       "command": "poetry",
       "detail": "Resolves the active feature, fills execute-plan prompt, and copies it to the clipboard.",

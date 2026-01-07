@@ -69,6 +69,16 @@ def select_feature_folder(
     if requested:
         if requested in candidates:
             return requested
+
+        try:
+            req_path = Path(requested).resolve()
+            if req_path.is_relative_to(active_dir):
+                rel = req_path.relative_to(active_dir)
+                if rel.parts and rel.parts[0] in candidates:
+                    return rel.parts[0]
+        except (ValueError, OSError):
+            pass
+
         raise ValueError(f"Feature folder '{requested}' not found under {active_dir}")
 
     if branch:
@@ -98,6 +108,13 @@ def replace_feature_token(prompt: str, feature_folder: str) -> str:
     """Replace <feature> tokens with the concrete folder name."""
 
     return prompt.replace("<feature>", feature_folder)
+
+
+def replace_agent_token(prompt: str, agent: str) -> str:
+    """Replace <agent> tokens with the selected agent name."""
+    if not agent:
+        return prompt
+    return prompt.replace("<agent>", agent)
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -148,11 +165,16 @@ def copy_to_clipboard(text: str) -> bool:
     return False
 
 
-def build_prompt_text(workspace: Path, feature_folder: str, prompt_path: Path) -> str:
+def build_prompt_text(
+    workspace: Path, feature_folder: str, prompt_path: Path, agent: str | None = None
+) -> str:
     """Load the prompt file and substitute the feature folder."""
 
     prompt_text = read_text(prompt_path)
-    return replace_feature_token(prompt_text, feature_folder)
+    prompt_text = replace_feature_token(prompt_text, feature_folder)
+    if agent:
+        prompt_text = replace_agent_token(prompt_text, agent)
+    return prompt_text
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -170,9 +192,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Feature folder under docs/features/active (optional).",
     )
     parser.add_argument(
+        "--agent",
+        dest="agent",
+        default=None,
+        help="Agent name to inject into the template (optional).",
+    )
+    parser.add_argument(
         "--prompt-path",
         dest="prompt_path",
-        default=".github/prompts/execute-plan-python-engineer.prompt.md",
+        default=".github/prompts/execute-plan-template.md",
         help="Path to the prompt template (relative to workspace).",
     )
     parser.add_argument(
@@ -212,7 +240,9 @@ def main(argv: list[str]) -> int:
         print(error, file=sys.stderr)
         return 1
 
-    prompt_text = build_prompt_text(workspace, feature_folder, prompt_path)
+    prompt_text = build_prompt_text(
+        workspace, feature_folder, prompt_path, agent=args.agent
+    )
     print(prompt_text)
 
     if args.no_copy:

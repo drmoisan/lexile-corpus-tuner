@@ -226,12 +226,22 @@ def test_select_feature_folder_no_match() -> None:
 def test_build_prompt_text() -> None:
     """Test build_prompt_text loads and substitutes feature."""
     workspace = FIXTURE_ROOT
-    prompt_path = (
-        workspace / ".github" / "prompts" / "execute-plan-python-engineer.prompt.md"
-    )
+    prompt_path = workspace / ".github" / "prompts" / "execute-plan-template.md"
     result = module.build_prompt_text(workspace, "my-feature", prompt_path)
     assert "my-feature" in result
     assert "<feature>" not in result
+
+
+def test_build_prompt_text_with_agent() -> None:
+    """Test build_prompt_text substitutes agent token."""
+    workspace = FIXTURE_ROOT
+    prompt_path = workspace / ".github" / "prompts" / "execute-plan-template.md"
+    # The template has "You are the “<agent>” execution agent."
+    result = module.build_prompt_text(
+        workspace, "my-feature", prompt_path, agent="Super Agent"
+    )
+    assert "Super Agent" in result
+    assert "<agent>" not in result
 
 
 def test_copy_to_clipboard_pyperclip_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -413,3 +423,17 @@ def test_main_clipboard_unavailable(
     captured = capsys.readouterr()
     assert code == 0
     assert "not available" in captured.err.lower()
+
+
+def test_select_feature_folder_is_path() -> None:
+    """Test select_feature_folder resolves a full file path to the feature folder."""
+    active_dir = FIXTURE_ROOT / "docs" / "features" / "active"
+    feature_name = "2025-12-18-docs-v3-upgrade"
+
+    # Construct a path that points inside the feature folder
+    feature_folder_path = active_dir / feature_name
+    file_path = feature_folder_path / "plan.md"
+
+    # Pass as string, mimicking what happens when user selects a file in VS Code input
+    result = module.select_feature_folder(active_dir, str(file_path), None)
+    assert result == feature_name
