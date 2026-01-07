@@ -8,10 +8,46 @@ Usage:
 """
 
 import argparse
+import importlib
+import importlib.util
 import sys
+import types
 from pathlib import Path
 
-import pyperclip
+
+def _missing_pyperclip_copy(text: str) -> None:
+    """
+    Raise a clear error when clipboard support is unavailable.
+
+    Purpose:
+        Provide a predictable failure mode when pyperclip is not installed so
+        callers understand why clipboard operations fail.
+
+    Args:
+        text (str): The text that would have been copied to the clipboard.
+
+    Returns:
+        None: This function always raises and never returns.
+
+    Raises:
+        RuntimeError: Always raised to signal that pyperclip is missing.
+
+    Side Effects:
+        Raises an exception to stop the calling workflow when clipboard access
+        is required.
+    """
+    raise RuntimeError(
+        "Clipboard support requires the optional 'pyperclip' dependency."
+    )
+
+
+# Resolve pyperclip at runtime so the module can be imported without the
+# optional dependency installed.
+_pyperclip_spec = importlib.util.find_spec("pyperclip")
+if _pyperclip_spec is None:
+    pyperclip = types.SimpleNamespace(copy=_missing_pyperclip_copy)
+else:
+    pyperclip = importlib.import_module("pyperclip")
 
 
 def strip_front_matter(content: str) -> str:
