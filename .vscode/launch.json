@@ -321,6 +321,29 @@
       "name": "Python: Format current markdown file",
       "request": "launch",
       "type": "debugpy"
+    },
+    {
+      "name": "Python: Atomic Executor (Execute All, 10 retries)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "execute-all",
+        "--path",
+        "${input:FeaturePath}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "FeaturePath",
+      "type": "promptString",
+      "description": "Path to feature folder (e.g. docs/features/active/feature-name)",
+      "default": "docs/features/active/"
     }
   ],
   "version": "0.2.0"
