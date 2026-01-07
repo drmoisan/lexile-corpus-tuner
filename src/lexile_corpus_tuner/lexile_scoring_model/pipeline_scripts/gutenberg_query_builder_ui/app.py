@@ -10,11 +10,15 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, Any, cast
 
-from ..explore_gutenberg import (  # noqa: TID252
+# Absolute imports for gutenberg modules
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.explore_gutenberg import (  # noqa: E501
     BooleanQueryEngine,
     get_canonical_sets,
 )
-from ..gutenberg_query_core import QueryGroupModel, SavedQuery  # noqa: TID252
+from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_core import (  # noqa: E501
+    QueryGroupModel,
+    SavedQuery,
+)
 
 if TYPE_CHECKING:
     import pandas as pd

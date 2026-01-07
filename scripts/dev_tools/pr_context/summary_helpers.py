@@ -377,7 +377,10 @@ def format_diff_path(path_text: str | None) -> str:
 
 
 def append_generation_timestamp() -> str:
-    timestamp = datetime.now(timezone.utc).strftime(
-        "%Y-%m-%d %H:%M:%S %Z"
-    )  # noqa: UP017
+    """Generate a timestamp section showing when context was collected.
+
+    Returns:
+        Formatted timestamp section with UTC time
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
     return section("Context generated") + "\n" + timestamp + "\n"

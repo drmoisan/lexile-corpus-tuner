@@ -18,7 +18,7 @@ from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
 from scripts.dev_tools.atomic_executor.prompt_builder import PromptBuilder
 from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 
-DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-atomic-plan.prompt.md"
+DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
 PROTECTED_BRANCHES = {"main", "master", "development"}
 LOG_DIR = ".agent_logs"
 
@@ -113,13 +113,22 @@ def ensure_clean_tree(workspace: Path) -> None:
 
     Raises:
         RuntimeError: If working tree has uncommitted changes.
+        FileNotFoundError: If git executable not found.
     """
-    result = subprocess.run(  # noqa: S603, S607 - trusted git cmd
-        ["git", "status", "--porcelain"],  # noqa: S607
-        cwd=workspace,
-        capture_output=True,
-        text=True,
-        check=True,
+    # Use shutil.which for cross-platform git resolution (avoids hardcoding
+    # /usr/bin/git or C:\Program Files\Git\bin\git.exe).
+    git_exe = shutil.which("git")
+    if not git_exe:
+        raise FileNotFoundError("Required executable not found on PATH: git")
+
+    result = (
+        subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+            [git_exe, "status", "--porcelain"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
     )
     if result.stdout.strip():
         raise RuntimeError("Working tree is not clean. Commit/stash before running.")
@@ -142,9 +151,14 @@ def refuse_protected_branch(workspace: Path) -> None:
 
 def _current_branch(workspace: Path) -> str | None:
     """Get current git branch name, or None if error."""
+    # Use shutil.which for cross-platform git resolution.
+    git_exe = shutil.which("git")
+    if not git_exe:
+        return None
+
     try:
-        result = subprocess.run(  # noqa: S603, S607 - trusted git cmd
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],  # noqa: S607
+        result = subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+            [git_exe, "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=workspace,
             capture_output=True,
             text=True,
@@ -156,50 +170,106 @@ def _current_branch(workspace: Path) -> str | None:
         return None
 
 
+def get_clipboard_command() -> list[str] | None:
+    """
+    Detect the correct clipboard command for the current platform.
+
+    Purpose:
+        Platform-aware clipboard command detection with WSL support.
+
+    Returns:
+        list[str] | None: Command and arguments if available,
+            None if no clipboard support.
+
+    Side Effects:
+        None - pure detection function.
+    """
+    # Detect platform
+    if sys.platform == "win32":
+        candidates: list[list[str]] = [["clip"]]
+    elif sys.platform == "darwin":
+        candidates = [["pbcopy"]]
+    else:  # Linux/Unix
+        # Check for WSL (reports linux but needs Windows clipboard)
+        is_wsl = False
+        try:
+            with open("/proc/version") as f:
+                if "microsoft" in f.read().lower():
+                    is_wsl = True
+        except FileNotFoundError:
+            pass
+
+        if is_wsl:
+            candidates = [
+                ["clip.exe"],  # WSL prefers Windows clipboard
+                ["pbcopy"],  # Fallback if macOS tools installed
+                ["wl-copy"],  # Wayland
+                ["xclip", "-selection", "clipboard"],  # X11
+                ["xsel", "--clipboard", "--input"],  # X11 alternative
+            ]
+        else:
+            candidates = [
+                ["wl-copy"],  # Wayland
+                ["xclip", "-selection", "clipboard"],  # X11
+                ["xsel", "--clipboard", "--input"],  # X11 alternative
+            ]
+
+    # Validate candidates exist on PATH
+    for cmd in candidates:
+        if shutil.which(cmd[0]):
+            return cmd
+
+    return None
+
+
 def copy_to_clipboard(text: str) -> bool:
     """
-    Copy text to system clipboard using multiple fallback methods.
+    Copy text to system clipboard using platform-appropriate command.
+
+    Purpose:
+        Provides clipboard access via explicit platform detection + validation.
 
     Args:
         text (str): Text to copy.
 
     Returns:
-        bool: True if successful, False otherwise.
+        bool: True if successful,
+            False if no clipboard command available or copy failed.
+
+    Side Effects:
+        Executes system clipboard command (clip/pbcopy/xclip/etc.).
     """
-    # Try pyperclip first
+    # Try pyperclip first (optional import)
     try:
         import pyperclip  # type: ignore[import-untyped]
 
         pyperclip.copy(text)
         return True
-    except (ImportError, Exception):  # noqa: S110 - expected fallback behavior
-        # Suppress exceptions and fall through to command-line tools
+    except (ImportError, Exception):  # noqa: S110 - optional library fallback
+        # Optional library not installed or copy failed;
+        # this is acceptable for optional dependencies per suppressions policy.
         pass
 
-    # Try platform-specific clipboard commands
-    candidates: tuple[list[str], ...] = (
-        ["pbcopy"],  # macOS
-        ["wl-copy"],  # Wayland
-        ["xclip", "-selection", "clipboard"],  # X11
-        ["xsel", "--clipboard", "--input"],  # X11 alternative
-        ["clip"],  # Windows
-    )
-    for cmd in candidates:
-        exe = shutil.which(cmd[0])
-        if not exe:
-            continue
-        try:
-            subprocess.run(  # noqa: S603 - exe resolved via shutil.which
-                [exe, *cmd[1:]],
-                input=text,
-                text=True,
-                check=True,
-            )
-            return True
-        except subprocess.CalledProcessError:
-            continue
+    # Get platform-appropriate clipboard command
+    cmd = get_clipboard_command()
+    if not cmd:
+        return False
 
-    return False
+    # Execute clipboard command with validation
+    exe = shutil.which(cmd[0])
+    if not exe:
+        return False
+
+    try:
+        subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+            [exe, *cmd[1:]],
+            input=text,
+            text=True,
+            check=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def run_copilot(
@@ -250,7 +320,7 @@ def run_copilot(
             "(prompt omitted from log for brevity; " "use --print-prompt to view)\n"
         )
         f.flush()
-        subprocess.run(  # noqa: S603 - copilot_exe resolved via shutil.which
+        subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
             argv, cwd=workspace, stdout=f, stderr=subprocess.STDOUT, check=True
         )
 

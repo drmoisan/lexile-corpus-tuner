@@ -36,7 +36,7 @@ class TestParseArgs:
         assert args.path == "feature-folder"
         assert args.workspace is None
         assert args.feature is None
-        assert args.prompt_template == ".github/prompts/execute-atomic-plan.prompt.md"
+        assert args.prompt_template == ".github/prompts/execute-plan-template.md"
         assert args.start is None
         assert args.max_fix_attempts == 2
         assert args.print_prompt is False
@@ -332,9 +332,10 @@ class TestCopyToClipboard:
     def test_copy_tries_multiple_fallback_commands(
         self, monkeypatch: "MonkeyPatch"
     ) -> None:
-        """copy_to_clipboard() tries multiple fallback commands."""
+        """copy_to_clipboard() tries multiple fallback commands on Linux."""
         # Mock pyperclip import to fail
         import builtins
+        import sys
 
         original_import = builtins.__import__
 
@@ -344,6 +345,8 @@ class TestCopyToClipboard:
             return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr("builtins.__import__", custom_import)
+        # Mock platform to Linux so it uses xclip/wl-copy candidates
+        monkeypatch.setattr(sys, "platform", "linux")
 
         attempted_commands: list[str] = []
 
@@ -398,7 +401,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -454,7 +457,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -547,7 +550,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -645,7 +648,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -706,7 +709,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -761,7 +764,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "TEMPLATE\n", encoding="utf-8"
         )
 
@@ -813,7 +816,7 @@ class TestMainEdgeCases:
 
         template_dir = tmp_path / ".github" / "prompts"
         template_dir.mkdir(parents=True)
-        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+        (template_dir / "execute-plan-template.md").write_text(
             "Task: {{task_id}}\n", encoding="utf-8"
         )
 

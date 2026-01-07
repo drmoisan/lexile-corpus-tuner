@@ -30,13 +30,36 @@ These are the required tools for Python code in this repo:
 2. **Linting — Ruff**
 
    - Python code must pass **Ruff** using the project’s configuration.
-   - Do not disable rules unless strictly necessary.
-   - If you must disable a rule, use a **targeted, single-line** `# noqa` with a short comment explaining why.
+   - **Suppression Authorization** (see `python-suppressions.instructions.md`):
+     - All `# noqa` suppressions must either:
+       1. **Match a pre-authorized pattern** in `python-suppressions.instructions.md`, OR
+       2. **Have explicit user approval** for that specific suppression
+     - If you encounter a Ruff error that seems to require a suppression:
+       1. First, attempt to resolve it without a suppression (refactor, restructure, use approved patterns)
+       2. If that fails, try at least five more distinct approaches
+       3. Continue iterating until you solve the problem or demonstrate why each approach fails
+       4. Only after multiple documented failed attempts may you request user approval, providing:
+          - The specific Ruff rule and error message
+          - Each approach you tried and why it failed
+          - Why a suppression is the only remaining option
+   - Use **targeted, single-line** suppressions with required comment format from `python-suppressions.instructions.md`.
 
 3. **Typing — Pyright**
 
    - Python code must be **fully type-annotated** and pass **Pyright**.
    - Avoid `Any` unless absolutely unavoidable. If `Any` is used, include a short comment explaining why.
+   - **Suppression Authorization** (see `python-suppressions.instructions.md`):
+     - All `# type: ignore` suppressions must either:
+       1. **Match a pre-authorized pattern** in `python-suppressions.instructions.md`, OR
+       2. **Have explicit user approval** for that specific suppression
+     - If you encounter a Pyright error that seems to require a suppression:
+       1. First, attempt to resolve it without a suppression (add proper types, use typed wrappers, refactor)
+       2. If that fails, try at least five more distinct approaches
+       3. Continue iterating until you solve the problem or demonstrate why each approach fails
+       4. Only after multiple documented failed attempts may you request user approval, providing:
+          - The specific Pyright error and diagnostic code
+          - Each approach you tried and why it failed
+          - Why a suppression is the only remaining option
    - **All custom Python code** (src, tests, scripts) must be type-checked.
    - Only exclude third-party packages without proper stubs (e.g., `tkinter`, `pandas`).
    - When using untyped third-party libraries:

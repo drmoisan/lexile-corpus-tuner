@@ -35,7 +35,7 @@ from .render import (
     format_issue_details,
     format_pr_details,
     select_default_base,
-)  # noqa: F401
+)
 from .summary_helpers import (
     append_generation_timestamp,
     bucket_text,

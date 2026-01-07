@@ -7,16 +7,34 @@ to provide context for generating conventional commit messages.
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 
 def run_git(args: list[str], allow_error: bool = False) -> str:
-    """Run a git command and return stdout."""
+    """Run a git command and return stdout.
+
+    Args:
+        args: Git subcommand and arguments (e.g., ["status", "-sb"])
+        allow_error: If True, return empty output on error instead of raising
+
+    Returns:
+        Git command stdout as string, stripped of whitespace
+
+    Raises:
+        FileNotFoundError: If git executable not found on PATH
+        subprocess.CalledProcessError: If git command fails and allow_error is False
+    """
+    # Validate git executable exists
+    git_exe = shutil.which("git")
+    if not git_exe:
+        raise FileNotFoundError("git executable not found on PATH")
+
     try:
-        result = subprocess.run(  # noqa: S603
-            ["git", *args],  # noqa: S607
+        result = subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+            [git_exe, *args],
             capture_output=True,
             text=True,
             encoding="utf-8",

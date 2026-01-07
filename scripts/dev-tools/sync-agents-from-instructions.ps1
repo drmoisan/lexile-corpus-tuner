@@ -9,6 +9,7 @@ $sections = @(
     @{ Key = "github-actions"; Title = "GitHub Actions Workflow Policy"; FileName = "github-actions.instructions.md" },
     @{ Key = "python-code-change"; Title = "Python Code Change Policy"; FileName = "python-code-change.instructions.md" },
     @{ Key = "python-unit-test"; Title = "Python Unit Test Policy"; FileName = "python-unit-test.instructions.md" },
+    @{ Key = "python-noqa"; Title = "Python Suppression Policy (noqa and type: ignore)"; FileName = "python-suppressions.instructions.md" },
     @{ Key = "powershell-code-change"; Title = "PowerShell Code Change Policy"; FileName = "powershell-code-change.instructions.md" },
     @{ Key = "powershell-unit-test"; Title = "PowerShell Unit Test Policy"; FileName = "powershell-unit-test.instructions.md" },
     @{ Key = "codexer"; Title = "Codexer Policy"; FileName = "codexer.instructions.md" },
@@ -84,6 +85,7 @@ $body
 > - .github/instructions/github-actions.instructions.md
 > - .github/instructions/python-code-change.instructions.md
 > - .github/instructions/python-unit-test.instructions.md
+> - .github/instructions/python-suppressions.instructions.md
 > - .github/instructions/powershell-code-change.instructions.md
 > - .github/instructions/powershell-unit-test.instructions.md
 >

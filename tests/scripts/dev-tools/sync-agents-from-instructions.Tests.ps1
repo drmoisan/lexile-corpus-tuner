@@ -38,6 +38,10 @@ line2
             $script:instructionsDir = Join-Path -Path "/repo" -ChildPath ".github/instructions"
             Mock -CommandName Get-InstructionsBody -MockWith {
                 param($Path)
+                # Return mock content based on which file is requested
+                if ($Path -like "*python-suppressions.instructions.md") {
+                    return "python suppressions policy content"
+                }
                 switch ($Path) {
                     { $_ -eq $script:copilotPath } { return "copilot body" }
                     { $_ -eq (Join-Path -Path $script:instructionsDir -ChildPath "general-code-change.instructions.md") } { return "general code" }

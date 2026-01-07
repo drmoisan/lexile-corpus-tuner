@@ -98,7 +98,8 @@ class FakeIssueFetcher:
         self.meta = meta
         self.calls: list[str] = []
 
-    def __call__(self, issue_number: str) -> mod.IssueMeta | None:  # noqa: D401
+    def __call__(self, issue_number: str) -> mod.IssueMeta | None:
+        """Fetch mock issue metadata for testing."""
         self.calls.append(issue_number)
         return self.meta
 
@@ -107,7 +108,8 @@ class FakeCodeLauncher:
     def __init__(self) -> None:
         self.calls: list[list[Path]] = []
 
-    def __call__(self, files: Iterable[Path]) -> bool:  # noqa: D401
+    def __call__(self, files: Iterable[Path]) -> bool:
+        """Launch mock code editor for testing."""
         file_list = list(files)
         self.calls.append(file_list)
         return True

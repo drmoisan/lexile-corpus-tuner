@@ -323,27 +323,26 @@
       "type": "debugpy"
     },
     {
-      "name": "Python: Atomic Executor (Execute All, 10 retries)",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "scripts.dev_tools.atomic_executor.cli",
-      "cwd": "${workspaceFolder}",
       "args": [
         "execute-all",
-        "--path",
         "${input:FeaturePath}",
         "--max-fix-attempts",
         "10"
       ],
-      "console": "integratedTerminal"
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Execute All, 10 retries)",
+      "request": "launch",
+      "type": "debugpy"
     }
   ],
   "inputs": [
     {
-      "id": "FeaturePath",
-      "type": "promptString",
+      "default": "docs/features/active/",
       "description": "Path to feature folder (e.g. docs/features/active/feature-name)",
-      "default": "docs/features/active/"
+      "id": "FeaturePath",
+      "type": "promptString"
     }
   ],
   "version": "0.2.0"

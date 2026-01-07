@@ -52,7 +52,8 @@ def test_copy_to_clipboard_with_pyperclip(monkeypatch: pytest.MonkeyPatch) -> No
         def __init__(self) -> None:
             self.copied: str | None = None
 
-        def copy(self, text: str) -> None:  # noqa: D401
+        def copy(self, text: str) -> None:
+            """Copy text to mock clipboard."""
             self.copied = text
 
     dummy = DummyPyperclip()

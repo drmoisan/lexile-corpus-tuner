@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -22,7 +23,7 @@ class TestRunGit:
     ) -> None:
         """Test that successful git command returns stripped stdout."""
         mock_result = subprocess.CompletedProcess(
-            args=["git", "status"],
+            args=["/usr/bin/git", "status"],
             returncode=0,
             stdout="  some output  \n",
             stderr="",
@@ -35,6 +36,11 @@ class TestRunGit:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
+        def mock_which(cmd: str) -> str:
+            return "/usr/bin/git"
+
+        monkeypatch.setattr(shutil, "which", mock_which)
+
         result = run_git(["status"])
         assert result == "some output"
 
@@ -46,12 +52,17 @@ class TestRunGit:
         def mock_run(*args: object, **kwargs: object) -> None:
             raise subprocess.CalledProcessError(
                 returncode=1,
-                cmd=["git", "status"],
+                cmd=["/usr/bin/git", "status"],
                 output="",
                 stderr="fatal: not a git repository",
             )
 
         monkeypatch.setattr(subprocess, "run", mock_run)
+
+        def mock_which(cmd: str) -> str:
+            return "/usr/bin/git"
+
+        monkeypatch.setattr(shutil, "which", mock_which)
 
         with pytest.raises(subprocess.CalledProcessError):
             run_git(["status"])
@@ -64,7 +75,7 @@ class TestRunGit:
         def mock_run(*args: object, **kwargs: object) -> None:
             exc = subprocess.CalledProcessError(
                 returncode=1,
-                cmd=["git", "status"],
+                cmd=["/usr/bin/git", "status"],
                 output="",
                 stderr="fatal: not a git repository",
             )
@@ -72,6 +83,11 @@ class TestRunGit:
             raise exc
 
         monkeypatch.setattr(subprocess, "run", mock_run)
+
+        def mock_which(cmd: str) -> str:
+            return "/usr/bin/git"
+
+        monkeypatch.setattr(shutil, "which", mock_which)
 
         result = run_git(["status"], allow_error=True)
         assert result == ""
@@ -115,11 +131,16 @@ class TestRunGit:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
+        def mock_which(cmd: str) -> str:
+            return "/usr/bin/git"
+
+        monkeypatch.setattr(shutil, "which", mock_which)
+
         run_git(["status", "-sb"])
 
         assert len(calls) == 1
         args_tuple, kwargs_dict = calls[0]
-        assert args_tuple == (["git", "status", "-sb"],)
+        assert args_tuple == (["/usr/bin/git", "status", "-sb"],)
         assert kwargs_dict["capture_output"] is True
         assert kwargs_dict["text"] is True
         assert kwargs_dict["encoding"] == "utf-8"
@@ -133,13 +154,18 @@ class TestRunGit:
             *args: object, **kwargs: object
         ) -> subprocess.CompletedProcess[str | None]:
             return subprocess.CompletedProcess(
-                args=["git", "status"],
+                args=["/usr/bin/git", "status"],
                 returncode=0,
                 stdout=None,
                 stderr="",
             )
 
         monkeypatch.setattr(subprocess, "run", mock_run)
+
+        def mock_which(cmd: str) -> str:
+            return "/usr/bin/git"
+
+        monkeypatch.setattr(shutil, "which", mock_which)
 
         result = run_git(["status"])
         assert result == ""
