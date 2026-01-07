@@ -18,6 +18,18 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
 
+def _mock_git_path(_: str) -> str:
+    """Return a fake git path for monkeypatching shutil.which."""
+
+    return "/usr/bin/git"
+
+
+def _mock_missing_git(_: str) -> None:
+    """Return None to simulate git not being installed."""
+
+    return None
+
+
 class TestFeatureResolverInit:
     """Tests for FeatureResolver initialization."""
 
@@ -124,7 +136,7 @@ class TestFeatureResolverResolve:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         with pytest.raises(RuntimeError, match="Feature folder .* not found"):
@@ -147,7 +159,7 @@ class TestFeatureResolverResolve:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         # Use non-existent path to trigger feature selection
@@ -170,7 +182,7 @@ class TestFeatureResolverResolve:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         with pytest.raises(RuntimeError, match="Could not resolve feature folder"):
@@ -192,7 +204,7 @@ class TestFeatureResolverResolve:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         with pytest.raises(RuntimeError, match="Multiple feature folders match"):
@@ -218,7 +230,7 @@ class TestFeatureResolverEdgeCases:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         name, path = resolver.resolve("nonexistent", None)
@@ -233,7 +245,7 @@ class TestFeatureResolverEdgeCases:
         active_dir.mkdir()
         (active_dir / "some-feature").mkdir()
 
-        monkeypatch.setattr("shutil.which", lambda x: None)
+        monkeypatch.setattr("shutil.which", _mock_missing_git)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         # Should raise because no explicit feature and git not available
@@ -253,7 +265,7 @@ class TestFeatureResolverEdgeCases:
             raise subprocess.CalledProcessError(1, "git")
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         with pytest.raises(RuntimeError, match="Could not resolve feature folder"):
@@ -273,7 +285,7 @@ class TestFeatureResolverEdgeCases:
             return result
 
         monkeypatch.setattr("subprocess.run", mock_run)
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
+        monkeypatch.setattr("shutil.which", _mock_git_path)
 
         resolver = FeatureResolver(tmp_path, active_dir)
         with pytest.raises(RuntimeError, match="No feature folders found"):

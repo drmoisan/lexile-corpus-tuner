@@ -10,7 +10,7 @@ Key paths:
 Key scripts/tasks:
 - Use `gh issue create` (or GitHub UI) for the bug record.
 - VS Code tasks: Run checks (`Run All Checks`, `Fix All`) and feature helpers if the bug touches an active feature (e.g., `link-feature-docs.ps1` to add links).
-- Local quality gates: Black, Ruff, Pyright, Pytest (`poetry run python -m scripts.dev_tools.fix_all` runs them in sequence; PowerShell wrapper available at `scripts/dev-tools/fix-all.ps1`).
+- Local quality gates: JSON formatting/validation, shell QC (shfmt/shellcheck/bats), Black, Ruff, Pyright, Pytest, and PoshQC (`poetry run python -m scripts.dev_tools.fix_all` runs them in sequence; PowerShell wrapper available at `scripts/dev-tools/fix-all.ps1`).
 
 ---
 
@@ -38,7 +38,7 @@ Key scripts/tasks:
 - If you uncover deeper design issues, open a new issue rather than expanding scope.
 
 ## 6) Local verification
-- Run `poetry run python -m scripts.dev_tools.fix_all` (or the `Run All Checks` VS Code task; PowerShell wrapper at `scripts/dev-tools/fix-all.ps1`) for Black → Ruff → Pyright → Pytest.
+- Run `poetry run python -m scripts.dev_tools.fix_all` (or the `Run All Checks` VS Code task; PowerShell wrapper at `scripts/dev-tools/fix-all.ps1`) for JSON/shell QC → Black/Ruff/Pyright/Pytest → PoshQC.
 - Run any targeted integration/end-to-end checks relevant to the bug.
 - Validate against the original repro (and sample transcripts if applicable).
 

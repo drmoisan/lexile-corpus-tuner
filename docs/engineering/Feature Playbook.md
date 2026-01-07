@@ -57,7 +57,7 @@ VS Code tasks wrap these scripts: see `.vscode/tasks.json` (e.g., “Feature: Ne
 - Document new CLI flags in `spec.md` and `--help`; add tests for flag behavior.
 
 ## 7. Local verification
-- Run `Run All Checks` task or `poetry run python -m scripts.dev_tools.fix_all` (PowerShell wrapper available at `scripts/dev-tools/fix-all.ps1`) for Black → Ruff → Pyright → Pytest.
+- Run `Run All Checks` task or `poetry run python -m scripts.dev_tools.fix_all` (PowerShell wrapper available at `scripts/dev-tools/fix-all.ps1`) for JSON/shell QC → Black/Ruff/Pyright/Pytest → PoshQC.
 - Run relevant integration/end-to-end checks and sample transcripts.
 - Confirm performance impact if applicable.
 

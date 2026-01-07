@@ -332,7 +332,7 @@ class TestPlanParserFlipCheckbox:
         assert "- [x] [P1-T1] First task" in updated_content
 
     def test_flip_checkbox_is_idempotent_for_checked_task(self, tmp_path: Path) -> None:
-        """flip_checkbox is idempotent - calling on already-checked task does nothing."""
+        """flip_checkbox is idempotent for already-checked tasks."""
         plan_file = tmp_path / "plan.md"
         plan_content = """## Phase 1
 - [x] [P1-T1] First task

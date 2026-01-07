@@ -146,16 +146,18 @@ Prefer these commands instead of the `QC: 4 Pytest: run tests` / `QC: 4 Pytest: 
 
 ### Run All Checks (Sequential)
 
-Run JSON format → JSON validate → Black → Ruff → Pyright → Pytest in sequence (plus PowerShell format/analyze/test when applicable):
+Run JSON format → JSON validate → shell-qc format/check/test → Black → Ruff → Pyright → Pytest → PowerShell format/analyze/test in sequence:
 
 ```bash
 poetry run python -m scripts.dev_tools.format_json
 poetry run python -m scripts.dev_tools.validate_json
+poetry run python -m scripts.dev_tools.shell_qc format
+poetry run python -m scripts.dev_tools.shell_qc check
+poetry run python -m scripts.dev_tools.shell_qc test
 poetry run black .
 poetry run ruff check
 poetry run pyright
 poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
-# If PowerShell code changed
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1
 pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1
@@ -163,7 +165,7 @@ pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pest
 
 ### Fix All (Automated)
 
-Runs JSON format → JSON validate → Black formatting + Ruff auto-fixes + verification → Pyright → Pytest (with coverage) via the Python entry point:
+Runs JSON format → JSON validate → shell-qc format/check/test → Black formatting + Ruff auto-fixes + verification → Pyright → Pytest (with coverage) → PowerShell format/analyze/test via the Python entry point:
 
 ```bash
 poetry run python -m scripts.dev_tools.fix_all

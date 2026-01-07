@@ -5,6 +5,8 @@ Tests cover QCRunner class methods for running scoped and full QC toolchains
 (Black, Ruff, Pyright, Pytest) on changed files or entire codebase.
 """
 
+# pyright: reportPrivateUsage=false
+
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -94,14 +96,18 @@ class TestQCRunnerFilterHelpers:
         """_filter_python_files() keeps only .py files."""
         runner = QCRunner(tmp_path)
         files = ["src/module.py", "tests/test.py", "README.md", "config.yaml"]
-        result = runner._filter_python_files(files)
+        result = runner._filter_python_files(
+            files
+        )  # pyright: ignore[reportPrivateUsage]
         assert result == ["src/module.py", "tests/test.py"]
 
     def test_filter_python_files_returns_empty_for_no_py(self, tmp_path: Path) -> None:
         """_filter_python_files() returns empty list when no .py files."""
         runner = QCRunner(tmp_path)
         files = ["README.md", "config.yaml", "data.json"]
-        result = runner._filter_python_files(files)
+        result = runner._filter_python_files(
+            files
+        )  # pyright: ignore[reportPrivateUsage]
         assert result == []
 
     def test_filter_test_files_keeps_tests_only(self, tmp_path: Path) -> None:
@@ -113,14 +119,14 @@ class TestQCRunnerFilterHelpers:
             "src/module.py",
             "test_outside.py",
         ]
-        result = runner._filter_test_files(files)
+        result = runner._filter_test_files(files)  # pyright: ignore[reportPrivateUsage]
         assert result == ["tests/test_module.py", "src/tests/test_helper.py"]
 
     def test_filter_test_files_requires_py_extension(self, tmp_path: Path) -> None:
         """_filter_test_files() requires .py extension."""
         runner = QCRunner(tmp_path)
         files = ["tests/test_module.py", "tests/README.md", "tests/data.json"]
-        result = runner._filter_test_files(files)
+        result = runner._filter_test_files(files)  # pyright: ignore[reportPrivateUsage]
         assert result == ["tests/test_module.py"]
 
 
@@ -329,7 +335,7 @@ class TestQCRunnerEdgeCases:
         monkeypatch.setattr("subprocess.run", mock_run)
 
         runner = QCRunner(tmp_path)
-        runner._run(["echo", "test"])
+        runner._run(["echo", "test"])  # pyright: ignore[reportPrivateUsage]
 
         assert captured_kwargs["cwd"] == tmp_path
         assert captured_kwargs["check"] is True
@@ -352,7 +358,9 @@ class TestQCRunnerEdgeCases:
         monkeypatch.setattr("subprocess.run", mock_run)
 
         runner = QCRunner(tmp_path)
-        result = runner._run(["echo", "test"], capture_output=True)
+        result = runner._run(
+            ["echo", "test"], capture_output=True
+        )  # pyright: ignore[reportPrivateUsage]
 
         assert captured_kwargs["capture_output"] is True
         assert result.stdout == "output"
