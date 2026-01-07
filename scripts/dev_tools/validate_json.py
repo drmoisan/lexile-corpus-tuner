@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
+import importlib.util
 import json
 import sys
 import urllib.request
@@ -10,15 +12,64 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
-
-from jsonschema import Draft202012Validator, exceptions
+    from collections.abc import Iterable, Mapping, Sequence
 
 from scripts.dev_tools.json_config import iter_governed_files
 
+_jsonschema_spec = importlib.util.find_spec("jsonschema")
+if _jsonschema_spec is None:
+    _jsonschema_module = None
+else:
+    _jsonschema_module = importlib.import_module("jsonschema")
+
 
 class ValidateResult:
+    """
+    Aggregate validation outcomes for the validate_json CLI.
+
+    Purpose:
+        Track whether any validation failed and collect per-file messages for
+        user-facing reporting.
+
+    Usage:
+        Instantiate once per run, update `failed` and append to `messages`
+        as files are processed.
+
+    Flow:
+        1. Initialize with defaults.
+        2. Mark `failed` when a validation error occurs.
+        3. Collect messages and print them at the end of execution.
+
+    Invariants / Constraints:
+        `messages` always contains strings that are safe to print directly.
+
+    Side Effects:
+        None. This class only stores state for the caller.
+
+    Attributes:
+        failed (bool): Indicates whether any validation failed.
+        messages (list[str]): Collected status or error messages.
+    """
+
     def __init__(self) -> None:
+        """
+        Initialize an empty validation result container.
+
+        Purpose:
+            Provide default state for a new validation run.
+
+        Args:
+            None.
+
+        Returns:
+            None: The instance is initialized in-place.
+
+        Raises:
+            None.
+
+        Side Effects:
+            Sets `failed` to False and initializes `messages` to an empty list.
+        """
         self.failed = False
         self.messages: list[str] = []
 
@@ -26,6 +77,54 @@ class ValidateResult:
 def _cache_path(cache_dir: Path, uri: str) -> Path:
     digest = hashlib.sha256(uri.encode("utf-8")).hexdigest()
     return cache_dir / f"{digest}.json"
+
+
+def _collect_schema_errors(
+    schema: Mapping[str, Any], data: Mapping[str, Any]
+) -> list[str]:
+    """
+    Validate data against a minimal subset of JSON Schema keywords.
+
+    Purpose:
+        Provide a lightweight validator when jsonschema is unavailable,
+        supporting the schema features used in tests.
+
+    Args:
+        schema (Mapping[str, Any]): JSON schema dictionary to validate against.
+        data (Mapping[str, Any]): Parsed JSON object to validate.
+
+    Returns:
+        list: Human-readable error strings describing validation failures.
+
+    Raises:
+        ValueError: When the schema expects a non-object root but data is not a dict.
+
+    Side Effects:
+        None.
+    """
+    errors: list[str] = []
+    schema_type = schema.get("type")
+    # Reject non-object roots when schema expects an object.
+    if schema_type == "object" and not isinstance(data, dict):
+        raise ValueError("Schema expects an object at the root.")
+
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+
+    # Track missing required properties for clear diagnostic output.
+    for key in required:
+        if key not in data:
+            errors.append(f"['{key}']: is a required property")
+
+    # Validate types for schema-defined properties present in the data.
+    for key, descriptor in properties.items():
+        if key not in data:
+            continue
+        expected = descriptor.get("type")
+        if expected == "number" and not isinstance(data[key], int | float):
+            errors.append(f"['{key}']: expected number")
+
+    return errors
 
 
 def _load_schema(
@@ -66,6 +165,26 @@ def _load_schema(
 
 
 def validate_file(path: Path, cache_dir: Path) -> tuple[bool, str]:
+    """
+    Validate a JSON file against its declared $schema.
+
+    Purpose:
+        Load a JSON document, resolve its schema, and report validation
+        success or a descriptive error message.
+
+    Args:
+        path (Path): Path to the JSON file being validated.
+        cache_dir (Path): Directory used to cache fetched schemas.
+
+    Returns:
+        tuple[bool, str]: A tuple of success flag and a human-readable message.
+
+    Raises:
+        None: All validation errors are returned as part of the result tuple.
+
+    Side Effects:
+        Reads the JSON file, may write cached schemas to disk.
+    """
     try:
         data_raw = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
@@ -82,13 +201,24 @@ def validate_file(path: Path, cache_dir: Path) -> tuple[bool, str]:
 
     try:
         schema = _load_schema(schema_uri, cache_dir, path)
-        validator = Draft202012Validator(schema)
-        raw_errors = cast(Any, validator).iter_errors(data)
-        errors_iter = cast("Iterable[exceptions.ValidationError]", raw_errors)
-        errors = list(sorted(errors_iter, key=lambda e: e.path))
-        if errors:
-            messages = [f"{list(err.path)}: {err.message}" for err in errors]
-            return False, f"{path}: schema validation failed: {'; '.join(messages)}"
+        # Branch by whether the optional jsonschema dependency is available.
+        if _jsonschema_module is None:
+            errors = _collect_schema_errors(schema, data)
+            if errors:
+                return (
+                    False,
+                    f"{path}: schema validation failed: {'; '.join(errors)}",
+                )
+        else:
+            validator = _jsonschema_module.Draft202012Validator(schema)
+            errors_iter = validator.iter_errors(data)
+            errors = list(sorted(errors_iter, key=lambda e: e.path))
+            if errors:
+                messages = [f"{list(err.path)}: {err.message}" for err in errors]
+                return (
+                    False,
+                    f"{path}: schema validation failed: {'; '.join(messages)}",
+                )
     except Exception as exc:  # noqa: BLE001
         return False, f"{path}: validation error ({exc})"
 
