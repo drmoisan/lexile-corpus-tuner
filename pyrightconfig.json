@@ -6,7 +6,10 @@
     "build",
     "artifacts"
   ],
-  "extraPaths": ["scripts"],
+  "extraPaths": [
+    "src",
+    "scripts"
+  ],
   "venvPath": ".",
   "venv": ".venv",
   "typeCheckingMode": "strict",
