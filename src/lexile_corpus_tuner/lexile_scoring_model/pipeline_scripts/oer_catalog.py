@@ -68,11 +68,11 @@ def build_ia_query(source: str) -> str:
     if normalized == "openstax":
         return (
             '(mediatype:texts) AND (openstax OR "OpenStax") AND '
-            '(textbook OR "open textbook")'
+            '(textbook OR "open textbook") AND NOT (ck12 OR "CK-12")'
         )
     return (
-        '(mediatype:texts) AND ("CK-12" OR ck12 OR "CK12") AND '
-        '(textbook OR "flexbook")'
+        '(mediatype:texts) AND ("CK-12" OR ck12 OR "CK12" OR "ck-12") AND '
+        '(textbook OR "flexbook" OR "FlexBook") AND NOT (openstax OR "OpenStax")'
     )
 
 
@@ -203,22 +203,72 @@ def build_oer_catalog(  # pragma: no cover - CLI wrapper
 ) -> None:
     """
     CLI entrypoint to build catalog JSONL files for requested sources.
+
+    Post-filters results to ensure source exclusivity since IA query NOT operators
+    are unreliable and metadata tagging is inconsistent.
+    Processes OpenStax first to build a reference set of known identifiers.
     """
     selected_sources = [s.strip().lower() for s in sources.split(",") if s.strip()]
+
+    # Track OpenStax identifiers for exclusion from other sources
+    openstax_identifiers: set[str] = set()
+
     for src in selected_sources:
         if src not in SUPPORTED_SOURCES:
             typer.echo(f"Skipping unsupported source: {src}", err=True)
             continue
         query = build_ia_query(src)
+        typer.echo(f"Querying IA for {src} with: {query}")
         results = fetch_ia_search_results(query)
+        typer.echo(f"Found {len(results)} raw results for {src}")
         entries: list[CatalogEntry] = []
-        # Parse each result deterministically for this source.
-        # Convert raw rows into typed catalog entries for this source.
+        filtered_count = 0
+        # Parse each result and post-filter to ensure source exclusivity.
+        # IA NOT operators and metadata tagging are unreliable,
+        # so apply exclusion logic here.
         for raw in results:
+            identifier = str(raw.get("identifier", ""))
+            title_lower = str(raw.get("title", "")).lower()
+            creator_lower = str(raw.get("creator", "")).lower()
+
+            # Post-filter: check for conflicting source markers
+            if src == "ck12":
+                # Reject any result with OpenStax markers or OpenStax identifiers
+                if (
+                    identifier in openstax_identifiers
+                    or "openstax" in title_lower
+                    or "openstax" in creator_lower
+                    or "openstax" in identifier.lower()
+                ):
+                    filtered_count += 1
+                    continue
+            elif src == "openstax":
+                # Reject any result with CK-12 markers
+                if (
+                    "ck12" in title_lower
+                    or "ck-12" in title_lower
+                    or "ck 12" in title_lower
+                    or "flexbook" in title_lower
+                    or "ck12" in identifier.lower()
+                    or "ck-12" in identifier.lower()
+                ):
+                    filtered_count += 1
+                    continue
             try:
                 entries.append(parse_catalog_entry(raw, src))
             except ValueError as exc:
                 typer.echo(f"Skipping row without identifier: {exc}", err=True)
+
+        # After processing OpenStax, save its identifiers for filtering other sources
+        if src == "openstax":
+            openstax_identifiers = {entry.identifier for entry in entries}
+            typer.echo(
+                f"Collected {len(openstax_identifiers)} OpenStax identifiers "
+                f"for exclusion filtering"
+            )
+
+        if filtered_count > 0:
+            typer.echo(f"Filtered out {filtered_count} conflicting entries for {src}")
         output_path = out_dir / f"{src}_catalog.jsonl"
         write_catalog_jsonl(entries, output_path)
         typer.echo(f"Wrote {len(entries)} entries to {output_path}")

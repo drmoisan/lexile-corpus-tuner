@@ -249,6 +249,69 @@
     },
     {
       "args": [
+        "--sources",
+        "openstax,ck12",
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog",
+      "name": "OER Step 1 - Build Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-file",
+        "data/meta/catalogs/openstax_catalog.jsonl",
+        "--output",
+        "data/meta/catalogs/openstax_enriched.jsonl"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment",
+      "name": "OER Step 2 - Enrich Catalog (OpenStax)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--require-text",
+        "--sources",
+        "openstax,ck12",
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation",
+      "name": "OER Step 3 - Curate Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--out",
+        "data/meta/oer_sources.json",
+        "--validate-urls"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest",
+      "name": "OER Step 4 - Generate Manifest",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui",
+      "name": "OER Step 5 - Visual Curation UI",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
         "${relativeFile}",
         "--output",
         "${relativeFile}"

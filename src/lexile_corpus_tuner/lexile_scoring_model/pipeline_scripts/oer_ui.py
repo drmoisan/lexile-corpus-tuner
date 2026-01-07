@@ -123,17 +123,20 @@ def _catalog_from_line(raw: Mapping[str, object | list[object] | None]) -> Catal
 
 def load_catalog_files(catalog_dir: Path) -> list[CatalogEntry]:
     """
-    Load all JSONL catalog files in a directory into CatalogEntry objects.
+    Load enriched JSONL catalog files (with download candidates) from a directory.
 
     Args:
-        catalog_dir: Directory containing catalog JSONL files.
+        catalog_dir: Directory containing enriched catalog JSONL files.
 
     Returns:
-        List of CatalogEntry objects aggregated from all files.
+        List of CatalogEntry objects aggregated from all enriched files.
+
+    Side Effects:
+        Reads *_enriched.jsonl files; skips raw catalog or curated files.
     """
     entries: list[CatalogEntry] = []
-    # Walk every catalog JSONL and accumulate entries for the UI to present.
-    for path in sorted(catalog_dir.glob("*.jsonl"), key=lambda p: str(p)):
+    # Load only enriched files that have download candidates populated.
+    for path in sorted(catalog_dir.glob("*_enriched.jsonl"), key=lambda p: str(p)):
         # Decode each JSONL row to rebuild CatalogEntry objects.
         for line in path.read_text(encoding="utf-8").splitlines():
             raw = cast(Mapping[str, object | list[object] | None], json.loads(line))
@@ -185,25 +188,50 @@ def create_catalog_table(  # pragma: no cover - GUI rendering exercised manually
     parent: tk.Misc, viewmodel: CatalogViewModel
 ) -> tk.Frame:
     """
-    Build a simple checkbox table bound to the view model.
+    Build a scrollable checkbox table bound to the view model.
 
     Args:
         parent: Parent widget.
         viewmodel: CatalogViewModel supplying entries and selection state.
 
     Returns:
-        Frame containing checkboxes and labels.
+        Frame containing scrollable checkboxes and labels.
     """
-    frame = tk.Frame(parent)
-    header = tk.Frame(frame)
-    tk.Label(header, text="Select").grid(row=0, column=0, padx=4, sticky="w")
-    tk.Label(header, text="Identifier").grid(row=0, column=1, padx=4, sticky="w")
-    tk.Label(header, text="Title").grid(row=0, column=2, padx=4, sticky="w")
+    # Outer frame with scrollbars
+    outer_frame = tk.Frame(parent)
+
+    # Create canvas and scrollbars
+    canvas = tk.Canvas(outer_frame, borderwidth=0)
+    v_scrollbar = tk.Scrollbar(
+        outer_frame, orient="vertical", command=canvas.yview  # type: ignore[arg-type]
+    )
+    h_scrollbar = tk.Scrollbar(
+        outer_frame, orient="horizontal", command=canvas.xview  # type: ignore[arg-type]
+    )
+
+    # Inner frame to hold all content
+    scrollable_frame = tk.Frame(canvas)
+
+    # Configure canvas scrolling
+    scrollable_frame.bind(
+        "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+    # Header row
+    header = tk.Frame(scrollable_frame)
+    tk.Label(header, text="Select", width=10).grid(row=0, column=0, padx=4, sticky="w")
+    tk.Label(header, text="Identifier", width=30).grid(
+        row=0, column=1, padx=4, sticky="w"
+    )
+    tk.Label(header, text="Title", width=60).grid(row=0, column=2, padx=4, sticky="w")
     header.pack(fill="x")
 
     # Render each entry with a checkbox so the curator can toggle inclusion.
     for idx, entry in enumerate(viewmodel.get_entries()):
-        row = tk.Frame(frame)
+        row = tk.Frame(scrollable_frame)
         var = tk.BooleanVar(value=viewmodel.is_selected(idx))
 
         def _toggle(i: int, state_var: tk.BooleanVar) -> Callable[[], None]:
@@ -212,12 +240,20 @@ def create_catalog_table(  # pragma: no cover - GUI rendering exercised manually
         tk.Checkbutton(row, variable=var, command=_toggle(idx, var)).grid(
             row=0, column=0, padx=4, sticky="w"
         )
-        tk.Label(row, text=entry.identifier).grid(row=0, column=1, padx=4, sticky="w")
-        tk.Label(row, text=entry.title or "(untitled)").grid(
+        tk.Label(row, text=entry.identifier, width=30, anchor="w").grid(
+            row=0, column=1, padx=4, sticky="w"
+        )
+        tk.Label(row, text=entry.title or "(untitled)", width=60, anchor="w").grid(
             row=0, column=2, padx=4, sticky="w"
         )
         row.pack(fill="x", pady=1)
-    return frame
+
+    # Pack scrollbars and canvas
+    v_scrollbar.pack(side="right", fill="y")
+    h_scrollbar.pack(side="bottom", fill="x")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    return outer_frame
 
 
 def _toggle_helper(  # pragma: no cover - GUI event wiring
@@ -278,31 +314,127 @@ def export_manifest(entries: list[CatalogEntry], output_path: Path) -> None:
 
 @app.command()
 def curate_oer_ui() -> None:  # pragma: no cover - interactive GUI
-    """Launch the Tkinter UI for manual curation."""
+    """
+    Launch the Tkinter UI for manual curation.
+
+    Purpose:
+        Provide a visual alternative to Steps 3+4: load enriched catalogs,
+        allow manual selection, and directly export the manifest.
+
+    Flow:
+        1. Load *_enriched.jsonl files (output of Step 2: Enrich Catalog).
+        2. User selects which entries to include via checkboxes.
+        3. Export generates manifest directly, bypassing the curated JSONL step.
+
+    Side Effects:
+        Writes data/meta/oer_sources.json when Export is clicked.
+    """
     catalog_dir = Path("data/meta/catalogs")
     entries = load_catalog_files(catalog_dir)
+
+    if not entries:
+        typer.echo(
+            "No enriched catalog files found. "
+            "Please run Step 2 (Enrich Catalog) first.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
     viewmodel = CatalogViewModel(entries)
 
     root = tk.Tk()
-    root.title("OER Curation")
+    root.title("OER Curation Tool")
+    root.geometry("1000x600")
 
-    table = create_catalog_table(root, viewmodel)
-    table.pack(fill="both", expand=True, padx=8, pady=8)
+    # Make window resizable
+    root.rowconfigure(0, weight=1)
+    root.columnconfigure(0, weight=1)
 
+    # Main content frame
+    main_frame = tk.Frame(root)
+    main_frame.pack(fill="both", expand=True, padx=8, pady=8)
+    main_frame.rowconfigure(1, weight=1)
+    main_frame.columnconfigure(0, weight=1)
+
+    # Filter panel at top
     def _apply_filters(subject: str, grade: str, language: str) -> None:
         # Intentional no-op stub; real filtering can be added later without
         # altering the manifest generation contract.
         _ = (subject, grade, language)
 
-    filter_panel = create_filter_panel(root, _apply_filters)
-    filter_panel.pack(fill="x", padx=8, pady=4)
+    filter_panel = create_filter_panel(main_frame, _apply_filters)
+    filter_panel.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+
+    # Scrollable catalog table in middle (takes up most space)
+    table = create_catalog_table(main_frame, viewmodel)
+    table.grid(row=1, column=0, sticky="nsew")
+
+    # Status label
+    status_label = tk.Label(
+        main_frame, text=f"Loaded {len(entries)} entries", anchor="w"
+    )
+    status_label.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+
+    # Button panel at bottom
+    button_frame = tk.Frame(main_frame)
+    button_frame.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+
+    def _select_all() -> None:
+        for i in range(len(viewmodel.get_entries())):
+            if not viewmodel.is_selected(i):
+                viewmodel.toggle_selection(i)
+        status_label.config(text=f"Selected all {len(entries)} entries")
+        # Force refresh by recreating table
+        table.destroy()
+        new_table = create_catalog_table(main_frame, viewmodel)
+        new_table.grid(row=1, column=0, sticky="nsew")
+
+    def _deselect_all() -> None:
+        for i in range(len(viewmodel.get_entries())):
+            if viewmodel.is_selected(i):
+                viewmodel.toggle_selection(i)
+        status_label.config(text="Deselected all entries")
+        # Force refresh by recreating table
+        table.destroy()
+        new_table = create_catalog_table(main_frame, viewmodel)
+        new_table.grid(row=1, column=0, sticky="nsew")
 
     def _export() -> None:
         selected = viewmodel.get_selected_entries()
-        export_manifest(selected, Path("data/meta/oer_sources.json"))
-        typer.echo(f"Exported manifest with {len(selected)} entries")
+        if not selected:
+            status_label.config(text="Error: No entries selected for export")
+            return
+        output_path = Path("data/meta/oer_sources.json")
+        try:
+            export_manifest(selected, output_path)
+            status_label.config(
+                text=f"Successfully exported {len(selected)} entries to {output_path}"
+            )
+            typer.echo(
+                f"Exported manifest with {len(selected)} entries to {output_path}"
+            )
+        except Exception as exc:
+            status_label.config(text=f"Export failed: {exc}")
+            typer.echo(f"Export failed: {exc}", err=True)
 
-    tk.Button(root, text="Export Manifest", command=_export).pack(pady=8)
+    tk.Button(button_frame, text="Select All", command=_select_all, width=15).pack(
+        side="left", padx=4
+    )
+    tk.Button(button_frame, text="Deselect All", command=_deselect_all, width=15).pack(
+        side="left", padx=4
+    )
+    tk.Button(
+        button_frame,
+        text="Export Manifest",
+        command=_export,
+        width=15,
+        bg="#4CAF50",
+        fg="white",
+    ).pack(side="left", padx=4)
+    tk.Button(button_frame, text="Quit", command=root.destroy, width=15).pack(
+        side="right", padx=4
+    )
+
     root.mainloop()
 
 
