@@ -275,19 +275,23 @@ class PlanParser:
                 "checkbox tasks found."
             )
 
-        # Heuristic: ensure there is some QA/toolchain phase
+        # Heuristic: ensure there is some final validation/toolchain phase
         plan_text = self._read_text()
-        has_qa_phase = re.search(r"Phase\s+\d+.*QA", plan_text, flags=re.IGNORECASE)
+        has_validation_phase = re.search(
+            r"Phase\s+\d+.*(validation|release|qa|toolchain|gate)",
+            plan_text,
+            flags=re.IGNORECASE,
+        )
         has_toolchain = re.search(
             r"black.*ruff.*pyright.*pytest",
             plan_text,
             flags=re.IGNORECASE | re.DOTALL,
         )
 
-        if not has_qa_phase and not has_toolchain:
+        if not has_validation_phase and not has_toolchain:
             raise RuntimeError(
-                "BLOCKED at preflight (before [P0-T1]): no final QA/toolchain "
-                "phase detected (heuristic)."
+                "BLOCKED at preflight (before [P0-T1]): no final validation/"
+                "toolchain phase detected (heuristic)."
             )
 
     def _read_text(self) -> str:
