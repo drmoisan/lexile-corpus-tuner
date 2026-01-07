@@ -16,19 +16,24 @@
 
 > **Instructions for this section:**
 > - Break work into **Phases** (broad buckets) and **Atomic Tasks** (binary, 5-30 min units).
-> - Use `- []` for every task (no `- [ ]`).
+> - Use `- [ ] [P#-T#]` for every task.
 > - Start every task with a **strong verb** (Implement, Create, Update, Verify).
 > - No "bucket" tasks like "Refactor module" or "Write tests"; split them into specific, verifiable steps.
+> - **Self-Validating Phases:** Include necessary test creation/update tasks *within* the phase that implements the code. Do not defer verification to a final "Testing" phase.
+
+### Phase 0: Compliance & Context
+- [ ] [P0-T1] Confirm alignment with repo policies by reading `.github/instructions/general-code-change.instructions.md`, `.github/instructions/python-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, and `.github/instructions/python-unit-test.instructions.md` before touching code
+  - Acceptance: Development log contains policy review timestamp prior to Phase 1 commits
 
 ### Phase 1: <Phase Name>
-- [] <Atomic task with strong verb>
-- [] <Atomic task>
+- [ ] [P1-T1] <Atomic task with strong verb>
+- [ ] [P1-T2] <Atomic task>
   - Preconditions: <optional>
   - Acceptance: <optional>
 
 ### Phase 2: <Phase Name>
-- [] <Atomic task>
-- [] <Atomic task>
+- [ ] [P2-T1] <Atomic task>
+- [ ] [P2-T2] <Atomic task>
 
 ## Test Plan
 
