@@ -7,11 +7,10 @@ Builds prompts by combining a template with resolved feature folder context
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
 
 
@@ -112,6 +111,61 @@ previous_errors:
 !!! END RETRY CONTEXT !!!
 """
 
+        # Basic token replacement for template variables
+        agent_name = "GitHub Copilot"
+        feature_name = feature_dir.name
+        template = template.replace("<agent>", agent_name).replace(
+            "<feature>", feature_name
+        )
+
+        # Load key repository instruction files to inline in the prompt
+        instructions: list[tuple[str, str]] = []
+        instruction_files = [
+            (
+                "copilot-instructions.md",
+                self.workspace / ".github" / "copilot-instructions.md",
+            ),
+            (
+                "general-code-change.instructions.md",
+                self.workspace
+                / ".github"
+                / "instructions"
+                / "general-code-change.instructions.md",
+            ),
+            (
+                "general-unit-test.instructions.md",
+                self.workspace
+                / ".github"
+                / "instructions"
+                / "general-unit-test.instructions.md",
+            ),
+            (
+                "python-code-change.instructions.md",
+                self.workspace
+                / ".github"
+                / "instructions"
+                / "python-code-change.instructions.md",
+            ),
+            (
+                "python-unit-test.instructions.md",
+                self.workspace
+                / ".github"
+                / "instructions"
+                / "python-unit-test.instructions.md",
+            ),
+            (
+                "self-explanatory-code-commenting.instructions.md",
+                self.workspace
+                / ".github"
+                / "instructions"
+                / "self-explanatory-code-commenting.instructions.md",
+            ),
+        ]
+
+        for label, path in instruction_files:
+            if path.is_file():
+                instructions.append((label, self._read_text(path)))
+
         # Construct prompt envelope with resolved context
         appended = f"""
 
@@ -131,6 +185,10 @@ Constraints:
   - poetry run ruff check <changed .py files>
   - poetry run pyright <changed .py files>
   - poetry run pytest <changed test files>   (only if tests changed)
+
+---- BEGIN repo instructions ----
+{self._format_instructions(instructions)}
+---- END repo instructions ----
 
 When you are confident the current task is complete and passes the above
 checks, update plan.md by checking ONLY this task:
@@ -154,3 +212,13 @@ checks, update plan.md by checking ONLY this task:
     def _read_text(self, path: Path) -> str:
         """Read text file from disk."""
         return path.read_text(encoding="utf-8")
+
+    def _format_instructions(self, instructions: list[tuple[str, str]]) -> str:
+        """Render instruction files into labeled sections."""
+        if not instructions:
+            return "(no instruction files found)"
+
+        rendered: list[str] = []
+        for label, content in instructions:
+            rendered.append(f"-- BEGIN {label} --\n{content}\n-- END {label} --")
+        return "\n\n".join(rendered)
