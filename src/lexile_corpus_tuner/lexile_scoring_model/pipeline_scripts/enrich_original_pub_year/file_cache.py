@@ -68,7 +68,7 @@ class FileCache(CacheStore):
             None.
         """
 
-        # Use SHA256 hash to ensure fixed-length, safe filenames regardless of input length
+        # Use SHA256 hash to ensure fixed-length, safe filenames
         key_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
         return self._cache_dir / f"{key_hash}.json"
 
