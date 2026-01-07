@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,34 @@ def _iter_files(root: Path) -> Iterable[Path]:
             yield Path(dirpath) / filename
 
 
+def _extract_shebang_command(line: str) -> str | None:
+    if not line.startswith("#!"):
+        return None
+
+    payload = line[2:].strip()
+    if not payload:
+        return None
+
+    try:
+        parts = shlex.split(payload)
+    except ValueError:
+        return None
+
+    if not parts:
+        return None
+
+    command = Path(parts[0]).name
+    if command == "env":
+        parts = parts[1:]
+        while parts and parts[0].startswith("-"):
+            parts = parts[1:]
+        if not parts:
+            return None
+        command = Path(parts[0]).name
+
+    return command
+
+
 def _has_shell_shebang(path: Path) -> bool:
     try:
         with path.open("r", encoding="utf-8", errors="ignore") as handle:
@@ -32,10 +61,8 @@ def _has_shell_shebang(path: Path) -> bool:
     except OSError:
         return False
 
-    if not first_line.startswith("#!"):
-        return False
-
-    return "bash" in first_line or "sh" in first_line
+    command = _extract_shebang_command(first_line)
+    return command in {"bash", "sh"}
 
 
 def _is_shell_script(path: Path) -> bool:

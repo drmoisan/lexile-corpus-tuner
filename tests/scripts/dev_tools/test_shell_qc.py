@@ -27,6 +27,7 @@ def test_discover_shell_scripts_includes_expected() -> None:
     }
     assert set(discovered) == expected
     assert root / "scripts" / "ignored.txt" not in discovered
+    assert root / "scripts" / "pwsh_script.ps1" not in discovered
     assert root / "scripts" / "node_modules" / "skip.sh" not in discovered
 
 
