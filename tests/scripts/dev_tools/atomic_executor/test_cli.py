@@ -5,7 +5,7 @@ Tests cover CLI argument parsing, workspace resolution, precondition checks,
 clipboard operations, and main execution orchestration.
 """
 
-# pyright: reportArgumentType=false
+# pyright: reportArgumentType=false, reportUnknownLambdaType=false, reportUnknownArgumentType=false
 
 import subprocess
 from pathlib import Path
@@ -572,3 +572,368 @@ class TestMainEdgeCases:
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "already complete" in captured.out.lower()
+
+    def test_main_returns_error_for_missing_template(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """main() returns error code when prompt template missing."""
+        from scripts.dev_tools.atomic_executor.cli import main
+
+        # Setup feature folder with plan.md
+        feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
+        feature_dir.mkdir(parents=True)
+        (feature_dir / "plan.md").write_text(
+            "# Phase 0\n- [ ] [P0-T1] Task 1\n\n"
+            "# Phase 2 (QA/Toolchain)\n"
+            "- [ ] [P2-T1] Black\n"
+            "- [ ] [P2-T2] Ruff\n"
+            "- [ ] [P2-T3] Pyright\n"
+            "- [ ] [P2-T4] Pytest",
+            encoding="utf-8",
+        )
+        (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+        # Don't create template file
+
+        # Mock git to be clean
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = ""
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        exit_code = main(
+            [
+                "execute",
+                str(feature_dir),
+                "--workspace",
+                str(tmp_path),
+            ]
+        )
+
+        assert exit_code == 2
+        captured = capsys.readouterr()
+        assert "Prompt template not found" in captured.err
+
+    def test_main_with_copy_prompt_fallback_when_clipboard_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """main() prints prompt when --copy-prompt fails."""
+        from scripts.dev_tools.atomic_executor.cli import main
+
+        # Setup minimal feature folder
+        feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
+        feature_dir.mkdir(parents=True)
+        (feature_dir / "plan.md").write_text(
+            "# Phase 0\n- [ ] [P0-T1] Task 1\n\n"
+            "# Phase 2 (QA/Toolchain)\n"
+            "- [ ] [P2-T1] Black\n"
+            "- [ ] [P2-T2] Ruff\n"
+            "- [ ] [P2-T3] Pyright\n"
+            "- [ ] [P2-T4] Pytest",
+            encoding="utf-8",
+        )
+        (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+        template_dir = tmp_path / ".github" / "prompts"
+        template_dir.mkdir(parents=True)
+        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+            "TEMPLATE\n", encoding="utf-8"
+        )
+
+        # Mock all subprocess calls
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = ""
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        # Mock clipboard to fail
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli.copy_to_clipboard",
+            lambda x: False,  # type: ignore[arg-type,misc]
+        )
+
+        exit_code = main(
+            [
+                "execute",
+                str(feature_dir),
+                "--workspace",
+                str(tmp_path),
+                "--copy-prompt",
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Clipboard copy not available" in captured.err
+        assert "TEMPLATE" in captured.out
+
+    def test_main_execute_with_start_flag(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """main() executes with --start flag to begin at specific task."""
+        from scripts.dev_tools.atomic_executor.cli import main
+
+        # Setup feature folder with multiple tasks
+        feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
+        feature_dir.mkdir(parents=True)
+        (feature_dir / "plan.md").write_text(
+            "# Phase 0\n"
+            "- [x] [P0-T1] First task\n"
+            "- [ ] [P0-T2] Second task\n\n"
+            "# Phase 2 (QA/Toolchain)\n"
+            "- [ ] [P2-T1] Black\n"
+            "- [ ] [P2-T2] Ruff\n"
+            "- [ ] [P2-T3] Pyright\n"
+            "- [ ] [P2-T4] Pytest",
+            encoding="utf-8",
+        )
+        (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+        template_dir = tmp_path / ".github" / "prompts"
+        template_dir.mkdir(parents=True)
+        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+            "TEMPLATE\n", encoding="utf-8"
+        )
+
+        # Mock git to be clean
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = ""
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        exit_code = main(
+            [
+                "execute",
+                str(feature_dir),
+                "--workspace",
+                str(tmp_path),
+                "--start",
+                "P0-T2",
+                "--print-prompt",
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "P0-T2" in captured.out
+        assert "Second task" in captured.out
+
+    def test_main_execute_when_all_tasks_complete(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """main() exits when execute subcommand finds no unchecked tasks."""
+        from scripts.dev_tools.atomic_executor.cli import main
+
+        # Setup feature folder with all tasks checked
+        feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
+        feature_dir.mkdir(parents=True)
+        (feature_dir / "plan.md").write_text(
+            "# Phase 0\n- [x] [P0-T1] Task 1\n\n"
+            "# Phase 2 (QA/Toolchain)\n"
+            "- [x] [P2-T1] Black\n"
+            "- [x] [P2-T2] Ruff\n"
+            "- [x] [P2-T3] Pyright\n"
+            "- [x] [P2-T4] Pytest",
+            encoding="utf-8",
+        )
+        (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+        template_dir = tmp_path / ".github" / "prompts"
+        template_dir.mkdir(parents=True)
+        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+            "TEMPLATE\n", encoding="utf-8"
+        )
+
+        # Mock git to be clean
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = ""
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        exit_code = main(
+            [
+                "execute",
+                str(feature_dir),
+                "--workspace",
+                str(tmp_path),
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "already complete" in captured.out.lower()
+
+    def test_main_successful_execution_with_scoped_qc(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """main() successfully executes task with scoped QC."""
+        from scripts.dev_tools.atomic_executor.cli import main
+
+        # Setup feature folder
+        feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
+        feature_dir.mkdir(parents=True)
+        plan_file = feature_dir / "plan.md"
+        plan_file.write_text(
+            "# Phase 0\n- [ ] [P0-T1] Task 1\n\n"
+            "# Phase 2 (QA/Toolchain)\n"
+            "- [ ] [P2-T1] Black\n"
+            "- [ ] [P2-T2] Ruff\n"
+            "- [ ] [P2-T3] Pyright\n"
+            "- [ ] [P2-T4] Pytest",
+            encoding="utf-8",
+        )
+        (feature_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+        template_dir = tmp_path / ".github" / "prompts"
+        template_dir.mkdir(parents=True)
+        (template_dir / "execute-atomic-plan.prompt.md").write_text(
+            "Task: {{task_id}}\n", encoding="utf-8"
+        )
+
+        # Track subprocess calls
+        subprocess_calls: list[list[str]] = []
+
+        def mock_run(
+            argv: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            subprocess_calls.append(argv)
+            result = Mock()
+            result.stdout = ""
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: f"/usr/bin/{x}")
+
+        # Mock QCRunner methods to succeed
+        from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
+
+        monkeypatch.setattr(QCRunner, "run_scoped", lambda self: None)
+
+        exit_code = main(
+            [
+                "execute",
+                str(feature_dir),
+                "--workspace",
+                str(tmp_path),
+            ]
+        )
+
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "complete and gated" in captured.out.lower()
+
+        # Verify copilot was invoked
+        copilot_calls = [c for c in subprocess_calls if "copilot" in c[0]]
+        assert len(copilot_calls) == 1
+
+
+class TestRunCopilot:
+    """Tests for run_copilot() function."""
+
+    def test_run_copilot_raises_when_executable_not_found(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() raises FileNotFoundError when copilot not found."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        monkeypatch.setattr("shutil.which", lambda x: None)
+
+        log_file = tmp_path / "test.log"
+
+        with pytest.raises(FileNotFoundError, match="copilot"):
+            run_copilot(
+                workspace=tmp_path,
+                prompt_text="test prompt",
+                log_file=log_file,
+            )
+
+    def test_run_copilot_creates_log_directory(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() creates log directory if missing."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/copilot")
+
+        def mock_run(
+            argv: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            result = Mock()
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        log_dir = tmp_path / "nested" / "log" / "dir"
+        log_file = log_dir / "test.log"
+
+        run_copilot(
+            workspace=tmp_path,
+            prompt_text="test prompt",
+            log_file=log_file,
+        )
+
+        assert log_dir.exists()
+        assert log_file.exists()
+
+    def test_run_copilot_invokes_with_correct_arguments(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() invokes copilot with correct arguments."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/copilot")
+
+        captured_argv: list[str] = []
+
+        def mock_run(
+            argv: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            captured_argv.extend(argv)
+            result = Mock()
+            result.returncode = 0
+            return result  # type: ignore[return-value]
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        log_file = tmp_path / "test.log"
+
+        run_copilot(
+            workspace=tmp_path,
+            prompt_text="test prompt",
+            log_file=log_file,
+        )
+
+        assert "/usr/bin/copilot" in captured_argv
+        assert "-p" in captured_argv
+        assert "test prompt" in captured_argv
+        assert "--allow-tool" in captured_argv
+        assert "write" in captured_argv
