@@ -153,8 +153,6 @@
         "data/cache/original_pub_year",
         "--rate-limit",
         "5",
-        "--batch-size",
-        "50",
         "--fuzzy-threshold",
         "0.9"
       ],
