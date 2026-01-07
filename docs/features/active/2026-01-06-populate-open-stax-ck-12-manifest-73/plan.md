@@ -83,7 +83,7 @@
 - [ ] [P7-T2] Update `docs/source-curation-guide.md` with CK-12 workflow steps (catalog, enrich, curate, manifest, extract)
 - [ ] [P7-T3] Update `README.md` with new CLI commands and flags for CK-12 catalog/enrich/extract
 
-### Phase 8 — Validation & Pre-Flight Checks
+### Phase 8 — Validation & Release Gate
 - [ ] [P8-T1] Run `poetry lock --no-update` and confirm lockfile sync after dependency additions
 - [ ] [P8-T2] Run formatter (`poetry run black .`) and confirm no pending formatting changes
 - [ ] [P8-T3] Run linter (`poetry run ruff check`) and resolve findings
