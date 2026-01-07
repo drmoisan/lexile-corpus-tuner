@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import re
 from typing import TYPE_CHECKING
 
 from .cache_store import CacheStore
@@ -52,13 +52,14 @@ class FileCache(CacheStore):
         Build a safe, filesystem-friendly path for a cache key.
 
         Purpose:
-            Normalize cache keys into file system paths that avoid invalid characters.
+            Normalize cache keys into file system paths that avoid invalid characters
+            and Windows MAX_PATH limitations by using a SHA256 hash.
 
         Args:
             key (str): Normalized cache key derived from title and author.
 
         Returns:
-            Path: Target path for the cached entry.
+            Path: Target path for the cached entry (deterministic hash-based name).
 
         Raises:
             None
@@ -67,8 +68,9 @@ class FileCache(CacheStore):
             None.
         """
 
-        safe_key = re.sub(r"[^a-zA-Z0-9_-]", "_", key)
-        return self._cache_dir / f"{safe_key}.json"
+        # Use SHA256 hash to ensure fixed-length, safe filenames regardless of input length
+        key_hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        return self._cache_dir / f"{key_hash}.json"
 
     def get(self, key: str) -> MatchResult | None:
         """
