@@ -1,178 +1,93 @@
-# 2026-01-06-populate-open-stax-ck-12-manifest-73 - Plan
+# 2026-01-06-populate-open-stax-ck-12-manifest-73 — CK-12 Follow-on Plan
 
 - Issue: #73
-- Owner: 2026-01-06-populate-open-stax-ck-12-manifest-73
-- Last Updated: 2026-01-06
+- Owner: drmoisan
+- Last Updated: 2026-01-07
 
 ## Required References
 
-- General Coding Standards: [`.github/instructions/general-code-change.instructions.md`](../../../../.github/instructions/general-code-change.instructions.md)
-- General Unit Test Policy: [`.github/instructions/general-unit-test.instructions.md`](../../../../.github/instructions/general-unit-test.instructions.md)
-- Python Code Standards: [`.github/instructions/python-code-change.instructions.md`](../../../../.github/instructions/python-code-change.instructions.md)
-- Python Unit Test Policy: [`.github/instructions/python-unit-test.instructions.md`](../../../../.github/instructions/python-unit-test.instructions.md)
+- General Coding Standards: `.github/instructions/general-code-change.instructions.md`
+- General Unit Test Policy: `.github/instructions/general-unit-test.instructions.md`
+- Python Code Standards: `.github/instructions/python-code-change.instructions.md`
+- Python Unit Test Policy: `.github/instructions/python-unit-test.instructions.md`
+- Spec (revised): `docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md`
+- User Story: `docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/user-story.md`
 
 **All work must comply with these policies; do not duplicate their content here.**
 
 ## Implementation Plan (Atomic Tasks)
 
 ### Phase 0 — Context & Inputs
-- [x] [P0-T1] Read .github/instructions/general-code-change.instructions.md and confirm plan format requirements
-- [x] [P0-T2] Read .github/instructions/general-unit-test.instructions.md and confirm testing requirements
-- [x] [P0-T3] Read .github/instructions/python-code-change.instructions.md and confirm Python-specific rules
-- [x] [P0-T4] Read .github/instructions/python-unit-test.instructions.md and confirm Pytest requirements
-- [x] [P0-T5] Read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md and list all required CLI commands
-- [x] [P0-T6] Read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/user-story.md and extract acceptance criteria
-- [x] [P0-T7] Verify plan.md front matter has no placeholders
+- [ ] [P0-T1] Re-read spec.md focusing on CK-12 native scraping/PDF steps and manifest schema updates
+- [ ] [P0-T2] Re-read .github/copilot-instructions.md, general-code-change, and python-code-change to confirm guardrails
+- [ ] [P0-T3] Re-read general-unit-test and python-unit-test policies to confirm test expectations and scenario rules
 
-### Phase 1 — Requirements Enumeration
-- [x] [P1-T1] Catalog fields (spec): source_id, identifier, title, creator, year, language, license_url, download_candidates
-- [x] [P1-T2] Manifest fields (spec): source_id, id (slug from identifier), url (direct text derivative), filename (slug + .txt only)
-- [x] [P1-T3] Slug rule: generate_stable_slug(identifier) → lowercase, hyphenated, idempotent, never mutate after emit
-- [x] [P1-T4] Filtering: only OpenStax/CK-12; require text/plain (prefer _djvu.txt else other .txt); skip non-text with logged reason
-- [x] [P1-T5] Validation: manifest URLs must return HTTP 200 and Content-Type starting with text/*; failures are skipped
-- [x] [P1-T6] Required CLIs: build_oer_catalog, enrich_oer_catalog, curate_oer_catalog, generate_oer_manifest, curate_oer_ui, plus existing lexile-scoring-model-pipeline corpus download/normalize
+### Phase 1 — Dependencies & Design
+- [ ] [P1-T1] Add pdfplumber>=0.10.0 to pyproject.toml
+- [ ] [P1-T2] Add beautifulsoup4 to pyproject.toml
+- [ ] [P1-T3] Add requests to pyproject.toml
+- [ ] [P1-T4] Add types-beautifulsoup4 to pyproject.toml (for Pyright)
+- [ ] [P1-T5] Add types-requests to pyproject.toml (for Pyright)
+- [ ] [P1-T6] Create design note `ck12-design.md` defining PDF validation patterns and fallback strategy
+- [ ] [P1-T7] Research if pdfplumber requires system binaries and document findings in `ck12-design.md`
 
-### Phase 2 — Module Structure Design
-- [x] [P2-T1] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_catalog.py` for catalog builder
-- [x] [P2-T2] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_enrichment.py` for metadata API enrichment
-- [x] [P2-T3] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py` for filtering logic
-- [x] [P2-T4] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` for manifest generation
-- [x] [P2-T5] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py` for Tkinter UI
-- [x] [P2-T6] Create shared module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_models.py` for dataclasses (CatalogEntry, ManifestEntry, DownloadCandidate)
+### Phase 2 — CK-12 Catalog Scraper (ck12_catalog.py)
+- [ ] [P2-T1] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py`
+- [ ] [P2-T2] Implement `fetch_catalog_page(url: str) -> str` in ck12_catalog.py using requests
+- [ ] [P2-T3] Implement `parse_catalog_rows(html: str) -> list[CatalogEntry]` in ck12_catalog.py using BeautifulSoup and `oer_models.generate_stable_slug`
+- [ ] [P2-T4] Implement `write_catalog_jsonl(rows: list, path: Path)` in ck12_catalog.py
+- [ ] [P2-T5] Implement CLI entrypoint `build_ck12_catalog` in ck12_catalog.py using Typer
 
-### Phase 3 — Implement Core Utilities
-- [x] [P3-T1] Implement function `generate_stable_slug(ia_identifier: str) -> str` in oer_models.py that converts IA identifier to lowercase-hyphen slug
-- [x] [P3-T2] Implement dataclass `CatalogEntry` in oer_models.py with fields: source_id, identifier, title, creator, year, language, license_url, download_candidates (list)
-- [x] [P3-T3] Implement dataclass `ManifestEntry` in oer_models.py with fields: source_id, id (slug), url, filename
-- [x] [P3-T4] Implement dataclass `DownloadCandidate` in oer_models.py with fields: format, url, size
+### Phase 3 — CK-12 Enrichment (ck12_enrichment.py)
+- [ ] [P3-T1] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py`
+- [ ] [P3-T2] Implement `fetch_flexbook_html(url: str) -> str` in ck12_enrichment.py
+- [ ] [P3-T3] Implement `parse_flexbook_metadata(html: str) -> dict` in ck12_enrichment.py (extracts author, grade, language)
+- [ ] [P3-T4] Implement `extract_pdf_url(html: str) -> str | None` in ck12_enrichment.py
+- [ ] [P3-T5] Implement `enrich_entry_logic(entry: CatalogEntry, metadata: dict, pdf_url: str | None) -> CatalogEntry` in ck12_enrichment.py
+- [ ] [P3-T6] Implement CLI entrypoint `enrich_ck12_catalog` in ck12_enrichment.py using Typer
 
-### Phase 4 — Implement Catalog Builder
-- [x] [P4-T1] Implement function `build_ia_query(source: str) -> str` in oer_catalog.py that returns IA Advanced Search query for OpenStax or CK-12
-- [x] [P4-T2] Implement function `fetch_ia_search_results(query: str) -> list[dict]` in oer_catalog.py that calls IA search API and returns raw JSON results
-- [x] [P4-T3] Implement function `parse_catalog_entry(raw: dict, source_id: str) -> CatalogEntry` in oer_catalog.py that extracts required fields from IA search result
-- [x] [P4-T4] Implement function `write_catalog_jsonl(entries: list[CatalogEntry], output_path: Path) -> None` in oer_catalog.py that writes entries to JSONL file
-- [x] [P4-T5] Implement CLI entrypoint `build_oer_catalog` in oer_catalog.py with args: --sources (csv), --out-dir (default: data/meta/catalogs)
+### Phase 4 — PDF Extraction (extract_pdf_text.py)
+- [ ] [P4-T1] Create module `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_pdf_text.py`
+- [ ] [P4-T2] Implement `extract_text_from_pdf(pdf_path: Path) -> str` in extract_pdf_text.py using pdfplumber
+- [ ] [P4-T3] Implement `save_text_file(text: str, output_path: Path)` in extract_pdf_text.py
+- [ ] [P4-T4] Implement `process_ck12_directory(input_dir: Path, output_dir: Path)` in extract_pdf_text.py (iterates PDFs, extracts text parallel)
+- [ ] [P4-T5] Implement error logging logic for failed extractions in extract_pdf_text.py
+- [ ] [P4-T6] Implement CLI entrypoint `extract_pdf_text` in extract_pdf_text.py using Typer
 
-### Phase 5 — Implement Enrichment
-- [x] [P5-T1] Implement function `fetch_ia_metadata(identifier: str) -> dict` in oer_enrichment.py that calls IA Metadata API and returns files list
-- [x] [P5-T2] Implement function `extract_text_candidates(files: list[dict]) -> list[DownloadCandidate]` in oer_enrichment.py that filters for _djvu.txt and text/plain formats
-- [x] [P5-T3] Implement function `enrich_catalog_entry(entry: CatalogEntry) -> CatalogEntry` in oer_enrichment.py that appends download_candidates via metadata API
-- [x] [P5-T4] Implement CLI entrypoint `enrich_oer_catalog` in oer_enrichment.py with args: --catalog-file, --output (overwrites or creates new enriched catalog)
+### Phase 5 — Pipeline Integration
+- [ ] [P5-T1] Update `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py`: Add `has_pdf_candidate` function
+- [ ] [P5-T2] Update `oer_curation.py`: Add `--require-pdf` argument filter logic to `curate_oer_catalog` CLI
+- [ ] [P5-T3] Update `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py`: specific update to `build_manifest_entry` to determine extension from candidate format (if application/pdf use .pdf, else .txt)
+- [ ] [P5-T4] Update `oer_manifest.py`: Update `validate_url` signature to accept `allowed_content_types` list and use it in the HEAD check
+- [ ] [P5-T5] Update `oer_manifest.py`: Update `generate_manifest` to pass `['application/pdf']` when validating CK-12 candidates
 
-### Phase 6 — Implement Curation Filter
-- [x] [P6-T1] Implement function `has_text_candidate(entry: CatalogEntry) -> bool` in oer_curation.py that returns True if download_candidates contains text/plain format
-- [x] [P6-T2] Implement function `filter_by_collection(entry: CatalogEntry, allowed: list[str]) -> bool` in oer_curation.py that checks source_id against allowed list
-- [x] [P6-T3] Implement function `curate_entries(entries: list[CatalogEntry], require_text: bool, allowed_sources: list[str]) -> tuple[list[CatalogEntry], list[tuple[str, str]]]` in oer_curation.py that returns (included, skipped_with_reason)
-- [x] [P6-T4] Implement CLI entrypoint `curate_oer_catalog` in oer_curation.py with args: --catalog-dir, --require-text, --sources (default: openstax,ck12), --out-dir
+### Phase 6 — Tests (Scenarios)
+- [ ] [P6-T1] Add test for fetching catalog (mocked) in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [ ] [P6-T2] Add test for parsing catalog rows (valid HTML fixture) in `test_ck12_catalog.py`
+- [ ] [P6-T3] Add test for parsing catalog rows (missing metadata) in `test_ck12_catalog.py`
+- [ ] [P6-T4] Add test for slug generation idempotence in `test_ck12_catalog.py`
+- [ ] [P6-T5] Add test for fetching enrichment (mocked) in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
+- [ ] [P6-T6] Add test for parsing flexbook metadata (fixture) in `test_ck12_enrichment.py`
+- [ ] [P6-T7] Add test for parsing PDF URL from FLEXBOOK HTML in `test_ck12_enrichment.py`
+- [ ] [P6-T8] Add test for successful PDF extraction (fixture) in `tests/lexile_scoring_model/pipeline_scripts/test_extract_pdf_text.py`
+- [ ] [P6-T9] Add test for PDF extraction failure handling in `test_extract_pdf_text.py`
+- [ ] [P6-T10] Add test for oer_curation filter logic (pdf required) in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
+- [ ] [P6-T11] Add test for `build_manifest_entry` setting .pdf extension for PDF candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
+- [ ] [P6-T12] Add test for `validate_url` accepting application/pdf when configured in `test_oer_manifest.py`
 
-### Phase 7 — Implement Manifest Generator
-- [x] [P7-T1] Implement function `build_manifest_entry(catalog_entry: CatalogEntry, candidate: DownloadCandidate) -> ManifestEntry` in oer_manifest.py that creates ManifestEntry with stable slug
-- [x] [P7-T2] Implement function `validate_url(url: str) -> tuple[bool, int, str]` in oer_manifest.py that performs HTTP HEAD request and returns (success, status_code, content_type)
-- [x] [P7-T3] Implement function `generate_manifest(curated_entries: list[CatalogEntry], validate_urls: bool) -> list[ManifestEntry]` in oer_manifest.py that builds and optionally validates manifest entries
-- [x] [P7-T4] Implement function `write_manifest_json(entries: list[ManifestEntry], output_path: Path) -> None` in oer_manifest.py that writes to oer_sources.json format
-- [x] [P7-T5] Implement CLI entrypoint `generate_oer_manifest` in oer_manifest.py with args: --catalog-dir, --out (default: data/meta/oer_sources.json), --validate-urls
+### Phase 7 — Documentation
+- [ ] [P7-T1] Update `docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md` with any implementation deviations
+- [ ] [P7-T2] Update `docs/source-curation-guide.md` with new CK-12 workflow steps
+- [ ] [P7-T3] Update `README.md` with new CLI commands documentation
 
-### Phase 8 — Implement Visual Curation UI
-- [x] [P8-T1] Implement function `load_catalog_files(catalog_dir: Path) -> list[CatalogEntry]` in oer_ui.py that reads all JSONL files from catalog directory
-- [x] [P8-T2] Implement class `CatalogViewModel` in oer_ui.py with methods: get_entries(), toggle_selection(index), get_selected_entries()
-- [x] [P8-T3] Implement function `create_catalog_table(parent: tk.Widget, viewmodel: CatalogViewModel) -> tk.Frame` in oer_ui.py that renders catalog entries with checkboxes
-- [x] [P8-T4] Implement function `create_filter_panel(parent: tk.Widget, on_filter: Callable) -> tk.Frame` in oer_ui.py that provides subject/grade/language filter controls
-- [x] [P8-T5] Implement function `export_manifest(entries: list[CatalogEntry], output_path: Path) -> None` in oer_ui.py that calls manifest generation and saves file
-- [x] [P8-T6] Implement CLI entrypoint `curate_oer_ui` in oer_ui.py with no args (launches Tkinter window)
+### Phase 8 — Validation
+- [ ] [P8-T1] Run `poetry lock --no-update` to confirm dependencies
+- [ ] [P8-T2] Run full toolchain (format, lint, type-check, test)
+- [ ] [P8-T3] Run integration verification manually (Catalog -> Enrich -> Curate -> Manifest -> Extract)
+- [ ] [P8-T4] Benchmark PDF extraction speed on sample
+- [ ] [P8-T5] Verify PDF extraction quality manually (checking formatting/table loss)
 
-### Phase 9 — Integration & Documentation
-- [x] [P9-T1] Update README.md CLI reference section to document `build_oer_catalog` command with example
-- [x] [P9-T2] Update README.md CLI reference section to document `enrich_oer_catalog` command with example
-- [x] [P9-T3] Update README.md CLI reference section to document `curate_oer_catalog` command with example
-- [x] [P9-T4] Update README.md CLI reference section to document `generate_oer_manifest` command with example
-- [x] [P9-T5] Update README.md CLI reference section to document `curate_oer_ui` command with example
-- [x] [P9-T6] Update docs/source-curation-guide.md to add OpenStax/CK-12 workflow section referencing new CLI tools
-
-### Phase 10 — Unit Tests (Utilities)
-- [x] [P10-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_models.py`
-- [x] [P10-T2] Add unit test `test_generate_stable_slug_converts_to_lowercase_hyphens` in test_oer_models.py verifying "OpenStax_Book" → "openstax-book"
-- [x] [P10-T3] Add unit test `test_generate_stable_slug_is_idempotent` in test_oer_models.py verifying repeated calls return same result
-- [x] [P10-T4] Add unit test `test_catalog_entry_dataclass_validates_required_fields` in test_oer_models.py verifying TypeError on missing fields
-- [x] [P10-T5] Add unit test `test_manifest_entry_dataclass_enforces_txt_extension` in test_oer_models.py verifying filename ends with .txt
-
-### Phase 11 — Unit Tests (Catalog Builder)
-- [x] [P11-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
-- [x] [P11-T2] Add unit test `test_build_ia_query_for_openstax_includes_collection_filter` in test_oer_catalog.py verifying query contains "collection:openstaxcnx"
-- [x] [P11-T3] Add unit test `test_build_ia_query_for_ck12_includes_collection_filter` in test_oer_catalog.py verifying query contains "collection:ck12"
-- [x] [P11-T4] Add unit test `test_parse_catalog_entry_extracts_all_required_fields` in test_oer_catalog.py with mocked IA result verifying CatalogEntry fields populated
-- [x] [P11-T5] Add unit test `test_parse_catalog_entry_handles_missing_optional_fields` in test_oer_catalog.py verifying defaults for year/creator when absent
-- [x] [P11-T6] Add unit test `test_write_catalog_jsonl_creates_valid_jsonl_format` in test_oer_catalog.py verifying each line is valid JSON
-
-### Phase 12 — Unit Tests (Enrichment)
-- [x] [P12-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py`
-- [x] [P12-T2] Add unit test `test_extract_text_candidates_filters_djvu_txt_files` in test_oer_enrichment.py verifying _djvu.txt files are included
-- [x] [P12-T3] Add unit test `test_extract_text_candidates_excludes_pdf_files` in test_oer_enrichment.py verifying PDF files are excluded
-- [x] [P12-T4] Add unit test `test_extract_text_candidates_includes_text_plain_format` in test_oer_enrichment.py verifying format=text/plain files are included
-- [x] [P12-T5] Add unit test `test_enrich_catalog_entry_appends_download_candidates` in test_oer_enrichment.py with mocked metadata API verifying candidates list updated
-
-### Phase 13 — Unit Tests (Curation)
-- [x] [P13-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
-- [x] [P13-T2] Add unit test `test_has_text_candidate_returns_true_when_text_present` in test_oer_curation.py verifying entry with text/plain candidate passes
-- [x] [P13-T3] Add unit test `test_has_text_candidate_returns_false_when_only_pdf` in test_oer_curation.py verifying entry with only PDF fails
-- [x] [P13-T4] Add unit test `test_filter_by_collection_accepts_openstax` in test_oer_curation.py verifying source_id=openstax passes filter
-- [x] [P13-T5] Add unit test `test_filter_by_collection_rejects_gutenberg` in test_oer_curation.py verifying source_id=gutenberg fails filter
-- [x] [P13-T6] Add unit test `test_curate_entries_returns_included_and_skipped_lists` in test_oer_curation.py verifying tuple structure
-- [x] [P13-T7] Add unit test `test_curate_entries_logs_skip_reason_for_missing_text` in test_oer_curation.py verifying skipped list contains ("identifier", "no text candidate")
-
-### Phase 14 — Unit Tests (Manifest)
-- [x] [P14-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
-- [x] [P14-T2] Add unit test `test_build_manifest_entry_uses_stable_slug_from_identifier` in test_oer_manifest.py verifying id field uses generate_stable_slug result
-- [x] [P14-T3] Add unit test `test_build_manifest_entry_sets_filename_to_txt_extension` in test_oer_manifest.py verifying filename ends with .txt
-- [x] [P14-T4] Add unit test `test_validate_url_returns_true_for_http_200_text_content_type` in test_oer_manifest.py with mocked HTTP HEAD returning 200 and text/plain
-- [x] [P14-T5] Add unit test `test_validate_url_returns_false_for_http_404` in test_oer_manifest.py with mocked HTTP HEAD returning 404
-- [x] [P14-T6] Add unit test `test_validate_url_returns_false_for_application_pdf_content_type` in test_oer_manifest.py with mocked HTTP HEAD returning 200 but application/pdf
-- [x] [P14-T7] Add unit test `test_write_manifest_json_creates_valid_json_structure` in test_oer_manifest.py verifying output file is valid JSON array
-
-### Phase 15 — Unit Tests (UI Logic)
-- [x] [P15-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py`
-- [x] [P15-T2] Add unit test `test_load_catalog_files_reads_all_jsonl_in_directory` in test_oer_ui.py with temp directory containing 2 JSONL files
-- [x] [P15-T3] Add unit test `test_catalog_viewmodel_toggle_selection_updates_state` in test_oer_ui.py verifying toggle changes selection
-- [x] [P15-T4] Add unit test `test_catalog_viewmodel_get_selected_entries_returns_only_selected` in test_oer_ui.py verifying filtering logic
-- [x] [P15-T5] Add unit test `test_export_manifest_calls_manifest_generation` in test_oer_ui.py with mocked generate_manifest verifying function called
-
-### Phase 16 — Integration Tests
-- [x] [P16-T1] Create test file `tests/lexile_scoring_model/pipeline_scripts/test_oer_integration.py`
-- [x] [P16-T2] Add integration test `test_end_to_end_catalog_to_manifest_with_mocked_ia` in test_oer_integration.py that runs catalog→enrich→curate→manifest with mocked IA API
-- [x] [P16-T3] Add integration test `test_manifest_entries_validate_against_schema` in test_oer_integration.py verifying all required fields present
-- [x] [P16-T4] Add integration test `test_download_normalize_consumes_manifest_without_errors` in test_oer_integration.py that verifies existing corpus pipeline can parse manifest
-
-### Phase 17 — Validation & Toolchain
-- [x] [P17-T1] Run `poetry run black .` on all modified files
-- [x] [P17-T2] Run `poetry run ruff check` and fix all reported issues
-- [x] [P17-T3] Run `poetry run pyright` and fix all type errors
-- [x] [P17-T4] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_models.py -v` and verify all pass
-- [x] [P17-T5] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -v` and verify all pass
-- [x] [P17-T6] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py -v` and verify all pass
-- [x] [P17-T7] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py -v` and verify all pass
-- [x] [P17-T8] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -v` and verify all pass
-- [x] [P17-T9] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py -v` and verify all pass
-- [x] [P17-T10] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_integration.py -v` and verify all pass
-- [x] [P17-T11] Run `poetry run pytest --cov=src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts --cov-report=term-missing` and verify ≥90% coverage for new modules
-- [x] [P17-T12] Update plan.md Last Updated date to current date
-
-## Test Plan
-
-**Unit Tests (94 total)**
-- Utilities (5): slug conversion, idempotence, dataclass validation, filename extension enforcement
-- Catalog Builder (5): query building (OpenStax/CK-12), entry parsing with all fields, missing optional fields, JSONL format
-- Enrichment (4): _djvu.txt filtering, PDF exclusion, text/plain inclusion, candidate appending
-- Curation (6): text candidate detection (positive/negative), collection filtering (accept/reject), skip reason logging
-- Manifest (6): stable slug usage, .txt filename enforcement, URL validation (200/text, 404, PDF rejection), JSON structure
-- UI Logic (4): catalog loading from directory, viewmodel selection toggle/filtering, manifest export
-- Integration (3): end-to-end mocked IA flow, schema validation, download/normalize compatibility
-
-**Manual Verification**
-- Run each CLI command (build_oer_catalog, enrich_oer_catalog, curate_oer_catalog, generate_oer_manifest, curate_oer_ui) with sample data
-- Verify catalog JSONL files are created with correct fields
-- Verify manifest JSON matches schema and all URLs are .txt
-- Verify Tkinter UI loads, filters, and exports without errors
-- Verify existing corpus download/normalize commands consume manifest successfully
-
-## Open Questions / Notes
-
-- ...
+## Notes
+- Keep tasks scoped to CK-12 follow-on only; OpenStax remains stable and unchanged.
+- Respect 500-line file limit and strict typing/docstring/commenting policies.
+- Do not introduce temporary files in tests; use in-memory fixtures/mocking for HTML/PDF content.
