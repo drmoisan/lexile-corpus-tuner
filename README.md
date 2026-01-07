@@ -191,9 +191,21 @@ lexile-tuner rewrite --input-path <...> --output-path <out> [--config ...] \
   - `poetry run pyright`
   - `poetry run pytest`
   - PowerShell install (once): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/install-powershell-tools.ps1`
-  - PowerShell format: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
-  - PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
-  - PowerShell tests (Pester): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+- PowerShell format: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+- PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+- PowerShell tests (Pester): `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+
+### Shell QC (Bash)
+
+```bash
+poetry run shell-qc check
+poetry run shell-qc format
+poetry run shell-qc test
+```
+
+Requires external tools: `shfmt`, `shellcheck`, `bats-core` (optional, only for tests).
+In the devcontainer these tools are installed by the container image (once you add them).
+Outside the devcontainer, install them on your OS or use WSL on Windows for best results.
 
 ### Adapted Copilot agents
 

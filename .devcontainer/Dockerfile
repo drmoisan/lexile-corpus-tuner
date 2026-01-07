@@ -4,10 +4,14 @@ FROM mcr.microsoft.com/devcontainers/python:3.13-bookworm
 # Install PowerShell
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
-    # Dependencies for PowerShell
+    # Dependencies for PowerShell and general tooling
+    git \
     wget \
     apt-transport-https \
     software-properties-common \
+    # Shell QC tooling
+    shellcheck \
+    shfmt \
     # Clipboard utilities for pyperclip fallback
     wl-clipboard \
     xclip \
