@@ -62,6 +62,7 @@ class PromptBuilder:
         self,
         feature_dir: Path,
         current_task: PlanTask,
+        retry_context: str | None = None,
     ) -> str:
         """
         Build prompt text from template and feature context.
@@ -72,6 +73,7 @@ class PromptBuilder:
         Args:
             feature_dir (Path): Feature folder containing plan/spec/story files.
             current_task (PlanTask): The task to execute.
+            retry_context (str | None): Optional context if this is a retry attempt.
 
         Returns:
             str: Complete prompt text with injected context.
@@ -97,6 +99,19 @@ class PromptBuilder:
         spec_text = self._read_text(spec_path)
         story_text = self._read_text(story_path) if story_path.is_file() else ""
 
+        retry_section = ""
+        if retry_context:
+            retry_section = f"""
+!!! RETRY ATTEMPT !!!
+Your previous attempt failed validation checks. Please address the errors below
+before marking the task as complete.
+
+previous_errors:
+{retry_context}
+
+!!! END RETRY CONTEXT !!!
+"""
+
         # Construct prompt envelope with resolved context
         appended = f"""
 
@@ -105,7 +120,7 @@ Feature folder name: {feature_dir.name}
 
 CURRENT TASK (execute only this task, do not advance to other tasks):
 - [{current_task.task_id}] {current_task.title}
-
+{retry_section}
 Constraints:
 - Follow all repository policies under .github/instructions/.
 - Do NOT replan or expand scope. Do not change task order or IDs.

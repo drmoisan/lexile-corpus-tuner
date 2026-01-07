@@ -269,6 +269,38 @@ poetry run python -m scripts.dev_tools.pr_context.collector --base origin/main
 
 Output saved to `artifacts/` directory.
 
+## Atomic Execution Agent
+
+The `atomic_executor` tool orchestrates the execution of atomic plans (`docs/features/active/*/plan.md`) using GitHub Copilot CLI. It enforces repo policies, runs QC checks, and handles retries.
+
+### Usage
+
+**Execute next available task:**
+```bash
+poetry run python -m scripts.dev_tools.atomic_executor.cli execute \
+  --path docs/features/active/feature-name
+```
+
+**Execute ALL tasks in order (autonomous mode):**
+```bash
+poetry run python -m scripts.dev_tools.atomic_executor.cli execute-all \
+  --path docs/features/active/feature-name \
+  --max-fix-attempts 3   # 0 for infinite retries
+```
+
+**Resume execution (next unchecked task):**
+```bash
+poetry run python -m scripts.dev_tools.atomic_executor.cli resume \
+  --path docs/features/active/feature-name
+```
+
+**Generate Prompt Only:**
+```bash
+poetry run python -m scripts.dev_tools.atomic_executor.cli execute \
+  --path docs/features/active/feature-name \
+  --print-prompt
+```
+
 ## VS Code Integration
 
 ### Recommended Extensions

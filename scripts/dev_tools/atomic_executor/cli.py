@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
-from scripts.dev_tools.atomic_executor.plan_parser import PlanParser
+from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
 from scripts.dev_tools.atomic_executor.prompt_builder import PromptBuilder
 from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 
@@ -80,6 +80,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     sp_resume = sub.add_parser("resume", help="Resume from first unchecked task.")
     add_common(sp_resume)
+
+    sp_all = sub.add_parser("execute-all", help="Execute all remaining tasks.")
+    add_common(sp_all)
 
     return p.parse_args(argv)
 
@@ -252,6 +255,121 @@ def run_copilot(
         )
 
 
+def _log_msg(log_file: Path, msg: str) -> None:
+    """Write message to log file and flush."""
+    with log_file.open("a", encoding="utf-8") as f:
+        f.write(f"{msg}\n")
+
+
+def _execute_one_task(
+    workspace: Path,
+    cur: PlanTask,
+    parser: PlanParser,
+    builder: PromptBuilder,
+    qc_runner: QCRunner,
+    log_file: Path,
+    prompt_template_path: Path,
+    max_fix_attempts: int,
+    feature_dir: Path,
+    print_prompt: bool = False,
+    copy_prompt: bool = False,
+) -> int:
+    """
+    Execute a single atomic task with retries.
+
+    Args:
+        workspace (Path): Repo root.
+        cur (PlanTask): The task to execute.
+        parser (PlanParser): Plan parser instance (for updates).
+        builder (PromptBuilder): Prompt builder instance.
+        qc_runner (QCRunner): QC runner instance.
+        log_file (Path): Path to log file.
+        prompt_template_path (Path): Path to prompt template.
+        max_fix_attempts (int): Max number of retries (0 = infinite).
+        feature_dir (Path): Active feature directory.
+        print_prompt (bool): If True, print prompt and return.
+        copy_prompt (bool): If True, copy prompt and return.
+
+    Returns:
+        int: Exit code (0 = success, 5 = failed).
+    """
+    # Handle --print-prompt / --copy-prompt (static preview)
+    if print_prompt or copy_prompt:
+        # Initial build without retry context for preview
+        prompt_text = builder.build(feature_dir, cur)
+        if print_prompt:
+            print(prompt_text)
+            return 0
+
+        if copy_prompt:
+            ok = copy_to_clipboard(prompt_text)
+            if not ok:
+                print(
+                    "Clipboard copy not available; prompt printed below.",
+                    file=sys.stderr,
+                )
+                print(prompt_text)
+            else:
+                print(
+                    f"Prompt copied to clipboard for task {cur.task_id}.",
+                    file=sys.stderr,
+                )
+            return 0
+
+    attempt = 1
+    retry_ctx = None
+
+    while True:
+        if max_fix_attempts > 0 and attempt > max_fix_attempts:
+            msg = (
+                f"Failed to complete task {cur.task_id} after "
+                f"{max_fix_attempts} attempts."
+            )
+            print(msg, file=sys.stderr)
+            _log_msg(log_file, f"ERROR: {msg}")
+            print(f"See log: {log_file}", file=sys.stderr)
+            return 5
+
+        # Rebuild prompt with retry context if applicable
+        prompt_text = builder.build(feature_dir, cur, retry_context=retry_ctx)
+
+        limit_str = str(max_fix_attempts) if max_fix_attempts > 0 else "∞"
+        msg = f"Executing task {cur.task_id} (attempt {attempt}/{limit_str})"
+        print(msg)
+        _log_msg(log_file, f"INFO: {msg}")
+
+        run_copilot(workspace=workspace, prompt_text=prompt_text, log_file=log_file)
+
+        # Refresh plan/task state after Copilot run
+        cur_after = parser.find_task_by_id(cur.task_id)
+
+        # Task-step QC (scoped)
+        try:
+            qc_runner.run_scoped()
+        except subprocess.CalledProcessError as e:
+            err_msg = f"Scoped QC failed for task {cur.task_id}: {e}"
+            print(err_msg, file=sys.stderr)
+            _log_msg(log_file, f"WARN: {err_msg}")
+
+            # Prepare context for next attempt
+            retry_ctx = (
+                f"Attempt {attempt} failed verification.\n"
+                f"Error: {e}\n"
+                "Please fix code/test issues and try again."
+            )
+            attempt += 1
+            continue
+
+        # Flip checkbox if model didn't do it (authoritative edit after QC)
+        if cur_after and not cur_after.checked:
+            parser.flip_checkbox(cur_after)
+
+        success_msg = f"Task {cur.task_id} complete and gated."
+        print(success_msg)
+        _log_msg(log_file, f"SUCCESS: {success_msg}")
+        return 0
+
+
 def main(argv: list[str]) -> int:
     """
     Main entry point for atomic executor CLI.
@@ -301,12 +419,9 @@ def main(argv: list[str]) -> int:
     # Setup logging
     log_dir = workspace / LOG_DIR
     log_dir.mkdir(exist_ok=True)
-    run_id = subprocess.run(  # noqa: S603, S607 - trusted date cmd
-        ["date", "+%Y-%m-%d_%H%M%S"],  # noqa: S607
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.strip()
+    import datetime
+
+    run_id = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     log_file = log_dir / f"atomic_executor_{run_id}.log"
 
     # Parse plan and preflight validate
@@ -315,6 +430,11 @@ def main(argv: list[str]) -> int:
 
     # Determine current task
     if args.cmd == "resume":
+        cur = parser.next_unchecked_task()
+        if cur is None:
+            print("Plan already complete: no unchecked tasks found.")
+            return 0
+    elif args.cmd == "execute-all":
         cur = parser.next_unchecked_task()
         if cur is None:
             print("Plan already complete: no unchecked tasks found.")
@@ -328,61 +448,34 @@ def main(argv: list[str]) -> int:
                 print("Plan already complete: no unchecked tasks found.")
                 return 0
 
-    # Build prompt
     builder = PromptBuilder(workspace, prompt_template_path)
-    prompt_text = builder.build(feature_dir, cur)
-
-    # Handle --print-prompt / --copy-prompt
-    if args.print_prompt:
-        print(prompt_text)
-        return 0
-
-    if args.copy_prompt:
-        ok = copy_to_clipboard(prompt_text)
-        if not ok:
-            print(
-                "Clipboard copy not available; prompt printed below.",
-                file=sys.stderr,
-            )
-            print(prompt_text)
-        else:
-            print(
-                f"Prompt copied to clipboard for task {cur.task_id}.",
-                file=sys.stderr,
-            )
-        return 0
-
-    # Execute exactly one task per run
     qc_runner = QCRunner(workspace)
 
-    for attempt in range(1, args.max_fix_attempts + 1):
-        print(
-            f"Executing task {cur.task_id} "
-            f"(attempt {attempt}/{args.max_fix_attempts})"
+    while True:
+        # Build prompt and execute
+        result = _execute_one_task(
+            workspace=workspace,
+            cur=cur,
+            parser=parser,
+            builder=builder,
+            qc_runner=qc_runner,
+            log_file=log_file,
+            prompt_template_path=prompt_template_path,
+            max_fix_attempts=args.max_fix_attempts,
+            feature_dir=feature_dir,
+            print_prompt=args.print_prompt,
+            copy_prompt=args.copy_prompt,
         )
-        run_copilot(workspace=workspace, prompt_text=prompt_text, log_file=log_file)
 
-        # Refresh plan after copilot run
-        parser_after = PlanParser(plan_path)
-        cur_after = parser_after.find_task_by_id(cur.task_id)
+        if result != 0:
+            return result
 
-        # Task-step QC (scoped)
-        try:
-            qc_runner.run_scoped()
-        except subprocess.CalledProcessError as e:
-            print(
-                f"Scoped QC failed for task {cur.task_id}: {e}",
-                file=sys.stderr,
-            )
-            continue
+        # Stop here if interactive command (print/copy)
+        if args.print_prompt or args.copy_prompt:
+            return 0
 
-        # Flip checkbox if model didn't do it (authoritative edit after QC)
-        if not cur_after.checked:
-            parser.flip_checkbox(cur)
-
-        # Check phase completion
-        parser_now = PlanParser(plan_path)
-        if parser_now.phase_complete(cur.phase):
+        # Check phase completion after task success
+        if parser.phase_complete(cur.phase):
             print(f"Phase {cur.phase} complete -> running full toolchain...")
             try:
                 qc_runner.run_full()
@@ -391,23 +484,20 @@ def main(argv: list[str]) -> int:
                     f"Full QC failed after completing Phase {cur.phase}: {e}",
                     file=sys.stderr,
                 )
-                # Phase QC failure: user should decide revert/adjust
                 return 5
 
-        print(
-            f"Task {cur.task_id} complete and gated. "
-            f"Next: run 'resume' for the next task."
-        )
-        return 0
+        # If not execute-all, we are done after one task
+        if args.cmd != "execute-all":
+            print("Next: run 'resume' for the next task.")
+            return 0
 
-    # Max attempts exhausted
-    print(
-        f"Failed to complete task {cur.task_id} after "
-        f"{args.max_fix_attempts} attempts.",
-        file=sys.stderr,
-    )
-    print(f"See log: {log_file}", file=sys.stderr)
-    return 5
+        # If execute-all, find next task
+        next_task = parser.next_unchecked_task()
+        if next_task is None:
+            print("All tasks complete.")
+            return 0
+        cur = next_task
+        print(f"Proceeding to next task: {cur.task_id}...")
 
 
 if __name__ == "__main__":
