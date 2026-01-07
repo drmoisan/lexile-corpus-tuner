@@ -12,10 +12,24 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     # Shell QC tooling
     shellcheck \
     shfmt \
+    # Bash debugger build dependencies
+    autoconf \
+    automake \
+    build-essential \
+    texinfo \
     # Clipboard utilities for pyperclip fallback
     wl-clipboard \
     xclip \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install bashdb (not packaged for all Debian/Ubuntu bases)
+RUN git clone --depth 1 https://github.com/Trepan-Debuggers/bashdb /tmp/bashdb \
+    && cd /tmp/bashdb \
+    && bash ./autogen.sh \
+    && bash ./configure \
+    && make \
+    && make install \
+    && rm -rf /tmp/bashdb
 
 # Install PowerShell 7.5+ from Microsoft repository
 RUN wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \

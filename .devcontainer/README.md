@@ -22,6 +22,7 @@ This directory contains the Docker Dev Container configuration for the Lexile Co
 - **PowerShell 7.5+** for cross-platform scripting
 - **Git** and **GitHub CLI** (gh)
 - **actionlint** for GitHub Actions workflow linting
+- **bashdb** for Bash debugging
 
 ### Python Tooling
 - **Black** (code formatter)

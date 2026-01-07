@@ -12,8 +12,8 @@ set -euo pipefail
 
 TASK="${1:-}"
 if [[ -z "${TASK}" ]]; then
-  echo "Usage: tools/agent_mvp.sh \"<task + acceptance criteria>\""
-  exit 2
+	echo "Usage: tools/agent_mvp.sh \"<task + acceptance criteria>\""
+	exit 2
 fi
 
 # ---- Canonical QC commands (derived from README / CI) ------------------------
@@ -35,30 +35,30 @@ say() { printf "%s\n" "$*" | tee -a "${LOG_FILE}"; }
 # ---- Safety checks -----------------------------------------------------------
 
 require_clean_tree() {
-  if [[ -n "$(git status --porcelain)" ]]; then
-    say "ERROR: Working tree is not clean."
-    exit 3
-  fi
+	if [[ -n "$(git status --porcelain)" ]]; then
+		say "ERROR: Working tree is not clean."
+		exit 3
+	fi
 }
 
 refuse_protected_branch() {
-  local b
-  b="$(git rev-parse --abbrev-ref HEAD)"
-  if [[ "${b}" =~ ^(main|master|development)$ ]]; then
-    say "ERROR: Refusing to run on protected branch '${b}'."
-    exit 4
-  fi
+	local b
+	b="$(git rev-parse --abbrev-ref HEAD)"
+	if [[ "${b}" =~ ^(main|master|development)$ ]]; then
+		say "ERROR: Refusing to run on protected branch '${b}'."
+		exit 4
+	fi
 }
 
 run_qc() {
-  say "== Black =="
-  eval "${FMT_CMD}"
-  say "== Ruff =="
-  eval "${LINT_CMD}"
-  say "== Pyright =="
-  eval "${TYPE_CMD}"
-  say "== Pytest =="
-  eval "${TEST_CMD}"
+	say "== Black =="
+	eval "${FMT_CMD}"
+	say "== Ruff =="
+	eval "${LINT_CMD}"
+	say "== Pyright =="
+	eval "${TYPE_CMD}"
+	say "== Pytest =="
+	eval "${TEST_CMD}"
 }
 
 # ---- Preconditions -----------------------------------------------------------
@@ -74,11 +74,11 @@ say "Log file: ${LOG_FILE}"
 
 # ---- Execution loop ----------------------------------------------------------
 
-for ((i=1; i<=MAX_ITERS; i++)); do
-  say ""
-  say "================ Iteration ${i}/${MAX_ITERS} ================"
+for ((i = 1; i <= MAX_ITERS; i++)); do
+	say ""
+	say "================ Iteration ${i}/${MAX_ITERS} ================"
 
-  copilot -p "
+	copilot -p "
 You are executing a change in the lexile-corpus-tuner repository.
 
 Authoritative constraints:
@@ -100,20 +100,20 @@ If a step fails, fix the root cause and restart the sequence.
 
 Stop only when all steps pass or you are blocked by missing information.
 " \
-  --allow-tool 'write' \
-  --allow-tool 'shell(poetry)' \
-  --allow-tool 'shell(python)' \
-  --allow-tool 'shell(git)' \
-  2>&1 | tee -a "${LOG_FILE}"
+		--allow-tool 'write' \
+		--allow-tool 'shell(poetry)' \
+		--allow-tool 'shell(python)' \
+		--allow-tool 'shell(git)' \
+		2>&1 | tee -a "${LOG_FILE}"
 
-  say "== Host QC gate =="
-  if run_qc 2>&1 | tee -a "${LOG_FILE}"; then
-    say "✅ QC PASSED"
-    say "Ready to commit."
-    exit 0
-  else
-    say "❌ QC FAILED — remediation required."
-  fi
+	say "== Host QC gate =="
+	if run_qc 2>&1 | tee -a "${LOG_FILE}"; then
+		say "✅ QC PASSED"
+		say "Ready to commit."
+		exit 0
+	else
+		say "❌ QC FAILED — remediation required."
+	fi
 done
 
 say ""
