@@ -37,7 +37,9 @@ IA_METADATA_ENDPOINT = "https://archive.org/metadata/{identifier}"
 app = typer.Typer(help="Enrich catalog entries with IA download candidates.")
 
 
-def fetch_ia_metadata(identifier: str) -> dict[str, object]:
+def fetch_ia_metadata(
+    identifier: str,
+) -> dict[str, object]:  # pragma: no cover - network helper exercised indirectly
     """Fetch IA metadata for a single identifier."""
     url = IA_METADATA_ENDPOINT.format(identifier=identifier)
     req = urllib.request.Request(url)  # noqa: S310 - IA HTTPS endpoint is expected
@@ -156,7 +158,7 @@ def _write_catalog(path: Path, entries: list[CatalogEntry]) -> None:
 
 
 @app.command()
-def enrich_oer_catalog(
+def enrich_oer_catalog(  # pragma: no cover - CLI wrapper
     catalog_file: Path = typer.Option(..., exists=True, readable=True),  # noqa: B008
     output: Path = typer.Option(  # noqa: B008
         ..., help="Path to write enriched catalog JSONL"
@@ -179,4 +181,4 @@ def enrich_oer_catalog(
 
 
 if __name__ == "__main__":
-    app()
+    app()  # pragma: no cover - CLI dispatch

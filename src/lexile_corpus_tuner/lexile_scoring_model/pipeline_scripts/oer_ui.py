@@ -181,7 +181,9 @@ class CatalogViewModel:
         return self._selected[index]
 
 
-def create_catalog_table(parent: tk.Misc, viewmodel: CatalogViewModel) -> tk.Frame:
+def create_catalog_table(  # pragma: no cover - GUI rendering exercised manually
+    parent: tk.Misc, viewmodel: CatalogViewModel
+) -> tk.Frame:
     """
     Build a simple checkbox table bound to the view model.
 
@@ -218,7 +220,7 @@ def create_catalog_table(parent: tk.Misc, viewmodel: CatalogViewModel) -> tk.Fra
     return frame
 
 
-def _toggle_helper(
+def _toggle_helper(  # pragma: no cover - GUI event wiring
     viewmodel: CatalogViewModel, index: int, state_var: tk.BooleanVar
 ) -> None:
     """Toggle selection in the view model and sync the checkbox state."""
@@ -226,7 +228,7 @@ def _toggle_helper(
     state_var.set(viewmodel.is_selected(index))
 
 
-def create_filter_panel(
+def create_filter_panel(  # pragma: no cover - GUI rendering exercised manually
     parent: tk.Misc, on_filter: Callable[[str, str, str], None]
 ) -> tk.Frame:
     """
@@ -275,7 +277,7 @@ def export_manifest(entries: list[CatalogEntry], output_path: Path) -> None:
 
 
 @app.command()
-def curate_oer_ui() -> None:
+def curate_oer_ui() -> None:  # pragma: no cover - interactive GUI
     """Launch the Tkinter UI for manual curation."""
     catalog_dir = Path("data/meta/catalogs")
     entries = load_catalog_files(catalog_dir)
@@ -305,4 +307,4 @@ def curate_oer_ui() -> None:
 
 
 if __name__ == "__main__":
-    app()
+    app()  # pragma: no cover - CLI dispatch

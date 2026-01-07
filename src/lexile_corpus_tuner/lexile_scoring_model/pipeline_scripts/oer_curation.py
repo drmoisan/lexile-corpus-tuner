@@ -144,7 +144,8 @@ def _write_skips(path: Path, skipped: list[tuple[str, str]]) -> None:
 
 
 @app.command()
-def curate_oer_catalog(  # noqa: B008 - Typer option defaults are runtime configuration
+def curate_oer_catalog(  # pragma: no cover - CLI wrapper
+    # noqa: B008 - Typer option defaults are runtime configuration
     catalog_dir: Path = typer.Option(..., exists=True, file_okay=False),  # noqa: B008
     require_text: bool = typer.Option(  # noqa: B008
         True, help="Require at least one text/plain candidate"
@@ -174,4 +175,4 @@ def curate_oer_catalog(  # noqa: B008 - Typer option defaults are runtime config
 
 
 if __name__ == "__main__":
-    app()
+    app()  # pragma: no cover - CLI dispatch

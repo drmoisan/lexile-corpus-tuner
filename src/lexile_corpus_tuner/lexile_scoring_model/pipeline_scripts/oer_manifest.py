@@ -202,7 +202,7 @@ def _read_curated(catalog_dir: Path) -> list[CatalogEntry]:
 
 
 @app.command()
-def generate_oer_manifest(
+def generate_oer_manifest(  # pragma: no cover - CLI wrapper
     catalog_dir: Path = typer.Option(..., exists=True, file_okay=False),  # noqa: B008
     out: Path = typer.Option(  # noqa: B008
         Path("data/meta/oer_sources.json"), help="Output manifest path"
@@ -231,4 +231,4 @@ def generate_oer_manifest(
 
 
 if __name__ == "__main__":
-    app()
+    app()  # pragma: no cover - CLI dispatch

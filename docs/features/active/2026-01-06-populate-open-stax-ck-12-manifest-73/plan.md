@@ -142,18 +142,18 @@
 - [x] [P16-T4] Add integration test `test_download_normalize_consumes_manifest_without_errors` in test_oer_integration.py that verifies existing corpus pipeline can parse manifest
 
 ### Phase 17 — Validation & Toolchain
-- [] [P17-T1] Run `poetry run black .` on all modified files
-- [] [P17-T2] Run `poetry run ruff check` and fix all reported issues
-- [] [P17-T3] Run `poetry run pyright` and fix all type errors
-- [] [P17-T4] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_models.py -v` and verify all pass
-- [] [P17-T5] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -v` and verify all pass
-- [] [P17-T6] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py -v` and verify all pass
-- [] [P17-T7] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py -v` and verify all pass
-- [] [P17-T8] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -v` and verify all pass
-- [] [P17-T9] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py -v` and verify all pass
-- [] [P17-T10] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_integration.py -v` and verify all pass
-- [] [P17-T11] Run `poetry run pytest --cov=src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts --cov-report=term-missing` and verify ≥90% coverage for new modules
-- [] [P17-T12] Update plan.md Last Updated date to current date
+- [x] [P17-T1] Run `poetry run black .` on all modified files
+- [x] [P17-T2] Run `poetry run ruff check` and fix all reported issues
+- [x] [P17-T3] Run `poetry run pyright` and fix all type errors
+- [x] [P17-T4] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_models.py -v` and verify all pass
+- [x] [P17-T5] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -v` and verify all pass
+- [x] [P17-T6] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py -v` and verify all pass
+- [x] [P17-T7] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py -v` and verify all pass
+- [x] [P17-T8] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -v` and verify all pass
+- [x] [P17-T9] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py -v` and verify all pass
+- [x] [P17-T10] Run `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_integration.py -v` and verify all pass
+- [x] [P17-T11] Run `poetry run pytest --cov=src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts --cov-report=term-missing` and verify ≥90% coverage for new modules
+- [x] [P17-T12] Update plan.md Last Updated date to current date
 
 ## Test Plan
 

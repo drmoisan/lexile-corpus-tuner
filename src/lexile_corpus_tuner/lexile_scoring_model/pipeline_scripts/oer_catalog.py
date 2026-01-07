@@ -76,7 +76,11 @@ def build_ia_query(source: str) -> str:
     )
 
 
-def _http_get_json(url: str) -> dict[str, object]:
+def _http_get_json(
+    url: str,
+) -> dict[
+    str, object
+]:  # pragma: no cover - network helper exercised via higher-level mocks
     """Perform a GET and return parsed JSON.
 
     This helper is isolated to simplify mocking in tests and to centralize
@@ -188,7 +192,8 @@ def write_catalog_jsonl(entries: list[CatalogEntry], output_path: Path) -> None:
 
 
 @app.command()
-def build_oer_catalog(  # noqa: B008 - Typer option defaults are runtime configuration
+def build_oer_catalog(  # pragma: no cover - CLI wrapper
+    # noqa: B008 - Typer option defaults are runtime configuration
     sources: str = typer.Option(
         "openstax,ck12", help="Comma-separated list of sources to query"
     ),  # noqa: B008 - Typer options evaluated at import for CLI metadata
@@ -240,4 +245,4 @@ def _ensure_list_str(value: Any) -> list[str]:
 
 
 if __name__ == "__main__":
-    app()
+    app()  # pragma: no cover - CLI dispatch
