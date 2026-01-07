@@ -290,8 +290,8 @@ class PlanParser:
 
         if not has_validation_phase and not has_toolchain:
             raise RuntimeError(
-                "BLOCKED at preflight (before [P0-T1]): no final validation/"
-                "toolchain phase detected (heuristic)."
+                "BLOCKED at preflight (before [P0-T1]): no final QA/toolchain "
+                "phase detected (heuristic)."
             )
 
     def _read_text(self) -> str:
