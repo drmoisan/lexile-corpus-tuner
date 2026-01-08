@@ -753,7 +753,7 @@ Combined examples:
                     print(f"... {len(last_results) - 10} more")
 
         elif cmd == "export_sets":
-            out_dir = Path(arg) if arg else Path("data/meta/sets")
+            out_dir = Path(arg) if arg else Path("resources/meta/sets")
             save_canonical_sets(subjects, bookshelves, out_dir)
 
         elif cmd == "export_results":

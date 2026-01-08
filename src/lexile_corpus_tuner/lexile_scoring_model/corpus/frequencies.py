@@ -16,7 +16,7 @@ FREQ_TSV = FREQ_ROOT / "word_frequencies.tsv"
 FREQ_META = FREQ_ROOT / "word_frequencies.meta.json"
 WEIGHTED_FREQ_TSV = FREQ_ROOT / "weighted_word_frequencies.tsv"
 WEIGHTED_FREQ_META = FREQ_ROOT / "weighted_word_frequencies.meta.json"
-CORPUS_META_PATH = Path("data/meta/corpus_sources.json")
+CORPUS_META_PATH = Path("resources/meta/corpus_sources.json")
 CORPUS_STATS_PATH = FREQ_ROOT / "corpus_stats.json"
 
 LOGGER = logging.getLogger(__name__)
