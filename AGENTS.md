@@ -507,6 +507,7 @@ These are the required tools for Python code in this repo:
 
    - All Python code must be formatted with **Black** (default settings).
    - Do not hand-format; if a diff disagrees with Black, Black wins.
+   - Approved command: `poetry run black .`
 
 2. **Linting — Ruff**
 
@@ -524,6 +525,7 @@ These are the required tools for Python code in this repo:
           - Each approach you tried and why it failed
           - Why a suppression is the only remaining option
    - Use **targeted, single-line** suppressions with required comment format from `python-suppressions.instructions.md`.
+   - Approved command: `poetry run ruff check`
 
 3. **Typing — Pyright**
 
@@ -546,6 +548,7 @@ These are the required tools for Python code in this repo:
    - When using untyped third-party libraries:
      - Wrap usage in custom functions or classes with proper type hints.
      - Use **line-specific** `# type: ignore[...]` comments instead of excluding whole files or directories.
+   - Approved command: `poetry run pyright`
 
 > **Testing tools and behavior are defined in the unit test policies.** Do not define test behavior here; instead, obey `general-unit-test.instructions.md` and `python-unit-test.instructions.md`.
 
@@ -764,6 +767,7 @@ If there is any conflict between these documents, halt and notify the user.
 ## 4. Respecting the Toolchain Loop
 
 - When running the “After Making Changes” toolchain loop from the general code change policy on Python work, your **testing step** must be performed with **Pytest**.
+- Approved command: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
 - Do **not** substitute other test runners or frameworks for Python code unless explicitly instructed to do so.
 
 This file defines **how** Python tests are written and structured; the general code change policy defines **when** the toolchain (including tests) must be run and how strictly that loop must be followed.
