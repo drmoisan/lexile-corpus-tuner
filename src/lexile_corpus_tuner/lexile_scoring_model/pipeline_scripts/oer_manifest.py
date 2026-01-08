@@ -63,7 +63,8 @@ def build_manifest_entry(
 
     Purpose:
         Produce the manifest row required by downstream download/normalize
-        stages, enforcing stable slug IDs and `.txt` filenames.
+        stages, enforcing stable slug IDs and filename extensions that mirror
+        the candidate content type (.pdf for PDF, .txt otherwise).
 
     Args:
         catalog_entry: Curated entry representing a single IA item.
@@ -73,7 +74,11 @@ def build_manifest_entry(
         ManifestEntry: Immutable manifest row.
     """
     slug = generate_stable_slug(catalog_entry.identifier)
-    filename = f"{slug}.txt"
+    # Use .pdf when the candidate advertises a PDF content type; default to .txt
+    # for text-oriented derivatives.
+    format_lower = candidate.format.lower()
+    extension = ".pdf" if format_lower.startswith("application/pdf") else ".txt"
+    filename = f"{slug}{extension}"
     return ManifestEntry(
         source_id=catalog_entry.source_id or "oer",
         id=slug,
@@ -82,18 +87,25 @@ def build_manifest_entry(
     )
 
 
-def validate_url(url: str) -> tuple[bool, int | None, str | None]:
+def validate_url(
+    url: str, allowed_content_types: list[str] | None = None
+) -> tuple[bool, int | None, str | None]:
     """
     Perform a HEAD request to verify reachability and content type.
 
     Args:
         url: Target URL to validate.
+        allowed_content_types: Acceptable Content-Type prefixes (case-insensitive).
+            Defaults to ["text"] to permit text/* responses. When provided, the
+            HEAD response must start with one of the allowed prefixes.
 
     Returns:
         Tuple of (is_valid, status_code, content_type). is_valid is False when
         the request fails, returns a non-200 status, or when the content type
-        does not begin with text/*.
+        does not begin with an allowed prefix.
     """
+    # Normalize allowed content-type prefixes for case-insensitive comparison.
+    content_type_prefixes = [value.lower() for value in (allowed_content_types or ["text"])]
     req = urllib.request.Request(  # noqa: S310 - IA HTTPS endpoint is expected
         url, method="HEAD"
     )
@@ -105,7 +117,9 @@ def validate_url(url: str) -> tuple[bool, int | None, str | None]:
         return False, None, None
     if status != 200:
         return False, status, content_type
-    if content_type and not content_type.lower().startswith("text"):
+    if content_type and not any(
+        content_type.lower().startswith(prefix) for prefix in content_type_prefixes
+    ):
         return False, status, content_type
     return True, status, content_type
 

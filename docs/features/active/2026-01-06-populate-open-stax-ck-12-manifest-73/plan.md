@@ -50,18 +50,18 @@
 - [x] [P3-T6] Add Typer CLI entrypoint `enrich_ck12_catalog` wiring fetch, parse, and enrich behaviors
 
 ### Phase 4 — PDF Extraction (extract_pdf_text.py)
-- [ ] [P4-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_pdf_text.py with module docstring and typed stubs
-- [ ] [P4-T2] Implement `extract_text_from_pdf(pdf_path: Path) -> str` in extract_pdf_text.py using pdfplumber with timeout-safe file handling
-- [ ] [P4-T3] Implement `save_text_file(text: str, output_path: Path)` in extract_pdf_text.py ensuring parent creation and overwrite safety
-- [ ] [P4-T4] Implement `process_ck12_directory(input_dir: Path, output_dir: Path)` in extract_pdf_text.py iterating PDFs (consider parallelism where allowed) and invoking extract/save
-- [ ] [P4-T5] Implement error logging for failed extractions with actionable context
-- [ ] [P4-T6] Add Typer CLI entrypoint `extract_pdf_text` wiring directory processing
+- [x] [P4-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_pdf_text.py with module docstring and typed stubs
+- [x] [P4-T2] Implement `extract_text_from_pdf(pdf_path: Path) -> str` in extract_pdf_text.py using pdfplumber with timeout-safe file handling
+- [x] [P4-T3] Implement `save_text_file(text: str, output_path: Path)` in extract_pdf_text.py ensuring parent creation and overwrite safety
+- [x] [P4-T4] Implement `process_ck12_directory(input_dir: Path, output_dir: Path)` in extract_pdf_text.py iterating PDFs (consider parallelism where allowed) and invoking extract/save
+- [x] [P4-T5] Implement error logging for failed extractions with actionable context
+- [x] [P4-T6] Add Typer CLI entrypoint `extract_pdf_text` wiring directory processing
 
 ### Phase 5 — Pipeline Integration
-- [ ] [P5-T1] Add `has_pdf_candidate` helper to `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py`
-- [ ] [P5-T2] Extend `curate_oer_catalog` CLI in `oer_curation.py` with `--require-pdf` filter logic
-- [ ] [P5-T3] Update `build_manifest_entry` in `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` to set extension from content-type (PDF => .pdf, otherwise .txt)
-- [ ] [P5-T4] Update `validate_url` signature in `oer_manifest.py` to accept `allowed_content_types` list and honor it in HEAD checks
+- [x] [P5-T1] Add `has_pdf_candidate` helper to `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py`
+- [x] [P5-T2] Extend `curate_oer_catalog` CLI in `oer_curation.py` with `--require-pdf` filter logic
+- [x] [P5-T3] Update `build_manifest_entry` in `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` to set extension from content-type (PDF => .pdf, otherwise .txt)
+- [x] [P5-T4] Update `validate_url` signature in `oer_manifest.py` to accept `allowed_content_types` list and honor it in HEAD checks
 - [ ] [P5-T5] Update `generate_manifest` in `oer_manifest.py` to pass `['application/pdf']` for CK-12 candidates
 
 ### Phase 6 — Tests (Scenarios)

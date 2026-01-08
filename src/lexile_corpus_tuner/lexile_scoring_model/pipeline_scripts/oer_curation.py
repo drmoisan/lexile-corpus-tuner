@@ -7,6 +7,7 @@ Purpose:
 
 Flow:
     - has_text_candidate: ensure at least one text/plain download exists.
+    - has_pdf_candidate: ensure at least one application/pdf download exists.
     - filter_by_collection: enforce allowed source_ids.
     - curate_entries: produce included list and skipped list with reasons.
     - CLI `curate_oer_catalog` applies the filters to catalog files and writes
@@ -36,6 +37,31 @@ def has_text_candidate(entry: CatalogEntry) -> bool:
     return any(c.format.startswith("text/") for c in entry.download_candidates)
 
 
+def has_pdf_candidate(entry: CatalogEntry) -> bool:
+    """
+    Return True if any download candidate represents a PDF file.
+
+    Purpose:
+        Support CK-12 curation steps that require downloadable PDFs by detecting
+        either an explicit application/pdf MIME type or a PDF-looking URL when
+        format metadata is absent.
+
+    Args:
+        entry (CatalogEntry): Catalog entry whose download candidates are checked.
+
+    Returns:
+        bool: True when at least one candidate appears to be a PDF.
+    """
+    # Accept declared MIME types first, then fall back to URL suffix for resilience.
+    for candidate in entry.download_candidates:
+        format_value = candidate.format.lower()
+        if format_value.startswith("application/pdf"):
+            return True
+        if not format_value and candidate.url.lower().endswith(".pdf"):
+            return True
+    return False
+
+
 def filter_by_collection(entry: CatalogEntry, allowed: list[str]) -> bool:
     """Return True when the entry source_id is in the allowed list."""
     return entry.source_id in allowed
@@ -45,18 +71,30 @@ def curate_entries(
     entries: list[CatalogEntry],
     require_text: bool,
     allowed_sources: list[str],
+    *,
+    require_pdf: bool = False,
 ) -> tuple[list[CatalogEntry], list[tuple[str, str]]]:
     """
     Split entries into included and skipped sets with reasons.
 
     Returns:
-        included: entries that passed all filters
-        skipped: list of (identifier, reason)
+        entries (list[CatalogEntry]): Catalog rows to evaluate.
+        require_text (bool): When True, keep only entries with text/plain candidates.
+        allowed_sources (list[str]): source_id values permitted for inclusion.
+        require_pdf (bool): When True, keep only entries with PDF candidates.
+
+    Returns:
+        tuple[list[CatalogEntry], list[tuple[str, str]]]: Included entries and skipped
+        identifier/reason pairs.
     """
     included: list[CatalogEntry] = []
     skipped: list[tuple[str, str]] = []
     # Evaluate each entry sequentially to capture the first failing reason.
     for entry in entries:
+        # Enforce requested format requirements before checking source membership.
+        if require_pdf and not has_pdf_candidate(entry):
+            skipped.append((entry.identifier, "no pdf candidate"))
+            continue
         if require_text and not has_text_candidate(entry):
             skipped.append((entry.identifier, "no text candidate"))
             continue
@@ -150,6 +188,9 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
     require_text: bool = typer.Option(  # noqa: B008
         True, help="Require at least one text/plain candidate"
     ),
+    require_pdf: bool = typer.Option(  # noqa: B008
+        False, help="Require at least one application/pdf candidate"
+    ),
     sources: str = typer.Option(
         "openstax,ck12", help="Comma-separated allowed sources"
     ),
@@ -160,10 +201,17 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
     """CLI to curate catalogs in a directory and emit curated files + skip logs."""
     allowed = [s.strip().lower() for s in sources.split(",") if s.strip()]
     catalogs = sorted(catalog_dir.glob("*_catalog.jsonl"))
+    # When PDF is explicitly required, skip the text/plain check to support CK-12 flows.
+    effective_require_text = require_text and not require_pdf
     # Curate each catalog independently so outputs remain per-source.
     for catalog_path in catalogs:
         entries = _read_catalog(catalog_path)
-        included, skipped = curate_entries(entries, require_text, allowed)
+        included, skipped = curate_entries(
+            entries,
+            effective_require_text,
+            allowed,
+            require_pdf=require_pdf,
+        )
         curated_path = out_dir / catalog_path.name.replace("_catalog", "_curated")
         skips_path = out_dir / catalog_path.name.replace("_catalog", "_skips")
         _write_catalog(curated_path, included)
