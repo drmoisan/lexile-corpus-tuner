@@ -1,19 +1,15 @@
 {
   "$schema": "../devcontainer.schema.json",
-  "name": "Lexile Corpus Tuner Dev Container (Codespaces)",
-
+  "name": "Lexile Corpus Tuner Dev Container",
   "build": {
     "context": "../..",
-    "dockerfile": "../Dockerfile"
+    "dockerfile": "Dockerfile"
   },
-
   "remoteUser": "vscode",
-
   "containerEnv": {
     "TZ": "America/New_York",
     "BG_WORKTREE_PATH": "/workspaces/${localWorkspaceFolderBasename}-bg"
   },
-
   "features": {
     "ghcr.io/devcontainers/features/git:1": {
       "version": "latest"
@@ -92,6 +88,5 @@
       }
     }
   },
-
   "postCreateCommand": "bash .devcontainer/post-create.sh"
 }

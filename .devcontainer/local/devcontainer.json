@@ -1,7 +1,7 @@
 {
   "$schema": "../devcontainer.schema.json",
   "build": {
-    "context": "..",
+    "context": "../..",
     "dockerfile": "Dockerfile"
   },
   "containerEnv": {
