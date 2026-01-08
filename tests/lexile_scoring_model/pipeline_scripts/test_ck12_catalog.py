@@ -154,3 +154,22 @@ def test_parse_catalog_rows_slug_generation_idempotent() -> None:
     assert entry.identifier == expected_slug
     # Reapplying slug normalization should not alter an existing slug.
     assert ck12_catalog.generate_stable_slug(entry.identifier) == expected_slug
+
+
+def test_generate_stable_slug_repeated_calls_stay_stable() -> None:
+    """
+    generate_stable_slug should produce the same output across repeated calls.
+
+    Purpose:
+        Verify slug normalization is idempotent even when an already-normalized
+        slug is passed back through the helper, preventing identifier drift when
+        multiple pipeline stages normalize the same value.
+    """
+
+    raw_identifier = "CK-12 Earth Science"
+
+    first_slug = ck12_catalog.generate_stable_slug(raw_identifier)
+    second_slug = ck12_catalog.generate_stable_slug(first_slug)
+
+    assert first_slug == "ck-12-earth-science"
+    assert second_slug == first_slug

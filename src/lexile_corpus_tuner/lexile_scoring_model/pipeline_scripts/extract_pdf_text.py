@@ -100,6 +100,7 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
             raise TimeoutError(f"Timed out extracting PDF: {pdf_path}") from exc
 
     if not text:
+        LOGGER.error("No text extracted from PDF: %s", pdf_path)
         raise ValueError(f"No text extracted from PDF: {pdf_path}")
 
     return text

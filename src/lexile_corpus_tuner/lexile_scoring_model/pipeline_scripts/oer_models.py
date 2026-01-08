@@ -19,7 +19,8 @@ Flow:
 
 Invariants / Constraints:
     - `id` fields are stable slugs derived from immutable IA identifiers.
-    - Manifest filenames must end with `.txt` to match the current normalizer.
+    - Manifest filenames must end with `.txt` (text assets) or `.pdf` (CK-12
+      download artifacts) to align with downstream processing.
     - Download candidates should represent real URLs and declared formats.
 
 Side Effects:
@@ -133,7 +134,8 @@ class ManifestEntry:
         source_id: Required source bucket (openstax or ck12).
         id: Stable slug derived from the immutable identifier.
         url: Direct download URL for the text asset.
-        filename: Target filename; must end with .txt per current normalizer.
+        filename: Target filename; must end with .txt (text assets) or .pdf
+            (CK-12 PDF downloads).
     """
 
     source_id: str
@@ -142,5 +144,8 @@ class ManifestEntry:
     filename: str
 
     def __post_init__(self) -> None:  # type: ignore[override]
-        if not self.filename.lower().endswith(".txt"):
-            raise ValueError("ManifestEntry.filename must end with .txt")
+        # Only allow text or PDF derivatives; other extensions are rejected to
+        # keep the downloader/normalizer contracts strict.
+        allowed_suffixes = (".txt", ".pdf")
+        if not self.filename.lower().endswith(allowed_suffixes):
+            raise ValueError("ManifestEntry.filename must end with .txt or .pdf")

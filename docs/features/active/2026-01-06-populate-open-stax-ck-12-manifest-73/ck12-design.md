@@ -30,3 +30,21 @@
 - Linux native libs for Pillow wheels/source builds: install `libjpeg-dev`, `zlib1g-dev`, `libopenjp2-7-dev`, and `libfreetype6-dev` (Debian/Ubuntu names) before `poetry install` to avoid missing image codecs.
 - Windows/macOS: prebuilt wheels bundle the imaging codecs; no additional system packages typically needed.
 - Fonts: pdfplumber uses embedded fonts via pdfminer.six; no system fonts required beyond defaults.
+
+## Manual integration run (P8-T6, 2026-01-08)
+- Offline sample executed with locally hosted PDF (`http://localhost:8765/sample-flexbook.pdf`); HEAD validation to localhost failed under sandbox restrictions, so manifest was emitted without `--validate-urls`.
+- Artifacts:
+  - Catalog (raw): `artifacts/manual_ck12_sample/catalog_raw/ck12_catalog.jsonl`
+  - Enriched: `artifacts/manual_ck12_sample/catalog_enriched/ck12_catalog.jsonl` (1 entry with PDF candidate)
+  - Curated: `artifacts/manual_ck12_sample/curated/ck12_curated.jsonl` (1 kept, 0 skipped)
+  - Manifest: `artifacts/manual_ck12_sample/manifest/oer_sources.sample.json` (1 entry, filename `sample-flexbook.pdf`)
+  - Extraction output: `artifacts/manual_ck12_sample/corpus/ck12/sample-flexbook.txt` successfully extracted from `sample-flexbook.pdf`
+
+## PDF extraction benchmark (P8-T7)
+- Ran `extract_text_from_pdf` (pdfplumber 0.11.9) against the available CK-12 sample `artifacts/manual_ck12_sample/http_root/sample-flexbook.pdf` (609 bytes); wall time ≈0.003s, extracted 34 characters. The file is a placeholder and not representative of full FlexBooks.
+- Tried to source a real CK-12 PDF via live catalog/flexbook pages: CK-12 catalog returned HTTP 403 without browser headers, and even with browser-like headers the HTML contained no `/cbook/` links or `.pdf` references (client-rendered). Need an API/JS discovery path to a true PDF export before rerunning the benchmark on a full-length FlexBook.
+
+## Manual text quality review (P8-T8)
+- Reviewed placeholder PDF `artifacts/manual_ck12_sample/http_root/sample-flexbook.pdf` against extracted text `artifacts/manual_ck12_sample/corpus/ck12/sample-flexbook.txt`: pdfplumber output matches the single-line content exactly.
+- The sample lacks paragraphs, tables, or layout features, so formatting and table retention cannot yet be assessed; quality risk remains unknown for real FlexBooks.
+- Next step once a genuine CK-12 export is reachable: repeat the review on a multi-page PDF with tables/figures to validate extraction fidelity before wider rollout.

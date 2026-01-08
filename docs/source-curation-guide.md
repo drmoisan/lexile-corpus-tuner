@@ -147,61 +147,76 @@ poetry run lexile-scoring-model-pipeline corpus download --sources "simple_wiki"
 
 ## 3. Open Educational Resources (OER)
 
-OpenStax and CK-12 catalogs are now built automatically from Internet Archive and converted into a text-only manifest the downloader can consume.
+OpenStax remains Internet Archive–based (text derivatives), while CK-12 is scraped natively and works through PDF download + extraction.
 
-### Step 1: Build Catalogs
+### OpenStax (text via Internet Archive)
 
-```bash
-poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog \
-  --sources "openstax,ck12" --out-dir data/meta/catalogs
-```
+1. **Catalog:**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog \
+     --sources "openstax" --out-dir data/meta/catalogs
+   ```
+2. **Enrich (find text derivatives):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment \
+     --catalog-file data/meta/catalogs/openstax_catalog.jsonl \
+     --output data/meta/catalogs/openstax_enriched.jsonl
+   ```
+3. **Curate to text-only rows:**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
+     --catalog-dir data/meta/catalogs --require-text --sources "openstax" --out-dir data/meta/catalogs
+   ```
+4. **Generate manifest (text only):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
+     --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls
+   ```
 
-This queries IA scrape endpoint and writes `{source}_catalog.jsonl` files under `data/meta/catalogs/` with base metadata.
+### CK-12 (native FlexBook + PDF extraction)
 
-### Step 2: Enrich Catalogs with Text Derivatives
+1. **Catalog (FlexBook list scrape):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog \
+     --out-dir data/meta/catalogs
+   ```
+2. **Enrich (per-book metadata + PDF link discovery):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment \
+     --catalog-file data/meta/catalogs/ck12_catalog.jsonl \
+     --output data/meta/catalogs/ck12_enriched.jsonl
+   ```
+3. **Curate (require PDF):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
+     --catalog-dir data/meta/catalogs --require-pdf --sources "ck12" --out-dir data/meta/catalogs
+   ```
+4. **Generate manifest (PDF URLs, validated):**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
+     --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls --allow-pdf
+   ```
+5. **Download PDFs:**  
+   ```bash
+   poetry run lexile-scoring-model-pipeline corpus download --sources "ck12"
+   ```
+6. **Extract PDF text:**  
+   ```bash
+   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text \
+     --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12
+   ```
+7. **Normalize extracted text:**  
+   ```bash
+   poetry run lexile-scoring-model-pipeline corpus normalize --sources "ck12"
+   ```
 
-```bash
-poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment \
-  --catalog-file data/meta/catalogs/openstax_catalog.jsonl \
-  --output data/meta/catalogs/openstax_enriched.jsonl
-```
-
-Repeat for `ck12_catalog.jsonl`. Enrichment inspects IA metadata to find `_djvu.txt` (preferred) or other `.txt` downloads and attaches them as `download_candidates`.
-
-### Step 3: Curate to Text-Only Rows
-
-```bash
-poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
-  --catalog-dir data/meta/catalogs --require-text --sources "openstax,ck12" --out-dir data/meta/catalogs
-```
-
-This emits `*_curated.jsonl` plus `*_skips.jsonl` with reasons for exclusions (no text candidate, source not allowed).
-
-### Step 4: Generate Manifest
-
-```bash
-poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
-  --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls
-```
-
-The manifest contains `source_id`, stable slug `id`, direct text `url`, and `.txt` `filename` values validated via HTTP HEAD.
-
-### Step 5: (Optional) Visual Curation UI
+### Optional: Visual Curation UI
 
 ```bash
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui
 ```
 
 This Tkinter UI loads catalog files, lets you toggle inclusion, and exports `data/meta/oer_sources.json` without manual edits.
-
-### Step 6: Download Resources
-
-```bash
-poetry run lexile-scoring-model-pipeline corpus download --sources "openstax,ck12"
-poetry run lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12"
-```
-
-Outputs are saved under `data/corpus/raw/openstax/` and `data/corpus/raw/ck12/`, then normalized into windows as usual.
 
 ---
 

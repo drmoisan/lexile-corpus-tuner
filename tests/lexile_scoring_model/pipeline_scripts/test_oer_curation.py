@@ -63,3 +63,23 @@ def test_curate_entries_logs_skip_reason_for_missing_text() -> None:
     included, skipped = oer_curation.curate_entries([without_text], True, ["openstax"])
     assert included == []
     assert skipped == [(without_text.identifier, "no text candidate")]
+
+
+def test_curate_entries_honors_require_pdf_flag() -> None:
+    """
+    When --require-pdf is set, only PDF candidates are kept and others are skipped.
+    """
+    pdf_only = _entry(
+        [DownloadCandidate(format="application/pdf", url="pdf")], source_id="ck12"
+    )
+    text_only = _entry(
+        [DownloadCandidate(format="text/plain", url="text")], source_id="ck12"
+    )
+    included, skipped = oer_curation.curate_entries(
+        [pdf_only, text_only],
+        False,
+        ["ck12"],
+        require_pdf=True,
+    )
+    assert included == [pdf_only]
+    assert skipped == [(text_only.identifier, "no pdf candidate")]

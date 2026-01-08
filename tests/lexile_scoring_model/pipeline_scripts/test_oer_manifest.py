@@ -57,6 +57,16 @@ def test_build_manifest_entry_sets_filename_to_txt_extension() -> None:
     assert manifest.filename.endswith(".txt")
 
 
+def test_build_manifest_entry_sets_pdf_extension_for_pdf_content_type() -> None:
+    """Filename should use .pdf when the candidate is a PDF derivative."""
+    entry = _entry()
+    candidate = DownloadCandidate(
+        format="application/pdf", url="http://example.com/file.pdf"
+    )
+    manifest = oer_manifest.build_manifest_entry(entry, candidate)
+    assert manifest.filename.endswith(".pdf")
+
+
 def test_validate_url_returns_true_for_http_200_text_content_type(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -100,6 +110,24 @@ def test_validate_url_returns_false_for_application_pdf_content_type(
     monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
     ok, status, content_type = oer_manifest.validate_url("http://example.com")
     assert ok is False
+    assert status == 200
+    assert content_type == "application/pdf"
+
+
+def test_validate_url_accepts_pdf_when_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Validation should allow PDFs when explicitly permitted."""
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        del req, timeout
+        return _MockResponse(200, "application/pdf")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    ok, status, content_type = oer_manifest.validate_url(
+        "http://example.com", allowed_content_types=["application/pdf"]
+    )
+    assert ok is True
     assert status == 200
     assert content_type == "application/pdf"
 

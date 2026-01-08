@@ -104,29 +104,34 @@ poetry run lexile-scoring-model-pipeline corpus frequencies --weighted --config 
 ### OER Catalog + Manifest (OpenStax / CK-12)
 
 ```bash
-# 1) Build catalogs from Internet Archive search
+# OpenStax (IA-based) — catalog/enrich/curate/manifest
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog \
-  --sources "openstax,ck12" --out-dir data/meta/catalogs
-
-# 2) Enrich catalogs with text download candidates
+  --sources "openstax" --out-dir data/meta/catalogs
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment \
   --catalog-file data/meta/catalogs/openstax_catalog.jsonl \
   --output data/meta/catalogs/openstax_enriched.jsonl
-
-# 3) Curate to text-only rows and log skips
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
-  --catalog-dir data/meta/catalogs --require-text --sources "openstax,ck12" --out-dir data/meta/catalogs
-
-# 4) Generate manifest for downloader/normalizer
+  --catalog-dir data/meta/catalogs --require-text --sources "openstax" --out-dir data/meta/catalogs
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
   --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls
 
-# 5) (Optional) Visual curation UI
-poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui
+# CK-12 (native site) — catalog/enrich/curate/manifest + PDF extraction
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog \
+  --out-dir data/meta/catalogs
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment \
+  --catalog-file data/meta/catalogs/ck12_catalog.jsonl \
+  --output data/meta/catalogs/ck12_enriched.jsonl
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
+  --catalog-dir data/meta/catalogs --require-pdf --sources "ck12" --out-dir data/meta/catalogs
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
+  --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls --allow-pdf
+poetry run lexile-scoring-model-pipeline corpus download --sources "ck12"
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text \
+  --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12
+poetry run lexile-scoring-model-pipeline corpus normalize --sources "ck12"
 
-# 6) Consume manifest via existing corpus pipeline
-poetry run lexile-scoring-model-pipeline corpus download --sources "openstax,ck12"
-poetry run lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12"
+# (Optional) Visual curation UI
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui
 ```
 
 ### Gutenberg Corpus Explorer

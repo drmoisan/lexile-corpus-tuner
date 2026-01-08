@@ -68,30 +68,30 @@
 - [x] [P6-T1] Add test for `fetch_catalog_page` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
 - [x] [P6-T2] Add test for `parse_catalog_rows` with valid HTML fixture in `test_ck12_catalog.py`
 - [x] [P6-T3] Add test for `parse_catalog_rows` handling missing metadata gracefully in `test_ck12_catalog.py`
-- [ ] [P6-T4] Add test for slug generation idempotence in `test_ck12_catalog.py`
-- [ ] [P6-T5] Add test for `fetch_flexbook_html` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
-- [ ] [P6-T6] Add test for `parse_flexbook_metadata` extracting author/grade/language in `test_ck12_enrichment.py`
-- [ ] [P6-T7] Add test for `extract_pdf_url` parsing PDF link from FLEXBOOK HTML in `test_ck12_enrichment.py`
-- [ ] [P6-T8] Add test for `extract_text_from_pdf` successful extraction using fixture PDF in `tests/lexile_scoring_model/pipeline_scripts/test_extract_pdf_text.py`
-- [ ] [P6-T9] Add test for `extract_text_from_pdf` failure handling (logged/raised) in `test_extract_pdf_text.py`
-- [ ] [P6-T10] Add test for `curate_oer_catalog` `--require-pdf` filter behavior in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
-- [ ] [P6-T11] Add test for `build_manifest_entry` assigning .pdf when content-type is application/pdf in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
-- [ ] [P6-T12] Add test for `validate_url` accepting application/pdf when `allowed_content_types` includes it in `test_oer_manifest.py`
+- [x] [P6-T4] Add test for slug generation idempotence in `test_ck12_catalog.py`
+- [x] [P6-T5] Add test for `fetch_flexbook_html` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
+- [x] [P6-T6] Add test for `parse_flexbook_metadata` extracting author/grade/language in `test_ck12_enrichment.py`
+- [x] [P6-T7] Add test for `extract_pdf_url` parsing PDF link from FLEXBOOK HTML in `test_ck12_enrichment.py`
+- [x] [P6-T8] Add test for `extract_text_from_pdf` successful extraction using fixture PDF in `tests/lexile_scoring_model/pipeline_scripts/test_extract_pdf_text.py`
+- [x] [P6-T9] Add test for `extract_text_from_pdf` failure handling (logged/raised) in `test_extract_pdf_text.py`
+- [x] [P6-T10] Add test for `curate_oer_catalog` `--require-pdf` filter behavior in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
+- [x] [P6-T11] Add test for `build_manifest_entry` assigning .pdf when content-type is application/pdf in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
+- [x] [P6-T12] Add test for `validate_url` accepting application/pdf when `allowed_content_types` includes it in `test_oer_manifest.py`
 
 ### Phase 7 — Documentation
-- [ ] [P7-T1] Update `docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md` with any implementation deviations or decisions
-- [ ] [P7-T2] Update `docs/source-curation-guide.md` with CK-12 workflow steps (catalog, enrich, curate, manifest, extract)
-- [ ] [P7-T3] Update `README.md` with new CLI commands and flags for CK-12 catalog/enrich/extract
+- [x] [P7-T1] Update `docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md` with any implementation deviations or decisions
+- [x] [P7-T2] Update `docs/source-curation-guide.md` with CK-12 workflow steps (catalog, enrich, curate, manifest, extract)
+- [x] [P7-T3] Update `README.md` with new CLI commands and flags for CK-12 catalog/enrich/extract
 
 ### Phase 8 — Validation & Release Gate
-- [ ] [P8-T1] Run `poetry lock --no-update` and confirm lockfile sync after dependency additions
-- [ ] [P8-T2] Run formatter (`poetry run black .`) and confirm no pending formatting changes
-- [ ] [P8-T3] Run linter (`poetry run ruff check`) and resolve findings
-- [ ] [P8-T4] Run type checker (`poetry run pyright`) and resolve diagnostics
-- [ ] [P8-T5] Run tests (`poetry run pytest`) and ensure all new scenarios pass
-- [ ] [P8-T6] Execute manual integration flow Catalog -> Enrich -> Curate -> Manifest -> Extract on a small CK-12 sample and record outcomes
-- [ ] [P8-T7] Benchmark PDF extraction time on a representative CK-12 sample and note results in `ck12-design.md`
-- [ ] [P8-T8] Manually review extracted text quality (formatting/table retention) on sample PDFs and capture observations in `ck12-design.md`
+- [x] [P8-T1] Run `poetry lock --no-update` and confirm lockfile sync after dependency additions
+- [x] [P8-T2] Run formatter (`poetry run black .`) and confirm no pending formatting changes
+- [x] [P8-T3] Run linter (`poetry run ruff check`) and resolve findings
+- [x] [P8-T4] Run type checker (`poetry run pyright`) and resolve diagnostics
+- [x] [P8-T5] Run tests (`poetry run pytest`) and ensure all new scenarios pass
+- [x] [P8-T6] Execute manual integration flow Catalog -> Enrich -> Curate -> Manifest -> Extract on a small CK-12 sample and record outcomes
+- [x] [P8-T7] Benchmark PDF extraction time on a representative CK-12 sample and note results in `ck12-design.md`
+- [x] [P8-T8] Manually review extracted text quality (formatting/table retention) on sample PDFs and capture observations in `ck12-design.md`
 
 ## Notes
 - Keep tasks scoped to CK-12 follow-on only; OpenStax remains stable and unchanged.

@@ -197,6 +197,13 @@ Return/side effects: catalog/manifest files written, download exits non-zero on 
 1. **OpenStax (IA-based)**: Continue using Internet Archive scrape API as originally specified
 2. **CK-12 (Native site scraping)**: Scrape CK-12's official catalog at `https://www.ck12.org/fbbrowse/list`, download PDFs directly from FlexBooks platform, and extract text from PDF format
 
+## Implementation Decisions / Deviations
+
+- CK-12 catalog parsing currently captures titles and FlexBook URLs; subject categories, license metadata, and publication dates are not populated in catalog rows.
+- CK-12 enrichment extracts author/grade/language via JSON-LD/meta/regex heuristics but does not populate license or publication date; PDF link discovery requires absolute `.pdf` URLs from anchors/buttons, and per-entry enrichment failures are skipped with stderr output (no skip log entry).
+- Manifest validation uses HEAD-only checks with source-specific content-type gates (text/* for OpenStax, application/pdf for CK-12); there is no GET/Range fallback when HEAD is blocked.
+- PDF extraction uses `pdfplumber` only with a 30s per-file timeout and up to 4 concurrent workers; there is no `pypdf` fallback, and empty extractions raise `ValueError` (logged) while batch processing continues.
+
 ## Definition of Done
 
 - [ ] Behavior matches acceptance criteria (catalog → curate → manifest → download → normalize, including skip handling)
