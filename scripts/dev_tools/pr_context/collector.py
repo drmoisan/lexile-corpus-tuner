@@ -97,8 +97,8 @@ __all__ = [
 
 SUMMARY_PATH_DEFAULT = "artifacts/pr_context.summary.txt"
 APPENDIX_PATH_DEFAULT = "artifacts/pr_context.appendix.txt"
-SUMMARY_CHAR_BUDGET = 16000
-APPENDIX_CHAR_BUDGET = 48000
+SUMMARY_CHAR_BUDGET = 160000  # 10x increase: ~2300 lines at 70 chars/line avg
+APPENDIX_CHAR_BUDGET = 480000  # 10x increase: ~6900 lines at 70 chars/line avg
 ISSUE_SUMMARY_LINE_BUDGET = 25
 ISSUE_APPENDIX_LINE_BUDGET = 120
 COMMENT_SUMMARY_LIMIT = 3
