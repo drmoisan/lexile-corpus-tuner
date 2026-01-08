@@ -1,7 +1,7 @@
 ---
 name: staged_code_review_agent
 description: Review staged changes before commit. Produce PolicyAudit.md (per policy audit templates) + CodeReview.md (best practices, typed Python emphasis). If remediation is needed, generate remediation inputs and delegate plan creation to atomic_planner to write remediation-plan.md in the active feature folder. No user questions.
-argument-hint: "Stage your changes, then run this agent. It will inspect ONLY staged diffs, run repo-required checks in check-only mode where possible, and generate: (1) docs/features/active/<feature>/PolicyAudit.md, (2) docs/features/active/<feature>/CodeReview.md, and (3) if needed, docs/features/active/<feature>/remediation-inputs.md plus an atomic_planner prompt to write remediation-plan.md in the same folder."
+argument-hint: "Stage your changes, then run this agent. It will inspect ONLY staged diffs, run repo-required checks in check-only mode where possible, and generate: (1) docs/features/active/<feature>/PolicyAudit-<timestamp>.md, (2) docs/features/active/<feature>/CodeReview-<timestamp>.md, and (3) if needed, docs/features/active/<feature>/remediation-inputs-<timestamp>.md plus an atomic_planner prompt to write remediation-plan-<timestamp>.md in the same folder. Timestamps use format yyyyMMdd-HHmm."
 target: vscode
 tools:
   - search
@@ -45,9 +45,9 @@ You are a **pre-commit staged-change reviewer** specializing in:
 - **Resilient, autonomous operation** (no questions; make best-effort assumptions; fully finish the review artifacts)
 
 Your output is NOT code changes. Your output is:
-1) A completed **PolicyAudit.md** for the staged changes
-2) A completed **CodeReview.md** covering best practices, with a typed-Python emphasis
-3) If needed: **remediation-inputs.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan.md` to the same active feature folder
+1) A completed **PolicyAudit-<timestamp>.md** for the staged changes (timestamp format: yyyyMMdd-HHmm)
+2) A completed **CodeReview-<timestamp>.md** covering best practices, with a typed-Python emphasis (timestamp format: yyyyMMdd-HHmm)
+3) If needed: **remediation-inputs-<timestamp>.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan-<timestamp>.md` to the same active feature folder (timestamp format: yyyyMMdd-HHmm)
 
 # Highest priority: Repository policy compliance
 
@@ -137,7 +137,8 @@ Document the rule used inside PolicyAudit.md and CodeReview.md.
    - If still missing, STOP and mark audit as BLOCKED in a minimal PolicyAudit.md explaining the missing template.
 
 2) Create the audit document:
-   - Copy the template to: `<FEATURE_FOLDER>/PolicyAudit.md`
+   - Generate a timestamp in format `yyyyMMdd-HHmm` (e.g., "20260108-1430" for Jan 8, 2026 at 2:30 PM)
+   - Copy the template to: `<FEATURE_FOLDER>/PolicyAudit-<timestamp>.md`
    - Replace placeholders with actual values:
      - Component Name (use feature folder name or the primary module name)
      - Audit Date (today)
@@ -180,7 +181,7 @@ Rules:
   - Mark affected sections as UNVERIFIED (PARTIAL) and explain why.
 
 ## Phase E — Produce CodeReview.md (best practices + typed Python emphasis)
-
+-<timestamp>.md` (using the same timestamp from Phase C)
 Create `<FEATURE_FOLDER>/CodeReview.md` with:
 
 1) Executive summary
@@ -224,18 +225,18 @@ Trigger remediation if ANY of the following:
 - CodeReview.md contains any Blockers
 
 If remediation is triggered:
-
-1) Create `<FEATURE_FOLDER>/remediation-inputs.md` containing:
+1) Create `<FEATURE_FOLDER>/remediation-inputs-<timestamp>.md` (using the same timestamp from Phase C) containing:
    - A numbered list of required fixes with:
      - Exact file(s) and location(s)
      - Expected behavior
      - Acceptance criteria
      - Verification commands/tasks
-   - A “do not do” list (no scope creep; no policy weakening; no silent skips)
+   - A "do not do" list (no scope creep; no policy weakening; no silent skips)
 
 2) Produce an **atomic_planner prompt** (copy/paste ready) that:
-   - References `<FEATURE_FOLDER>/remediation-inputs.md`
+   - References `<FEATURE_FOLDER>/remediation-inputs-<timestamp>.md`
    - Explicitly instructs atomic_planner to WRITE:
+     - `<FEATURE_FOLDER>/remediation-plan-<timestamp>.md` (using the same timestamp from Phase C)RITE:
      - `<FEATURE_FOLDER>/remediation-plan.md`
    - Requires phases and atomic tasks with verifiable acceptance criteria
    - Requires a final QA phase (format → lint → type-check → tests)
@@ -247,11 +248,11 @@ Optionally: use the provided handoff “Create remediation plan (atomic_planner)
 ## Phase G — Final deliverable (no questions)
 
 When finished, respond with:
-- Paths created/updated:
-  - `<FEATURE_FOLDER>/PolicyAudit.md`
-  - `<FEATURE_FOLDER>/CodeReview.md`
-  - `<FEATURE_FOLDER>/remediation-inputs.md` (if any)
-  - `<FEATURE_FOLDER>/remediation-plan.md` (only if atomic_planner was invoked)
+- Paths created/updated (all with timestamp in format yyyyMMdd-HHmm):
+  - `<FEATURE_FOLDER>/PolicyAudit-<timestamp>.md`
+  - `<FEATURE_FOLDER>/CodeReview-<timestamp>.md`
+  - `<FEATURE_FOLDER>/remediation-inputs-<timestamp>.md` (if any)
+  - `<FEATURE_FOLDER>/remediation-plan-<timestamp>.md` (only if atomic_planner was invoked)
 - A one-paragraph go/no-go recommendation for committing.
 - If remediation is needed: the atomic_planner prompt (verbatim, ready to run).
 

@@ -24,10 +24,18 @@
 ---
 
 **Audit Date:** [YYYY-MM-DD]  
-**Test File:** `[path/to/test_file]` (if testing)  
-**Code Under Test:** `[path/to/code_file]`  
-**Total Tests:** [N] (if testing)  
-**Test Result:** [✅/❌] [N] Passed, [N] Failed (if testing)
+**Code Under Test:** [List all files modified across all languages]
+
+**Coverage Metrics by Language:**
+
+| Language | Files Changed | Tests | Test Result | Baseline Coverage | Post-Change Coverage | New Code Coverage |
+|----------|--------------|-------|-------------|-------------------|---------------------|-------------------|
+| Python | [N] files | [N] tests | [✅/❌] [N] pass, [N] fail | [N]% lines, [N]% funcs | [N]% lines, [N]% funcs | [N]% |
+| PowerShell | [N] files | [N] tests | [✅/❌] [N] pass, [N] fail | [N]% cmds, [N]% funcs | [N]% cmds, [N]% funcs | [N]% |
+| Bash | [N] files | [N/A] tests | [✅/❌/N/A] | N/A (no coverage) | N/A (no coverage) | N/A |
+| JSON | [N] files | N/A | [✅/❌] validation | N/A (config files) | N/A (config files) | N/A |
+
+**Note:** Delete rows for languages not involved in this change. Add rows if additional languages are used.
 
 ---
 
@@ -37,11 +45,22 @@
 
 **Policy documents evaluated:**
 - [✅/❌] `general-code-change.instructions.md` (if applicable)
-- [✅/❌] `python-code-change.instructions.md` OR `powershell-code-change.instructions.md` (language-specific)
 - [✅/❌] `general-unit-test.instructions.md` (if testing)
-- [✅/❌] `python-unit-test.instructions.md` OR `powershell-unit-test.instructions.md` (if testing)
+
+**Language-specific policies evaluated:**
+- [✅/❌/N/A] `python-code-change.instructions.md` + `python-unit-test.instructions.md`
+- [✅/❌/N/A] `powershell-code-change.instructions.md` + `powershell-unit-test.instructions.md`
+- [✅/❌/N/A] Bash: shfmt + shellcheck + bats (if applicable)
+- [✅/❌/N/A] JSON: format_json + validate_json (if applicable)
+
+**Note:** Check all languages involved in this change. N/A for unused languages.
 
 [Brief summary of test coverage, toolchain results, and compliance status.]
+
+**Temporary artifacts cleanup:**
+- [✅/❌] All temporary/one-time scripts created during development have been deleted
+- [✅/❌] Any ongoing tooling scripts are fully tested and compliant with repo policies
+- [List any scripts created during development and their disposition: deleted or kept with tests]
 
 ---
 
@@ -61,11 +80,14 @@
 
 | Requirement | Status | Evidence |
 |------------|--------|----------|
-| **Comprehensive Coverage** | [✅/❌/N/A] [PASS/FAIL/N/A] | [List all functions/classes/modules tested with line ranges and test counts. Report function coverage percentage and line coverage percentage. Note any untested code and justification.] |
-| **Positive Flows** - Valid inputs | [✅/❌/N/A] [PASS/FAIL/N/A] | [List all positive test scenarios. Describe normal operation paths tested. Show that happy paths are covered.] |
-| **Negative Flows** - Invalid inputs | [✅/❌/N/A] [PASS/FAIL/N/A] | [List all negative test scenarios. Show that invalid inputs are handled correctly. Describe error conditions tested.] |
-| **Edge Cases** - Boundary conditions | [✅/❌/N/A] [PASS/FAIL/N/A] | [List all edge case scenarios. Show that boundary conditions are tested (empty strings, nulls, limits, special characters, etc.).] |
-| **Error Handling** - Error paths | [✅/❌/N/A] [PASS/FAIL/N/A] | [List all error handling scenarios. Show that exceptions and error conditions are properly tested.] |
+| **Baseline Coverage Documented** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Baseline (pre-development):** [N]% lines, [N]% functions<br>**Command:** `[coverage command]`<br>**Timestamp:** [YYYY-MM-DD HH:MM]<br>**Note:** Document baseline BEFORE making changes to avoid re-computation during audit. |
+| **No Coverage Regression** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Post-change coverage:** [N]% lines, [N]% functions<br>**Change:** [+/-N]% lines, [+/-N]% functions<br>**Status:** [No regression / Regression detected: justification]<br>**Example:** "Baseline: 85.2% → Post-change: 87.1% (+1.9%) ✅ PASS" |
+| **New Code Coverage ≥90%** | [✅/❌/N/A] [PASS/FAIL/N/A] | **New/modified files:** [list files]<br>**New code coverage:** [N]% (must be ≥90%)<br>**Calculation method:** [describe how new code was isolated for measurement]<br>**Example:** "New module `foo.py`: 127/135 lines covered = 94.1% ✅ PASS" |
+| **Comprehensive Coverage** | [✅/❌/N/A] [PASS/FAIL/N/A] | **All functions/classes tested:**<br>- `function_name()` (lines X-Y): [N] tests<br>- `ClassName` (lines A-B): [N] tests<br>**Untested code:** [list with justification]<br>**Example:**<br>- `parse_config()` (lines 45-67): 3 tests<br>- `ConfigLoader` (lines 100-150): 5 tests<br>- Untested: `__repr__()` (trivial representation, no business logic) |
+| **Positive Flows** - Valid inputs | [✅/❌/N/A] [PASS/FAIL/N/A] | **All positive scenarios tested:**<br>- `test_function_with_valid_string`: Tests normal string input → returns expected output<br>- `test_function_with_valid_number`: Tests numeric input in valid range → performs calculation<br>- `test_function_with_default_params`: Tests function with default parameters → uses correct defaults<br>**Total positive tests:** [N] |
+| **Negative Flows** - Invalid inputs | [✅/❌/N/A] [PASS/FAIL/N/A] | **All negative scenarios tested:**<br>- `test_function_rejects_none`: Input `None` → raises `ValueError` with message "Input cannot be None"<br>- `test_function_rejects_empty_string`: Input `""` → raises `ValueError` with message "Input cannot be empty"<br>- `test_function_rejects_negative_number`: Input `-5` → raises `ValueError` with message "Value must be positive"<br>- `test_function_rejects_wrong_type`: Input `123` (expected str) → raises `TypeError` with message "Expected string, got int"<br>**Total negative tests:** [N] |
+| **Edge Cases** - Boundary conditions | [✅/❌/N/A] [PASS/FAIL/N/A] | **All edge cases tested:**<br>- `test_function_with_empty_list`: Input `[]` → returns empty result<br>- `test_function_with_max_length_string`: Input 255-char string (boundary) → processes correctly<br>- `test_function_with_unicode_chars`: Input `"café ☕"` → handles Unicode correctly<br>- `test_function_with_whitespace`: Input `"  spaces  "` → strips/preserves as designed<br>**Total edge case tests:** [N] |
+| **Error Handling** - Error paths | [✅/❌/N/A] [PASS/FAIL/N/A] | **All error scenarios tested:**<br>- `test_function_handles_network_timeout`: Mock network timeout → raises `TimeoutError` after retry<br>- `test_function_handles_file_not_found`: Missing file → raises `FileNotFoundError` with filepath<br>- `test_function_handles_json_parse_error`: Invalid JSON → raises `JSONDecodeError` with line number<br>**Total error handling tests:** [N] |
 | **Concurrency** - If applicable | [✅/❌/N/A] [PASS/FAIL/N/A] | [Describe concurrency testing or explain why it's not applicable. If applicable, describe how race conditions and thread safety are tested.] |
 | **State Transitions** - If applicable | [✅/❌/N/A] [PASS/FAIL/N/A] | [Describe state transition testing or explain why it's not applicable. If applicable, show that all state transitions are tested.] |
 
@@ -153,11 +175,11 @@
 
 ## 3. Language-Specific Code Change Policy Compliance
 
-**Note:** Use Section 3A for Python OR Section 3B for PowerShell. Delete the section that doesn't apply.
+**Instructions:** Complete one section per language involved in this change. Delete sections for languages not used.
 
 ---
 
-### Section 3A: Python Code Change Policy Compliance
+### Section 3A: Python Code Change Policy Compliance (if applicable)
 
 #### 3A.1 Tooling & Baseline
 
@@ -187,7 +209,7 @@
 
 ---
 
-### Section 3B: PowerShell Code Change Policy Compliance
+### Section 3B: PowerShell Code Change Policy Compliance (if applicable)
 
 #### 3B.1 Tooling & Baseline
 
@@ -227,13 +249,52 @@
 
 ---
 
-## 4. Language-Specific Unit Test Policy Compliance
+### Section 3C: Bash Script Policy Compliance (if applicable)
 
-**Note:** Use Section 4A for Python OR Section 4B for PowerShell. Delete the section that doesn't apply.
+#### 3C.1 Tooling & Baseline
+
+| Requirement | Status | Evidence |
+|------------|--------|----------|
+| **Formatting with shfmt** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Command:** `poetry run shell-qc format`<br>**Result:** [Describe result] |
+| **Linting with shellcheck** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Command:** `poetry run shell-qc check`<br>**Result:** [Describe result] |
+| **Testing with bats** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Command:** `poetry run shell-qc test`<br>**Result:** [Describe result or N/A if no tests] |
+
+#### 3C.2 Bash Script Design
+
+| Requirement | Status | Evidence |
+|------------|--------|----------|
+| **Portable shebang** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Confirm `#!/usr/bin/env bash` or `#!/bin/bash` used.] |
+| **Error handling** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Describe use of `set -e`, `set -u`, `set -o pipefail`, error traps.] |
+| **Under 500 lines** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Report file line counts.] |
 
 ---
 
-### Section 4A: Python Unit Test Policy Compliance
+### Section 3D: JSON Configuration Policy Compliance (if applicable)
+
+#### 3D.1 JSON Tooling
+
+| Requirement | Status | Evidence |
+|------------|--------|----------|
+| **Formatting with jq** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Command:** `poetry run python -m scripts.dev_tools.format_json`<br>**Result:** [Describe result - files formatted or already formatted] |
+| **Schema validation** | [✅/❌/N/A] [PASS/FAIL/N/A] | **Command:** `poetry run python -m scripts.dev_tools.validate_json`<br>**Result:** [Describe result - all schemas valid] |
+| **Required $schema** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Confirm all governed JSON files have `$schema` property.] |
+
+#### 3D.2 JSON Structure
+
+| Requirement | Status | Evidence |
+|------------|--------|----------|
+| **Strict JSON only** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Confirm no comments, trailing commas, or other JSON5 features.] |
+| **Deterministic key order** | [✅/❌/N/A] [PASS/FAIL/N/A] | [Confirm keys are sorted via `jq --sort-keys`.] |
+
+---
+
+## 4. Language-Specific Unit Test Policy Compliance
+
+**Instructions:** Complete one section per language with tests. Delete sections for languages not used or not tested.
+
+---
+
+### Section 4A: Python Unit Test Policy Compliance (if applicable)
 
 #### 4A.1 Framework and Scope
 
@@ -266,7 +327,7 @@
 
 ---
 
-### Section 4B: PowerShell Unit Test Policy Compliance
+### Section 4B: PowerShell Unit Test Policy Compliance (if applicable)
 
 #### 4B.1 Framework and Scope
 
