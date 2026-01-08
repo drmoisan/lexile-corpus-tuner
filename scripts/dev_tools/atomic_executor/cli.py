@@ -421,6 +421,13 @@ def run_copilot(
     share_dir.mkdir(parents=True, exist_ok=True)
     share_path = share_dir / f"copilot_session_{run_id}_{task_id}.md"
 
+    # Write prompt to temporary file to avoid Windows command-line length limits
+    # (WinError 206: filename or extension too long when prompt passed via -p).
+    prompt_dir = log_file.parent / "prompts"
+    prompt_dir.mkdir(parents=True, exist_ok=True)
+    prompt_file = prompt_dir / f"prompt_{run_id}_{task_id}.txt"
+    prompt_file.write_text(prompt_text, encoding="utf-8")
+
     argv: list[str] = [
         copilot_exe,
     ]
@@ -432,8 +439,6 @@ def run_copilot(
 
     argv.extend(
         [
-            "-p",
-            prompt_text,
             "--share",
             str(share_path),
             "--allow-tool",
@@ -455,13 +460,23 @@ def run_copilot(
         if normalized_model:
             f.write(f"normalized_model: {normalized_model}\n")
         f.write(f"share_path: {share_path}\n")
+        f.write(f"prompt_file: {prompt_file}\n")
         f.write(
             "(prompt omitted from log for brevity; " "use --print-prompt to view)\n"
         )
         f.flush()
-        subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
-            argv, cwd=workspace, stdout=f, stderr=subprocess.STDOUT, check=True
-        )
+
+        # Pass prompt via stdin to avoid Windows command-line length limits.
+        # Read from file and pipe to copilot process.
+        with prompt_file.open("r", encoding="utf-8") as prompt_f:
+            subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+                argv,
+                cwd=workspace,
+                stdin=prompt_f,
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                check=True,
+            )
 
 
 def _log_msg(log_file: Path, msg: str) -> None:

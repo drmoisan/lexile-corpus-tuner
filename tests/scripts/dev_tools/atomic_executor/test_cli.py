@@ -974,11 +974,18 @@ class TestRunCopilot:
         monkeypatch.setenv("PATH", str(fake_bin))
 
         captured_argv: list[str] = []
+        captured_stdin: str | None = None
 
         def mock_run(
             argv: list[str], *args: object, **kwargs: object
         ) -> subprocess.CompletedProcess[str]:
+            nonlocal captured_stdin
             captured_argv.extend(argv)
+            # Capture stdin content if provided
+            stdin_arg = kwargs.get("stdin")
+            if stdin_arg and hasattr(stdin_arg, "read"):
+                # Type narrowing: we know it has a read method
+                captured_stdin = stdin_arg.read()  # type: ignore[union-attr]
             result = Mock()
             result.returncode = 0
             return result  # type: ignore[return-value]
@@ -999,8 +1006,11 @@ class TestRunCopilot:
         assert captured_argv[0] == str(fake_copilot)
         assert "--model" in captured_argv
         assert "gpt-5.1-codex-max" in captured_argv
-        assert "-p" in captured_argv
-        assert "test prompt" in captured_argv
+        # Prompt should be passed via stdin, not command-line
+        assert "-p" not in captured_argv
+        assert "test prompt" not in captured_argv
+        # But stdin should contain the prompt
+        assert captured_stdin == "test prompt"
         assert "--share" in captured_argv
         assert "--allow-tool" in captured_argv
         assert "write" in captured_argv
