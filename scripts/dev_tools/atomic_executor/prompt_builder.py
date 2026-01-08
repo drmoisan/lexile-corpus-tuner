@@ -176,8 +176,9 @@ Constraints:
 - Follow all repository policies under .github/instructions/.
 - Do NOT replan or expand scope. Do not change task order or IDs.
 - Make the smallest change set required to complete ONLY the current task.
-- After you believe the task is done, run the task-step toolchain for
-  changed files only:
+- You must run the task-step toolchain for changed files, fix any failures,
+  and rerun until all checks pass in this Copilot session before you declare
+  the task complete:
   - poetry run black --check <changed .py files>
   - poetry run ruff check <changed .py files>
   - poetry run pyright <changed .py files>

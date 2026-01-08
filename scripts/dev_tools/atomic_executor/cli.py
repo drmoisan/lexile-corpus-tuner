@@ -13,6 +13,7 @@ import os
 import shutil
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
@@ -249,16 +250,28 @@ def copy_to_clipboard(text: str) -> bool:
     Side Effects:
         Executes system clipboard command (clip/pbcopy/xclip/etc.).
     """
-    # Try pyperclip first (optional import)
-    try:
-        import pyperclip  # type: ignore[import-untyped]
 
-        pyperclip.copy(text)
+    def _try_pyperclip_copy() -> bool:
+        """
+        Attempt copy via optional pyperclip dependency.
+
+        Returns:
+            bool: True when pyperclip is available and succeeds, otherwise False
+            to allow fallback to platform-specific commands.
+        """
+        try:
+            import pyperclip  # type: ignore[import-untyped]
+        except ImportError:
+            return False
+
+        try:
+            pyperclip.copy(text)
+            return True
+        except Exception:
+            return False
+
+    if _try_pyperclip_copy():
         return True
-    except (ImportError, Exception):  # noqa: S110 - optional library fallback
-        # Optional library not installed or copy failed;
-        # this is acceptable for optional dependencies per suppressions policy.
-        pass
 
     # Get platform-appropriate clipboard command
     cmd = get_clipboard_command()
@@ -442,8 +455,14 @@ def run_copilot(
         normalized_model = normalize_copilot_model(preferred_model)
         argv.extend(["--model", normalized_model])
 
-    if resume_session:
+    supports_sessions = _copilot_supports_session(copilot_exe)
+    if resume_session and supports_sessions:
         argv.extend(["--session-path", str(share_path)])
+    elif resume_session and not supports_sessions:
+        _log_msg(
+            log_file,
+            "INFO: Copilot CLI does not support --session-path; skipping resume.",
+        )
 
     argv.extend(
         [
@@ -468,7 +487,7 @@ def run_copilot(
         if normalized_model:
             f.write(f"normalized_model: {normalized_model}\n")
         if resume_session:
-            f.write("resume_session: True\n")
+            f.write(f"resume_session: {supports_sessions}\n")
         f.write(f"share_path: {share_path}\n")
         f.write(f"prompt_file: {prompt_file}\n")
         f.write("(prompt omitted from log for brevity; use --print-prompt to view)\n")
@@ -520,6 +539,27 @@ def run_copilot(
 
     # Post-processing: deduplicate prompt from session file
     _clean_session_file(share_path, prompt_text)
+
+
+@lru_cache(maxsize=4)
+def _copilot_supports_session(copilot_exe: str) -> bool:
+    """
+    Detect whether the copilot CLI supports session reuse flags.
+
+    Returns:
+        bool: True if --session-path is supported.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603 - copilot_exe resolved via shutil.which
+            [copilot_exe, "--help"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+    return "--session-path" in result.stdout
 
 
 def _clean_session_file(session_path: Path, prompt_text: str) -> None:

@@ -858,6 +858,10 @@ class TestMainEdgeCases:
         from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 
         monkeypatch.setattr(QCRunner, "run_scoped", lambda self: None)
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
 
         exit_code = main(
             [
@@ -954,6 +958,10 @@ class TestRunCopilot:
             return "/usr/bin/copilot" if name == "copilot" else None
 
         monkeypatch.setattr("shutil.which", which)
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
 
         def mock_run(
             argv: list[str], *args: object, **kwargs: object
@@ -991,6 +999,10 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot.exe"
         fake_copilot.write_text("@echo fake copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
 
         captured_argv: list[str] = []
         captured_stdin: str | None = None
@@ -1053,7 +1065,7 @@ class TestRunCopilot:
     def test_run_copilot_reuses_session_when_requested(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
-        """run_copilot() adds --session-path when resume_session=True."""
+        """run_copilot() adds --session-path when resume_session=True and supported."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
         fake_bin = tmp_path / "bin"
@@ -1061,6 +1073,10 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("#!/bin/sh\necho copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: True,
+        )
 
         captured_argv: list[str] = []
 
@@ -1102,3 +1118,55 @@ class TestRunCopilot:
         assert captured_argv[session_idx + 1].endswith(
             "copilot_session_2026-01-07_000000_P1-T1.md"
         )
+
+    def test_run_copilot_skips_session_when_not_supported(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() omits --session-path if CLI lacks support."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_copilot = fake_bin / "copilot"
+        fake_copilot.write_text("#!/bin/sh\necho copilot")
+        monkeypatch.setenv("PATH", str(fake_bin))
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
+
+        captured_argv: list[str] = []
+
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                captured_argv.extend(argv)
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
+
+        log_file = tmp_path / "log" / "test.log"
+
+        run_copilot(
+            workspace=tmp_path,
+            prompt_text="retry prompt",
+            log_file=log_file,
+            task_id="P1-T1",
+            preferred_model=None,
+            run_id="2026-01-07_000000",
+            resume_session=True,
+        )
+
+        assert "--session-path" not in captured_argv

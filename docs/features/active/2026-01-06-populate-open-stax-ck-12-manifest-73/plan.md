@@ -65,9 +65,9 @@
 - [x] [P5-T5] Update `generate_manifest` in `oer_manifest.py` to pass `['application/pdf']` for CK-12 candidates
 
 ### Phase 6 — Tests (Scenarios)
-- [ ] [P6-T1] Add test for `fetch_catalog_page` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
-- [ ] [P6-T2] Add test for `parse_catalog_rows` with valid HTML fixture in `test_ck12_catalog.py`
-- [ ] [P6-T3] Add test for `parse_catalog_rows` handling missing metadata gracefully in `test_ck12_catalog.py`
+- [x] [P6-T1] Add test for `fetch_catalog_page` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [x] [P6-T2] Add test for `parse_catalog_rows` with valid HTML fixture in `test_ck12_catalog.py`
+- [x] [P6-T3] Add test for `parse_catalog_rows` handling missing metadata gracefully in `test_ck12_catalog.py`
 - [ ] [P6-T4] Add test for slug generation idempotence in `test_ck12_catalog.py`
 - [ ] [P6-T5] Add test for `fetch_flexbook_html` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
 - [ ] [P6-T6] Add test for `parse_flexbook_metadata` extracting author/grade/language in `test_ck12_enrichment.py`
