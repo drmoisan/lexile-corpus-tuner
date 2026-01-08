@@ -326,6 +326,8 @@
       "args": [
         "execute-all",
         "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
         "--max-fix-attempts",
         "10"
       ],
@@ -343,6 +345,27 @@
       "description": "Path to feature folder (e.g. docs/features/active/feature-name)",
       "id": "FeaturePath",
       "type": "promptString"
+    },
+    {
+      "default": "GPT-5.1-Codex-Max",
+      "description": "Copilot model to force for atomic executor runs",
+      "id": "PreferredModel",
+      "options": [
+        "Claude Sonnet 4.5",
+        "Claude Haiku 4.5",
+        "Claude Opus 4.5",
+        "Claude Sonnet 4",
+        "GPT-5.1-Codex-Max",
+        "GPT-5.1-Codex",
+        "GPT-5.2",
+        "GPT-5.1",
+        "GPT-5",
+        "GPT-5.1-Codex-Mini",
+        "GPT-5 mini",
+        "GPT-4.1",
+        "Gemini 3 Pro (Preview)"
+      ],
+      "type": "pickString"
     }
   ],
   "version": "0.2.0"
