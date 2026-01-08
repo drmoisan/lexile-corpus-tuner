@@ -720,7 +720,7 @@ def _execute_one_task(
         return 0
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str] | None = None) -> int:
     """
     Main entry point for atomic executor CLI.
 
@@ -741,6 +741,8 @@ def main(argv: list[str]) -> int:
         - Invokes Copilot CLI
         - Writes log files
     """
+    if argv is None:
+        argv = sys.argv[1:]
     args = parse_args(argv)
     workspace = resolve_workspace(args.workspace)
 
