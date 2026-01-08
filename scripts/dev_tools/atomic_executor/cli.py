@@ -8,6 +8,7 @@ that coordinates PlanParser, FeatureResolver, QCRunner, and PromptBuilder.
 from __future__ import annotations
 
 import argparse
+import codecs
 import os
 import shutil
 import subprocess
@@ -425,7 +426,7 @@ def run_copilot(
     # (WinError 206: filename or extension too long when prompt passed via -p).
     prompt_dir = log_file.parent / "prompts"
     prompt_dir.mkdir(parents=True, exist_ok=True)
-    prompt_file = prompt_dir / f"prompt_{run_id}_{task_id}.txt"
+    prompt_file = prompt_dir / f"prompt_{run_id}_{task_id}.md"
     prompt_file.write_text(prompt_text, encoding="utf-8")
 
     argv: list[str] = [
@@ -461,22 +462,86 @@ def run_copilot(
             f.write(f"normalized_model: {normalized_model}\n")
         f.write(f"share_path: {share_path}\n")
         f.write(f"prompt_file: {prompt_file}\n")
-        f.write(
-            "(prompt omitted from log for brevity; " "use --print-prompt to view)\n"
-        )
+        f.write("(prompt omitted from log for brevity; use --print-prompt to view)\n")
         f.flush()
 
         # Pass prompt via stdin to avoid Windows command-line length limits.
-        # Read from file and pipe to copilot process.
-        with prompt_file.open("r", encoding="utf-8") as prompt_f:
-            subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+        # Use Popen to stream stdout to both console and log file.
+        # Use binary mode + incremental decoding to avoid Python
+        # TextIOWrapper buffering.
+        with prompt_file.open("rb") as prompt_f:
+            process = subprocess.Popen(  # noqa: S603 - static analysis can't verify runtime validation
                 argv,
                 cwd=workspace,
                 stdin=prompt_f,
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
             )
+
+            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+
+            # Stream output
+            if process.stdout:
+                while True:
+                    # Read small chunks of bytes for responsiveness
+                    # We use os.read() like semantics on the pipe if possible,
+                    # but process.stdout.read(1) ensures we don't block waiting
+                    # for a large buffer
+                    chunk = process.stdout.read(1)
+                    if not chunk and process.poll() is not None:
+                        break
+
+                    if chunk:
+                        text_chunk = decoder.decode(chunk, final=False)
+                        if text_chunk:
+                            print(text_chunk, end="", flush=True)
+                            f.write(text_chunk)
+                            f.flush()
+
+            # Flush any remaining chars from decoder
+            remaining = decoder.decode(b"", final=True)
+            if remaining:
+                print(remaining, end="", flush=True)
+                f.write(remaining)
+                f.flush()
+
+            return_code = process.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, argv)
+
+    # Post-processing: deduplicate prompt from session file
+    _clean_session_file(share_path, prompt_text)
+
+
+def _clean_session_file(session_path: Path, prompt_text: str) -> None:
+    """
+    Remove the prompt from the beginning of the session file to avoid duplication.
+
+    Args:
+        session_path (Path): Path to the generated session markdown file.
+        prompt_text (str): The prompt text that was sent to the agent.
+    """
+    if not session_path.exists():
+        return
+
+    try:
+        content = session_path.read_text(encoding="utf-8")
+        # Check whether the file begins with the prompt text.
+        # Allow small implementation differences in the echoed header.
+        if content.startswith(prompt_text):
+            # Slice it off
+            cleaned_content = content[len(prompt_text) :].lstrip()
+            # If nothing remains, arguably we should leave it empty or keep something?
+            # Usually there is subsequent conversation.
+            # Add a header to indicate this is the transcript
+            cleaned_content = "# Copilot Session Transcript\n\n" + cleaned_content
+            session_path.write_text(cleaned_content, encoding="utf-8")
+    except Exception as e:
+        # Don't fail the build if cosmetic cleanup fails
+        print(
+            f"Warning: Failed to clean session file {session_path}: {e}",
+            file=sys.stderr,
+        )
 
 
 def _log_msg(log_file: Path, msg: str) -> None:
@@ -629,8 +694,8 @@ def main(argv: list[str]) -> int:
     args = parse_args(argv)
     workspace = resolve_workspace(args.workspace)
 
-    # Preconditions: clean tree, not on protected branch
-    ensure_clean_tree(workspace)
+    # Preconditions: not on protected branch
+    # ensure_clean_tree(workspace) - Disabled to allow mid-execution restarts
     refuse_protected_branch(workspace)
 
     # Resolve feature folder

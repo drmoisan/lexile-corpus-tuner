@@ -832,7 +832,26 @@ class TestMainEdgeCases:
             result.returncode = 0
             return result  # type: ignore[return-value]
 
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                subprocess_calls.append(argv)
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
         monkeypatch.setattr("shutil.which", lambda x: f"/usr/bin/{x}")
 
         # Mock QCRunner methods to succeed
@@ -976,21 +995,36 @@ class TestRunCopilot:
         captured_argv: list[str] = []
         captured_stdin: str | None = None
 
-        def mock_run(
-            argv: list[str], *args: object, **kwargs: object
-        ) -> subprocess.CompletedProcess[str]:
-            nonlocal captured_stdin
-            captured_argv.extend(argv)
-            # Capture stdin content if provided
-            stdin_arg = kwargs.get("stdin")
-            if stdin_arg and hasattr(stdin_arg, "read"):
-                # Type narrowing: we know it has a read method
-                captured_stdin = stdin_arg.read()  # type: ignore[union-attr]
-            result = Mock()
-            result.returncode = 0
-            return result  # type: ignore[return-value]
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
 
-        monkeypatch.setattr("subprocess.run", mock_run)
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                nonlocal captured_stdin
+                captured_argv.extend(argv)
+                # Capture stdin content if provided
+                stdin_arg = kwargs.get("stdin")
+                if stdin_arg and hasattr(stdin_arg, "read"):
+                    # Type narrowing: we know it has a read method and returns bytes
+                    raw_content = stdin_arg.read()  # type: ignore[union-attr]
+                    # Explicitly cast to bytes for type checker
+                    content_bytes: bytes = (
+                        raw_content if isinstance(raw_content, bytes) else b""
+                    )
+                    captured_stdin = content_bytes.decode("utf-8")
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
 
         log_file = tmp_path / "test.log"
 

@@ -18,33 +18,33 @@
 ## Implementation Plan (Atomic Tasks)
 
 ### Phase 0 — Context & Inputs
-- [ ] [P0-T1] Read .github/copilot-instructions.md and general-code-change.instructions.md to confirm baseline policies
-- [ ] [P0-T2] Read general-unit-test.instructions.md and python-unit-test.instructions.md to confirm testing and scenario rules
-- [ ] [P0-T3] Read python-code-change.instructions.md and self-explanatory-code-commenting.instructions.md to confirm typing/docstring/comment guardrails
-- [ ] [P0-T4] Re-read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md for CK-12 scope and acceptance criteria
-- [ ] [P0-T5] Re-read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/user-story.md for user-facing outcomes and constraints
+- [x] [P0-T1] Read .github/copilot-instructions.md and general-code-change.instructions.md to confirm baseline policies
+- [x] [P0-T2] Read general-unit-test.instructions.md and python-unit-test.instructions.md to confirm testing and scenario rules
+- [x] [P0-T3] Read python-code-change.instructions.md and self-explanatory-code-commenting.instructions.md to confirm typing/docstring/comment guardrails
+- [x] [P0-T4] Re-read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/spec.md for CK-12 scope and acceptance criteria
+- [x] [P0-T5] Re-read docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/user-story.md for user-facing outcomes and constraints
 
 ### Phase 1 — Dependencies & Design Pre-Flight
-- [ ] [P1-T1] Check pyproject.toml to confirm pdfplumber, beautifulsoup4, requests, types-beautifulsoup4, and types-requests are not already listed
-- [ ] [P1-T2] Add pdfplumber>=0.10.0 to pyproject.toml
-- [ ] [P1-T3] Add beautifulsoup4 to pyproject.toml
-- [ ] [P1-T4] Add requests to pyproject.toml
-- [ ] [P1-T5] Add types-beautifulsoup4 to pyproject.toml for typing support
-- [ ] [P1-T6] Add types-requests to pyproject.toml for typing support
-- [ ] [P1-T7] Create docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/ck12-design.md capturing PDF validation patterns and fallback strategy
-- [ ] [P1-T8] Research pdfplumber system requirements and record any OS/package prerequisites in ck12-design.md
+- [x] [P1-T1] Check pyproject.toml to confirm pdfplumber, beautifulsoup4, requests, types-beautifulsoup4, and types-requests are not already listed
+- [x] [P1-T2] Add pdfplumber>=0.10.0 to pyproject.toml
+- [x] [P1-T3] Add beautifulsoup4 to pyproject.toml
+- [x] [P1-T4] Add requests to pyproject.toml
+- [x] [P1-T5] Add types-beautifulsoup4 to pyproject.toml for typing support
+- [x] [P1-T6] Add types-requests to pyproject.toml for typing support
+- [x] [P1-T7] Create docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/ck12-design.md capturing PDF validation patterns and fallback strategy
+- [x] [P1-T8] Research pdfplumber system requirements and record any OS/package prerequisites in ck12-design.md
 
 ### Phase 2 — CK-12 Catalog Scraper (ck12_catalog.py)
-- [ ] [P2-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py with module docstring and typed stubs
-- [ ] [P2-T2] Implement `fetch_catalog_page(url: str) -> str` in ck12_catalog.py using requests with timeout and error handling
-- [ ] [P2-T3] Implement `parse_catalog_rows(html: str) -> list[CatalogEntry]` in ck12_catalog.py using BeautifulSoup and `oer_models.generate_stable_slug`
-- [ ] [P2-T4] Implement `write_catalog_jsonl(rows: list[CatalogEntry], path: Path)` in ck12_catalog.py with deterministic ordering and overwrite safety
-- [ ] [P2-T5] Add Typer CLI entrypoint `build_ck12_catalog` wiring fetch, parse, and write functions
+- [x] [P2-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py with module docstring and typed stubs
+- [x] [P2-T2] Implement `fetch_catalog_page(url: str) -> str` in ck12_catalog.py using requests with timeout and error handling
+- [x] [P2-T3] Implement `parse_catalog_rows(html: str) -> list[CatalogEntry]` in ck12_catalog.py using BeautifulSoup and `oer_models.generate_stable_slug`
+- [x] [P2-T4] Implement `write_catalog_jsonl(rows: list[CatalogEntry], path: Path)` in ck12_catalog.py with deterministic ordering and overwrite safety
+- [x] [P2-T5] Add Typer CLI entrypoint `build_ck12_catalog` wiring fetch, parse, and write functions
 
 ### Phase 3 — CK-12 Enrichment (ck12_enrichment.py)
-- [ ] [P3-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py with module docstring and typed stubs
-- [ ] [P3-T2] Implement `fetch_flexbook_html(url: str) -> str` in ck12_enrichment.py with requests, timeout, and status validation
-- [ ] [P3-T3] Implement `parse_flexbook_metadata(html: str) -> dict[str, str | None]` in ck12_enrichment.py extracting author, grade, and language fields
+- [x] [P3-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py with module docstring and typed stubs
+- [x] [P3-T2] Implement `fetch_flexbook_html(url: str) -> str` in ck12_enrichment.py with requests, timeout, and status validation
+- [x] [P3-T3] Implement `parse_flexbook_metadata(html: str) -> dict[str, str | None]` in ck12_enrichment.py extracting author, grade, and language fields
 - [ ] [P3-T4] Implement `extract_pdf_url(html: str) -> str | None` in ck12_enrichment.py parsing FLEXBOOK HTML for PDF link
 - [ ] [P3-T5] Implement `enrich_entry_logic(entry: CatalogEntry, metadata: dict[str, str | None], pdf_url: str | None) -> CatalogEntry` in ck12_enrichment.py merging enrichment
 - [ ] [P3-T6] Add Typer CLI entrypoint `enrich_ck12_catalog` wiring fetch, parse, and enrich behaviors
