@@ -867,7 +867,8 @@ class TestRunCopilot:
         """run_copilot() raises FileNotFoundError when copilot not found."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        monkeypatch.setattr("shutil.which", lambda x: None)
+        # Set PATH to empty so no copilot executable can be found
+        monkeypatch.setenv("PATH", "")
 
         log_file = tmp_path / "test.log"
 
@@ -887,18 +888,27 @@ class TestRunCopilot:
     def test_run_copilot_rejects_vscode_shim(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
-        """run_copilot() rejects the VS Code extension shim as non-executable."""
+        """run_copilot() skips VS Code shim and finds no other copilot."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        def which(name: str) -> str | None:
-            if name != "copilot":
-                return None
-            return (
-                r"C:\Users\example\AppData\Roaming\Code\User\globalStorage"
-                r"\github.copilot-chat\copilotCli\copilot.ps1"
-            )
+        # Simulate PATH with only the VS Code shim present
+        shim_dir = tmp_path / "fake_vscode_shim"
+        shim_dir.mkdir()
+        fake_shim = shim_dir / "copilot.bat"
+        fake_shim.write_text("@echo VS Code shim")
 
-        monkeypatch.setattr("shutil.which", which)
+        # Make the fake shim path look like the real VS Code pattern
+        monkeypatch.setenv(
+            "PATH",
+            str(
+                shim_dir.resolve().parent
+                / "Code"
+                / "User"
+                / "globalStorage"
+                / "github.copilot-chat"
+                / "copilotCli"
+            ),
+        )
 
         log_file = tmp_path / "test.log"
 
@@ -956,10 +966,12 @@ class TestRunCopilot:
         """run_copilot() invokes copilot with correct arguments."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        def which(name: str) -> str | None:
-            return "/usr/bin/copilot" if name == "copilot" else None
-
-        monkeypatch.setattr("shutil.which", which)
+        # Create a fake copilot executable on PATH
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_copilot = fake_bin / "copilot.exe"
+        fake_copilot.write_text("@echo fake copilot")
+        monkeypatch.setenv("PATH", str(fake_bin))
 
         captured_argv: list[str] = []
 
@@ -984,7 +996,7 @@ class TestRunCopilot:
             run_id="2026-01-07_000000",
         )
 
-        assert captured_argv[0] == "/usr/bin/copilot"
+        assert captured_argv[0] == str(fake_copilot)
         assert "--model" in captured_argv
         assert "gpt-5.1-codex-max" in captured_argv
         assert "-p" in captured_argv

@@ -8,6 +8,7 @@ that coordinates PlanParser, FeatureResolver, QCRunner, and PromptBuilder.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -393,12 +394,19 @@ def run_copilot(
             norm = norm.replace("\\\\", "\\")
         return "\\code\\user\\globalstorage\\github.copilot-chat\\copilotcli\\" in norm
 
-    copilot_exe = shutil.which("copilot")
-
-    # Reject the VS Code extension shim, which is interactive and not suitable
-    # for headless execution.
-    if copilot_exe and is_vscode_copilot_shim(copilot_exe):
-        copilot_exe = None
+    # Find copilot on PATH, skipping VS Code shims.
+    # shutil.which() only returns the first match, but the VS Code extension
+    # shim may appear first. Search all PATH entries for a non-shim copilot.
+    copilot_exe = None
+    path_env = os.environ.get("PATH", "")
+    for path_dir in path_env.split(os.pathsep):
+        for candidate_name in ["copilot.exe", "copilot.bat", "copilot"]:
+            candidate = Path(path_dir) / candidate_name
+            if candidate.exists() and not is_vscode_copilot_shim(str(candidate)):
+                copilot_exe = str(candidate)
+                break
+        if copilot_exe:
+            break
 
     if not copilot_exe:
         raise FileNotFoundError(
