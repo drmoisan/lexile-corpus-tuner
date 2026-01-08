@@ -7,7 +7,9 @@ clipboard operations, and main execution orchestration.
 
 # pyright: reportArgumentType=false, reportUnknownLambdaType=false, reportUnknownArgumentType=false
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
@@ -129,6 +131,7 @@ class TestEnsureCleanTree:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         # Should not raise
         ensure_clean_tree(tmp_path)
@@ -145,6 +148,7 @@ class TestEnsureCleanTree:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         with pytest.raises(RuntimeError, match="Working tree is not clean"):
             ensure_clean_tree(tmp_path)
@@ -165,6 +169,7 @@ class TestRefuseProtectedBranch:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         with pytest.raises(RuntimeError, match="protected branch"):
             refuse_protected_branch(tmp_path)
@@ -181,6 +186,7 @@ class TestRefuseProtectedBranch:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         with pytest.raises(RuntimeError, match="protected branch"):
             refuse_protected_branch(tmp_path)
@@ -197,6 +203,7 @@ class TestRefuseProtectedBranch:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         with pytest.raises(RuntimeError, match="protected branch"):
             refuse_protected_branch(tmp_path)
@@ -213,6 +220,7 @@ class TestRefuseProtectedBranch:
             return result  # type: ignore[return-value]
 
         monkeypatch.setattr("subprocess.run", mock_run)
+        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/git")
 
         # Should not raise
         refuse_protected_branch(tmp_path)
@@ -270,6 +278,9 @@ class TestCopyToClipboard:
         self, monkeypatch: "MonkeyPatch"
     ) -> None:
         """copy_to_clipboard() falls back to commands when pyperclip fails."""
+        # Use Windows platform to deterministically pick 'clip' which is mocked below
+        monkeypatch.setattr(sys, "platform", "win32")
+
         # Mock pyperclip import to fail
         import builtins
 
@@ -820,6 +831,15 @@ class TestMainEdgeCases:
             "Task: {{task_id}}\n", encoding="utf-8"
         )
 
+        # Setup fake copilot on PATH for run_copilot
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        copilot_exe = bin_dir / "copilot"
+        copilot_exe.touch()
+        copilot_exe.chmod(0o755)  # Make executable-ish
+        path = os.environ.get("PATH", "")
+        monkeypatch.setenv("PATH", f"{str(bin_dir)}{os.pathsep}{path}")
+
         # Track subprocess calls
         subprocess_calls: list[list[str]] = []
 
@@ -914,24 +934,27 @@ class TestRunCopilot:
         """run_copilot() skips VS Code shim and finds no other copilot."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        # Simulate PATH with only the VS Code shim present
-        shim_dir = tmp_path / "fake_vscode_shim"
-        shim_dir.mkdir()
-        fake_shim = shim_dir / "copilot.bat"
-        fake_shim.write_text("@echo VS Code shim")
-
-        # Make the fake shim path look like the real VS Code pattern
-        monkeypatch.setenv(
-            "PATH",
-            str(
-                shim_dir.resolve().parent
-                / "Code"
-                / "User"
-                / "globalStorage"
-                / "github.copilot-chat"
-                / "copilotCli"
-            ),
+        # Create shim directory structure that matches the detection pattern
+        # Pattern: .../Code/User/globalStorage/github.copilot-chat/copilotCli/
+        # Use nested dirs to ensure we hit the pattern matching logic
+        shim_dir = (
+            tmp_path
+            / "Code"
+            / "User"
+            / "globalStorage"
+            / "github.copilot-chat"
+            / "copilotCli"
         )
+        shim_dir.mkdir(parents=True)
+
+        # Create executable shim
+        # In cli.py, it checks specifically for copilot.exe, copilot.bat, copilot
+        fake_shim = shim_dir / "copilot"
+        fake_shim.touch()
+        fake_shim.chmod(0o755)
+
+        # Update PATH to point to this directory
+        monkeypatch.setenv("PATH", str(shim_dir))
 
         log_file = tmp_path / "test.log"
 
@@ -954,21 +977,42 @@ class TestRunCopilot:
         """run_copilot() creates log directory if missing."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        def which(name: str) -> str | None:
-            return "/usr/bin/copilot" if name == "copilot" else None
+        # Setup fake copilot on PATH
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        copilot_exe = bin_dir / "copilot"
+        copilot_exe.touch()
+        copilot_exe.chmod(0o755)
+        path = os.environ.get("PATH", "")
+        monkeypatch.setenv("PATH", f"{str(bin_dir)}{os.pathsep}{path}")
 
-        monkeypatch.setattr("shutil.which", which)
         monkeypatch.setattr(
             "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
             lambda exe: False,
         )
 
-        def mock_run(
-            argv: list[str], *args: object, **kwargs: object
-        ) -> subprocess.CompletedProcess[str]:
-            result = Mock()
-            result.returncode = 0
-            return result  # type: ignore[return-value]
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
+
+        # Also mock run purely to avoid confusion, though unused by run_copilot directly
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            return Mock(returncode=0)
 
         monkeypatch.setattr("subprocess.run", mock_run)
 

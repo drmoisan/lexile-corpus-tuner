@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-from io import StringIO
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import oer_catalog
@@ -11,7 +9,7 @@ from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_models import
 )
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
+    from pathlib import Path
 
     import pytest
 
@@ -61,30 +59,11 @@ def test_parse_catalog_entry_handles_missing_optional_fields() -> None:
 
 
 def test_write_catalog_jsonl_creates_valid_jsonl_format(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """write_catalog_jsonl should produce JSONL lines that parse cleanly."""
-    buffer = StringIO()
-    fake_path = Path("/fake/catalog.jsonl")
+    output_file = tmp_path / "catalog.jsonl"
 
-    def _fake_open(
-        self: Path, mode: str, encoding: str | None = None
-    ) -> AbstractContextManager[StringIO]:
-        # Provide a context manager over the shared buffer.
-        del mode, encoding
-        buffer.seek(0)
-        buffer.truncate(0)
-
-        class _Ctx:
-            def __enter__(self) -> StringIO:
-                return buffer
-
-            def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[override]
-                return None
-
-        return _Ctx()
-
-    monkeypatch.setattr(Path, "open", _fake_open)
     entries = [
         CatalogEntry(
             source_id="openstax",
@@ -97,12 +76,14 @@ def test_write_catalog_jsonl_creates_valid_jsonl_format(
             download_candidates=[],
         )
     ]
-    oer_catalog.write_catalog_jsonl(entries, fake_path)
+    oer_catalog.write_catalog_jsonl(entries, output_file)
+
+    # Read back the JSONL and validate
     lines: list[str] = []
-    # Collect non-empty JSONL lines emitted by the writer.
-    for line in buffer.getvalue().splitlines():
-        if line.strip():
-            lines.append(line)
+    with output_file.open("r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                lines.append(line)
     assert len(lines) == 1
     parsed = json.loads(lines[0])
     assert parsed["identifier"] == "openstax-book"
