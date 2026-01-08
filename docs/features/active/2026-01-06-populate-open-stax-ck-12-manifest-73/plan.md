@@ -62,7 +62,7 @@
 - [x] [P5-T2] Extend `curate_oer_catalog` CLI in `oer_curation.py` with `--require-pdf` filter logic
 - [x] [P5-T3] Update `build_manifest_entry` in `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` to set extension from content-type (PDF => .pdf, otherwise .txt)
 - [x] [P5-T4] Update `validate_url` signature in `oer_manifest.py` to accept `allowed_content_types` list and honor it in HEAD checks
-- [ ] [P5-T5] Update `generate_manifest` in `oer_manifest.py` to pass `['application/pdf']` for CK-12 candidates
+- [x] [P5-T5] Update `generate_manifest` in `oer_manifest.py` to pass `['application/pdf']` for CK-12 candidates
 
 ### Phase 6 — Tests (Scenarios)
 - [ ] [P6-T1] Add test for `fetch_catalog_page` mocked HTTP success in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`

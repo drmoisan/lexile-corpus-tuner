@@ -105,7 +105,9 @@ def validate_url(
         does not begin with an allowed prefix.
     """
     # Normalize allowed content-type prefixes for case-insensitive comparison.
-    content_type_prefixes = [value.lower() for value in (allowed_content_types or ["text"])]
+    content_type_prefixes = [
+        value.lower() for value in (allowed_content_types or ["text"])
+    ]
     req = urllib.request.Request(  # noqa: S310 - IA HTTPS endpoint is expected
         url, method="HEAD"
     )
@@ -143,21 +145,40 @@ def generate_manifest(
         List of ManifestEntry objects ready for serialization.
     """
     manifest_entries: list[ManifestEntry] = []
-    # Evaluate each curated entry and pick the first text candidate.
+    # Evaluate each curated entry and pick the format expected for that source
+    # (text for OpenStax, PDF for CK-12).
     for entry in curated_entries:
-        chosen = next(
-            (
-                candidate
-                for candidate in entry.download_candidates
-                if candidate.format.startswith("text/")
-            ),
-            None,
-        )
+        # Route candidate selection by source expectations:
+        # - CK-12 requires downloadable PDFs validated as application/pdf.
+        # - Other sources remain text-first using text/* derivatives.
+        if (entry.source_id or "").lower() == "ck12":
+            chosen = next(
+                (
+                    candidate
+                    for candidate in entry.download_candidates
+                    if candidate.format.startswith("application/pdf")
+                    or candidate.url.lower().endswith(".pdf")
+                ),
+                None,
+            )
+            allowed_content_types = ["application/pdf"]
+        else:
+            chosen = next(
+                (
+                    candidate
+                    for candidate in entry.download_candidates
+                    if candidate.format.startswith("text/")
+                ),
+                None,
+            )
+            allowed_content_types = ["text"]
         if not chosen:
             continue
         manifest_entry = build_manifest_entry(entry, chosen)
         if validate_urls:
-            ok, status, content_type = validate_url(manifest_entry.url)
+            ok, status, content_type = validate_url(
+                manifest_entry.url, allowed_content_types=allowed_content_types
+            )
             if not ok:
                 message = (
                     f"Skipping {manifest_entry.id}: validation failed "
