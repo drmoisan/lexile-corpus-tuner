@@ -290,6 +290,7 @@ def run_copilot(
     task_id: str,
     preferred_model: str | None,
     run_id: str,
+    resume_session: bool = False,
 ) -> None:
     """
     Invoke GitHub Copilot CLI with prompt and tool permissions.
@@ -301,6 +302,7 @@ def run_copilot(
         task_id (str): Current task id (used for log labeling).
         preferred_model (str | None): Preferred model name or Copilot CLI --model value.
         run_id (str): Run id for grouping per-task artifacts.
+        resume_session (bool): Reuse prior Copilot session for this task if True.
 
     Raises:
         FileNotFoundError: If the `copilot` CLI executable is not available.
@@ -421,6 +423,8 @@ def run_copilot(
     share_dir = log_file.parent / "copilot_sessions"
     share_dir.mkdir(parents=True, exist_ok=True)
     share_path = share_dir / f"copilot_session_{run_id}_{task_id}.md"
+    if resume_session and not share_path.exists():
+        share_path.touch()
 
     # Write prompt to temporary file to avoid Windows command-line length limits
     # (WinError 206: filename or extension too long when prompt passed via -p).
@@ -437,6 +441,9 @@ def run_copilot(
     if preferred_model:
         normalized_model = normalize_copilot_model(preferred_model)
         argv.extend(["--model", normalized_model])
+
+    if resume_session:
+        argv.extend(["--session-path", str(share_path)])
 
     argv.extend(
         [
@@ -460,6 +467,8 @@ def run_copilot(
             f.write(f"preferred_model: {preferred_model}\n")
         if normalized_model:
             f.write(f"normalized_model: {normalized_model}\n")
+        if resume_session:
+            f.write("resume_session: True\n")
         f.write(f"share_path: {share_path}\n")
         f.write(f"prompt_file: {prompt_file}\n")
         f.write("(prompt omitted from log for brevity; use --print-prompt to view)\n")
@@ -638,6 +647,7 @@ def _execute_one_task(
             task_id=cur.task_id,
             preferred_model=preferred_model,
             run_id=run_id,
+            resume_session=attempt > 1,
         )
 
         # Refresh plan/task state after Copilot run

@@ -1040,6 +1040,7 @@ class TestRunCopilot:
         assert captured_argv[0] == str(fake_copilot)
         assert "--model" in captured_argv
         assert "gpt-5.1-codex-max" in captured_argv
+        assert "--session-path" not in captured_argv
         # Prompt should be passed via stdin, not command-line
         assert "-p" not in captured_argv
         assert "test prompt" not in captured_argv
@@ -1048,3 +1049,56 @@ class TestRunCopilot:
         assert "--share" in captured_argv
         assert "--allow-tool" in captured_argv
         assert "write" in captured_argv
+
+    def test_run_copilot_reuses_session_when_requested(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() adds --session-path when resume_session=True."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_copilot = fake_bin / "copilot"
+        fake_copilot.write_text("#!/bin/sh\necho copilot")
+        monkeypatch.setenv("PATH", str(fake_bin))
+
+        captured_argv: list[str] = []
+
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                captured_argv.extend(argv)
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
+
+        log_file = tmp_path / "log" / "test.log"
+
+        run_copilot(
+            workspace=tmp_path,
+            prompt_text="retry prompt",
+            log_file=log_file,
+            task_id="P1-T1",
+            preferred_model=None,
+            run_id="2026-01-07_000000",
+            resume_session=True,
+        )
+
+        # Should reuse the same session path for resume
+        assert "--session-path" in captured_argv
+        session_idx = captured_argv.index("--session-path")
+        assert captured_argv[session_idx + 1].endswith(
+            "copilot_session_2026-01-07_000000_P1-T1.md"
+        )
