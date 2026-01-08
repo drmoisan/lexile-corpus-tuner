@@ -74,6 +74,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             action="store_true",
             help="Copy resolved prompt to clipboard (and exit).",
         )
+        sp.add_argument(
+            "--preferred-model",
+            default=None,
+            help=(
+                "Preferred AI model (Copilot CLI --model value or display name), "
+                "e.g. 'gpt-5.1-codex-max' or 'Claude Sonnet 4.5'."
+            ),
+        )
 
     sp_exec = sub.add_parser("execute", help="Execute from first unchecked or --start.")
     add_common(sp_exec)
@@ -277,6 +285,9 @@ def run_copilot(
     workspace: Path,
     prompt_text: str,
     log_file: Path,
+    task_id: str,
+    preferred_model: str | None,
+    run_id: str,
 ) -> None:
     """
     Invoke GitHub Copilot CLI with prompt and tool permissions.
@@ -285,37 +296,157 @@ def run_copilot(
         workspace (Path): Repository root.
         prompt_text (str): Complete prompt to execute.
         log_file (Path): Path to log file for output.
+        task_id (str): Current task id (used for log labeling).
+        preferred_model (str | None): Preferred model name or Copilot CLI --model value.
+        run_id (str): Run id for grouping per-task artifacts.
 
     Raises:
-        FileNotFoundError: If copilot executable not found.
-        CalledProcessError: If copilot execution fails.
+        FileNotFoundError: If the `copilot` CLI executable is not available.
+        CalledProcessError: If Copilot CLI execution fails.
 
     Side Effects:
-        - Executes copilot command
+        - Executes `copilot` CLI command
         - Writes to log file
+        - Writes a per-task session share markdown file
     """
+
+    def normalize_copilot_model(model: str) -> str:
+        """
+        Normalize a human-facing model name into a Copilot CLI --model choice.
+
+        Purpose:
+            Users may provide either the slash-command display name (e.g.
+            "GPT-5.1-Codex-Max") or the CLI choice key
+            (e.g. "gpt-5.1-codex-max"). This normalizes to a valid --model value.
+
+        Args:
+            model (str): User-provided model string.
+
+        Returns:
+            str: Normalized Copilot CLI model identifier.
+
+        Raises:
+            ValueError: If the model cannot be normalized.
+        """
+        raw = model.strip()
+        if not raw:
+            raise ValueError("Model name cannot be empty")
+
+        # Known Copilot CLI v0.0.375 model choice identifiers.
+        # Keep this small, explicit, and aligned to `copilot help` output.
+        known_choices = {
+            "claude-sonnet-4.5",
+            "claude-haiku-4.5",
+            "claude-opus-4.5",
+            "claude-sonnet-4",
+            "gpt-5.1-codex-max",
+            "gpt-5.1-codex",
+            "gpt-5.2",
+            "gpt-5.1",
+            "gpt-5",
+            "gpt-5.1-codex-mini",
+            "gpt-5-mini",
+            "gpt-4.1",
+            "gemini-3-pro-preview",
+        }
+
+        # Fast-path: already a valid choice.
+        lowered = raw.lower()
+        if lowered in known_choices:
+            return lowered
+
+        # Display-name normalization: strip parentheses, collapse whitespace,
+        # replace spaces with hyphens, and standardize common punctuation.
+        cleaned = lowered
+        cleaned = cleaned.replace("(preview)", "preview")
+        cleaned = cleaned.replace("(", " ").replace(")", " ")
+        cleaned = " ".join(cleaned.split())
+        cleaned = cleaned.replace(" ", "-")
+        cleaned = cleaned.replace("--", "-")
+
+        if cleaned in known_choices:
+            return cleaned
+
+        raise ValueError(f"Unsupported Copilot CLI model: {model}")
+
+    def is_vscode_copilot_shim(exe_path: str) -> bool:
+        """
+        Identify the VS Code Copilot Chat extension shim.
+
+        Purpose:
+            The VS Code extension may create `copilot.ps1`/`copilot.bat` shims that
+            prompt to install the real Copilot CLI. The atomic executor needs the
+            real agentic CLI (installed via WinGet/Homebrew/npm), not an
+            interactive installer shim.
+
+        Args:
+            exe_path (str): Resolved executable path from `shutil.which()`.
+
+        Returns:
+            bool: True if the path looks like the VS Code shim, otherwise False.
+        """
+        norm = exe_path.replace("/", "\\").lower()
+
+        # Normalize repeated backslashes (helps in tests and when paths are
+        # string-escaped by tooling).
+        while "\\\\" in norm:
+            norm = norm.replace("\\\\", "\\")
+        return "\\code\\user\\globalstorage\\github.copilot-chat\\copilotcli\\" in norm
+
     copilot_exe = shutil.which("copilot")
+
+    # Reject the VS Code extension shim, which is interactive and not suitable
+    # for headless execution.
+    if copilot_exe and is_vscode_copilot_shim(copilot_exe):
+        copilot_exe = None
+
     if not copilot_exe:
-        raise FileNotFoundError("Required executable not found on PATH: copilot")
+        raise FileNotFoundError(
+            "Required executable not found on PATH: copilot. "
+            "Install GitHub Copilot CLI via either: "
+            "winget install GitHub.Copilot  OR  npm install -g @github/copilot"
+        )
 
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
-    argv = [
+    share_dir = log_file.parent / "copilot_sessions"
+    share_dir.mkdir(parents=True, exist_ok=True)
+    share_path = share_dir / f"copilot_session_{run_id}_{task_id}.md"
+
+    argv: list[str] = [
         copilot_exe,
-        "-p",
-        prompt_text,
-        "--allow-tool",
-        "write",
-        "--allow-tool",
-        "shell(poetry)",
-        "--allow-tool",
-        "shell(python)",
-        "--allow-tool",
-        "shell(git)",
     ]
+
+    normalized_model: str | None = None
+    if preferred_model:
+        normalized_model = normalize_copilot_model(preferred_model)
+        argv.extend(["--model", normalized_model])
+
+    argv.extend(
+        [
+            "-p",
+            prompt_text,
+            "--share",
+            str(share_path),
+            "--allow-tool",
+            "write",
+            "--allow-tool",
+            "shell(poetry)",
+            "--allow-tool",
+            "shell(python)",
+            "--allow-tool",
+            "shell(git)",
+        ]
+    )
 
     with log_file.open("a", encoding="utf-8") as f:
         f.write("\n\n=== Copilot invocation ===\n")
+        f.write(f"task_id: {task_id}\n")
+        if preferred_model:
+            f.write(f"preferred_model: {preferred_model}\n")
+        if normalized_model:
+            f.write(f"normalized_model: {normalized_model}\n")
+        f.write(f"share_path: {share_path}\n")
         f.write(
             "(prompt omitted from log for brevity; " "use --print-prompt to view)\n"
         )
@@ -341,6 +472,8 @@ def _execute_one_task(
     prompt_template_path: Path,
     max_fix_attempts: int,
     feature_dir: Path,
+    preferred_model: str | None,
+    run_id: str,
     print_prompt: bool = False,
     copy_prompt: bool = False,
 ) -> int:
@@ -357,6 +490,8 @@ def _execute_one_task(
         prompt_template_path (Path): Path to prompt template.
         max_fix_attempts (int): Max number of retries (0 = infinite).
         feature_dir (Path): Active feature directory.
+        preferred_model (str | None): Preferred AI model name to force in Copilot CLI.
+        run_id (str): Run id for grouping per-task artifacts.
         print_prompt (bool): If True, print prompt and return.
         copy_prompt (bool): If True, copy prompt and return.
 
@@ -408,7 +543,14 @@ def _execute_one_task(
         print(msg)
         _log_msg(log_file, f"INFO: {msg}")
 
-        run_copilot(workspace=workspace, prompt_text=prompt_text, log_file=log_file)
+        run_copilot(
+            workspace=workspace,
+            prompt_text=prompt_text,
+            log_file=log_file,
+            task_id=cur.task_id,
+            preferred_model=preferred_model,
+            run_id=run_id,
+        )
 
         # Refresh plan/task state after Copilot run
         cur_after = parser.find_task_by_id(cur.task_id)
@@ -518,7 +660,11 @@ def main(argv: list[str]) -> int:
                 print("Plan already complete: no unchecked tasks found.")
                 return 0
 
-    builder = PromptBuilder(workspace, prompt_template_path)
+    builder = PromptBuilder(
+        workspace,
+        prompt_template_path,
+        preferred_model=args.preferred_model,
+    )
     qc_runner = QCRunner(workspace)
 
     while True:
@@ -533,6 +679,8 @@ def main(argv: list[str]) -> int:
             prompt_template_path=prompt_template_path,
             max_fix_attempts=args.max_fix_attempts,
             feature_dir=feature_dir,
+            preferred_model=args.preferred_model,
+            run_id=run_id,
             print_prompt=args.print_prompt,
             copy_prompt=args.copy_prompt,
         )

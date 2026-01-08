@@ -41,13 +41,16 @@ class PromptBuilder:
         - Reads from disk (template, plan, spec, story files)
     """
 
-    def __init__(self, workspace: Path, template_path: Path) -> None:
+    def __init__(
+        self, workspace: Path, template_path: Path, preferred_model: str | None = None
+    ) -> None:
         """
         Initialize the prompt builder with template path.
 
         Args:
             workspace (Path): Repository root directory.
             template_path (Path): Path to prompt template file.
+            preferred_model (str | None): Preferred AI model name for execution.
 
         Raises:
             FileNotFoundError: If template_path does not exist.
@@ -56,6 +59,7 @@ class PromptBuilder:
             raise FileNotFoundError(f"Prompt template not found: {template_path}")
         self.workspace = workspace
         self.template_path = template_path
+        self.preferred_model = preferred_model
 
     def build(
         self,
@@ -111,6 +115,27 @@ previous_errors:
 !!! END RETRY CONTEXT !!!
 """
 
+        # Model selection instructions
+        model_section = ""
+        if self.preferred_model:
+            model_section = f"""
+---- IMPORTANT: Model Selection ----
+
+Before executing this task, please use the `/model` command in GitHub Copilot CLI
+to select the preferred model:
+
+  Preferred Model: {self.preferred_model}
+
+To set this model:
+1. Enter `/model` in the Copilot CLI interactive session
+2. Select "{self.preferred_model}" from the list
+3. Press Enter to confirm
+
+Once the model is selected, you may proceed with the task execution.
+
+---- END Model Selection ----
+"""  # noqa: S608 - template text for user instructions, not SQL
+
         # Basic token replacement for template variables
         agent_name = "GitHub Copilot"
         feature_name = feature_dir.name
@@ -118,53 +143,25 @@ previous_errors:
             "<feature>", feature_name
         )
 
-        # Load key repository instruction files to inline in the prompt
+        # Load all repository instruction files to inline in the prompt
         instructions: list[tuple[str, str]] = []
-        instruction_files = [
-            (
-                "copilot-instructions.md",
-                self.workspace / ".github" / "copilot-instructions.md",
-            ),
-            (
-                "general-code-change.instructions.md",
-                self.workspace
-                / ".github"
-                / "instructions"
-                / "general-code-change.instructions.md",
-            ),
-            (
-                "general-unit-test.instructions.md",
-                self.workspace
-                / ".github"
-                / "instructions"
-                / "general-unit-test.instructions.md",
-            ),
-            (
-                "python-code-change.instructions.md",
-                self.workspace
-                / ".github"
-                / "instructions"
-                / "python-code-change.instructions.md",
-            ),
-            (
-                "python-unit-test.instructions.md",
-                self.workspace
-                / ".github"
-                / "instructions"
-                / "python-unit-test.instructions.md",
-            ),
-            (
-                "self-explanatory-code-commenting.instructions.md",
-                self.workspace
-                / ".github"
-                / "instructions"
-                / "self-explanatory-code-commenting.instructions.md",
-            ),
-        ]
 
-        for label, path in instruction_files:
-            if path.is_file():
-                instructions.append((label, self._read_text(path)))
+        # Include copilot-instructions.md
+        copilot_instructions_path = (
+            self.workspace / ".github" / "copilot-instructions.md"
+        )
+        if copilot_instructions_path.is_file():
+            instructions.append(
+                ("copilot-instructions.md", self._read_text(copilot_instructions_path))
+            )
+
+        # Auto-discover all *.instructions.md files in .github/instructions/
+        instructions_dir = self.workspace / ".github" / "instructions"
+        if instructions_dir.is_dir():
+            for instruction_file in sorted(instructions_dir.glob("*.instructions.md")):
+                instructions.append(
+                    (instruction_file.name, self._read_text(instruction_file))
+                )
 
         # Construct prompt envelope with resolved context
         appended = f"""
@@ -172,7 +169,7 @@ previous_errors:
 Resolved feature folder: {feature_dir.as_posix()}
 Feature folder name: {feature_dir.name}
 
-CURRENT TASK (execute only this task, do not advance to other tasks):
+{model_section}CURRENT TASK (execute only this task, do not advance to other tasks):
 - [{current_task.task_id}] {current_task.title}
 {retry_section}
 Constraints:

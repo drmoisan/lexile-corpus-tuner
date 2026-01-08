@@ -871,11 +871,48 @@ class TestRunCopilot:
 
         log_file = tmp_path / "test.log"
 
-        with pytest.raises(FileNotFoundError, match="copilot"):
+        with pytest.raises(
+            FileNotFoundError,
+            match=r"Required executable not found on PATH: copilot\b",
+        ):
             run_copilot(
                 workspace=tmp_path,
                 prompt_text="test prompt",
                 log_file=log_file,
+                task_id="P1-T1",
+                preferred_model=None,
+                run_id="2026-01-07_000000",
+            )
+
+    def test_run_copilot_rejects_vscode_shim(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() rejects the VS Code extension shim as non-executable."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        def which(name: str) -> str | None:
+            if name != "copilot":
+                return None
+            return (
+                r"C:\Users\example\AppData\Roaming\Code\User\globalStorage"
+                r"\github.copilot-chat\copilotCli\copilot.ps1"
+            )
+
+        monkeypatch.setattr("shutil.which", which)
+
+        log_file = tmp_path / "test.log"
+
+        with pytest.raises(
+            FileNotFoundError,
+            match=r"Required executable not found on PATH: copilot\b",
+        ):
+            run_copilot(
+                workspace=tmp_path,
+                prompt_text="test prompt",
+                log_file=log_file,
+                task_id="P1-T1",
+                preferred_model=None,
+                run_id="2026-01-07_000000",
             )
 
     def test_run_copilot_creates_log_directory(
@@ -884,7 +921,10 @@ class TestRunCopilot:
         """run_copilot() creates log directory if missing."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/copilot")
+        def which(name: str) -> str | None:
+            return "/usr/bin/copilot" if name == "copilot" else None
+
+        monkeypatch.setattr("shutil.which", which)
 
         def mock_run(
             argv: list[str], *args: object, **kwargs: object
@@ -902,6 +942,9 @@ class TestRunCopilot:
             workspace=tmp_path,
             prompt_text="test prompt",
             log_file=log_file,
+            task_id="P1-T1",
+            preferred_model=None,
+            run_id="2026-01-07_000000",
         )
 
         assert log_dir.exists()
@@ -913,7 +956,10 @@ class TestRunCopilot:
         """run_copilot() invokes copilot with correct arguments."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
-        monkeypatch.setattr("shutil.which", lambda x: "/usr/bin/copilot")
+        def which(name: str) -> str | None:
+            return "/usr/bin/copilot" if name == "copilot" else None
+
+        monkeypatch.setattr("shutil.which", which)
 
         captured_argv: list[str] = []
 
@@ -933,10 +979,16 @@ class TestRunCopilot:
             workspace=tmp_path,
             prompt_text="test prompt",
             log_file=log_file,
+            task_id="P1-T1",
+            preferred_model="gpt-5.1-codex-max",
+            run_id="2026-01-07_000000",
         )
 
-        assert "/usr/bin/copilot" in captured_argv
+        assert captured_argv[0] == "/usr/bin/copilot"
+        assert "--model" in captured_argv
+        assert "gpt-5.1-codex-max" in captured_argv
         assert "-p" in captured_argv
         assert "test prompt" in captured_argv
+        assert "--share" in captured_argv
         assert "--allow-tool" in captured_argv
         assert "write" in captured_argv
