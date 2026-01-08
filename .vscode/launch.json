@@ -1,478 +1,523 @@
 {
-    "$schema": "./schemas/launch.schema.json",
-    "configurations": [
-        {
-            "cwd": "${workspaceFolder}",
-            "name": "PowerShell: Collect Commit Context",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1",
-            "type": "PowerShell",
-        },
-        {
-            "args": ["--base", "main"],
-            "cwd": "${workspaceFolder}",
-            "module": "scripts.dev_tools.collect_pr_context",
-            "name": "Python: Collect PR Context",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--potential-path",
-                "docs/features/potential/2025-12-16-promote-potential-bug.md",
-                "--promotion-type",
-                "bug",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "scripts.dev_tools.potential_to_issue",
-            "name": "Python: Promote Potential -> Issue (bug)",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["-ItemName", "'Lexile OpenAI Key'"],
-            "cwd": "${workspaceFolder}",
-            "name": "PowerShell: Load OpenAI Key",
-            "request": "launch",
-            "script": "${workspaceFolder}/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1",
-            "type": "PowerShell",
-        },
-        {
-            "cwd": "${workspaceFolder}",
-            "name": "PowerShell: Link Parent/Child Issues",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
-            "type": "PowerShell",
-        },
-        {
-            "args": [
-                "-InputPath",
-                "${workspaceFolder}/artifacts/pester/powershell-coverage.xml",
-                "-OutputPath",
-                "${workspaceFolder}/artifacts/pester/powershell-coverage.koverage.xml",
-                "-RepoRoot",
-                "${workspaceFolder}",
-            ],
-            "cwd": "${workspaceFolder}",
-            "name": "PowerShell: Convert PoshQC Coverage to Relative",
-            "request": "launch",
-            "script": "${workspaceFolder}/scripts/powershell/PoshQC/convert-poshqc-coverage.ps1",
-            "type": "PowerShell",
-        },
-        {
-            "args": [
-                "analyze",
-                "--input-path",
-                "examples/example_corpus/chapter1.txt",
-                "--config",
-                "examples/example_config.yaml",
-            ],
-            "cwd": "${workspaceFolder}",
-            "justMyCode": true,
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Python: Analyze chapter1.txt",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "rewrite",
-                "--input-path",
-                "examples/example_corpus/chapter1.txt",
-                "--output-path",
-                "artifacts/vscode_chapter1",
-                "--config",
-                "examples/example_config.yaml",
-                "--rewrite-enabled",
-                "--openai-enabled",
-                "--openai-model",
-                "gpt-4.1-mini",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Python: Rewrite chapter1.txt",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "console": "integratedTerminal",
-            "justMyCode": true,
-            "name": "Python: Current File",
-            "program": "${file}",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["--languages", "en"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
-            "name": "Step 0.1 - Build Gutenberg ID List",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["--languages", "en"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
-            "name": "Step 0.2 - Curate Gutenberg ID List",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["corpus", "download"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 1 - Corpus Download",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--input",
-                "data/meta/gutenberg/gutenberg_books.parquet",
-                "--output",
-                "data/meta/gutenberg/gutenberg_books_enhanced.parquet",
-                "--checkpoint",
-                "data/meta/gutenberg/.original_pub_year.ckpt",
-                "--cache-dir",
-                "data/cache/original_pub_year",
-                "--rate-limit",
-                "5",
-                "--fuzzy-threshold",
-                "0.9",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year.__main__",
-            "name": "Step 1.5 - Enrich Original Pub Year",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--dump",
-                "data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2",
-                "--output",
-                "data/corpus/raw/simple_wiki/simplewiki_articles.jsonl",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
-            "name": "Step 2 - Extract Simple Wiki",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["corpus", "normalize", "--shard-size-tokens", "100000"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 3 - Corpus Normalize",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["corpus", "frequencies"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 4 - Corpus Frequencies",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "calibration",
-                "fetch-texts",
-                "--catalog",
-                "data/calibration/catalog/lexile_catalog.csv",
-                "--texts-root",
-                "data/calibration/texts",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 5 - Calibration Fetch Texts",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "calibration",
-                "build-dataset",
-                "--catalog",
-                "data/calibration/catalog/lexile_catalog.csv",
-                "--texts-root",
-                "data/calibration/texts",
-                "--output",
-                "data/calibration/calibration_dataset.parquet",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 6 - Calibration Build Dataset",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "calibration",
-                "fit",
-                "data/calibration/calibration_dataset.parquet",
-                "--out",
-                "data/model/lexile_regression_model.json",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "Step 7 - Calibration Fit",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["--sources", "openstax,ck12", "--out-dir", "data/meta/catalogs"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog",
-            "name": "OER Step 1 - Build Catalog",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-file",
-                "data/meta/catalogs/openstax_catalog.jsonl",
-                "--output",
-                "data/meta/catalogs/openstax_enriched.jsonl",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment",
-            "name": "OER Step 2 - Enrich Catalog (OpenStax)",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-dir",
-                "data/meta/catalogs",
-                "--require-text",
-                "--sources",
-                "openstax,ck12",
-                "--out-dir",
-                "data/meta/catalogs",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation",
-            "name": "OER Step 3 - Curate Catalog",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-dir",
-                "data/meta/catalogs",
-                "--out",
-                "data/meta/oer_sources.json",
-                "--validate-urls",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest",
-            "name": "OER Step 4 - Generate Manifest",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui",
-            "name": "OER Step 5 - Visual Curation UI",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["--out-dir", "data/meta/catalogs"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog",
-            "name": "CK-12 Step 1 - Build Catalog",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-file",
-                "data/meta/catalogs/ck12_catalog.jsonl",
-                "--output",
-                "data/meta/catalogs/ck12_enriched.jsonl",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment",
-            "name": "CK-12 Step 2 - Enrich Catalog",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-dir",
-                "data/meta/catalogs",
-                "--require-pdf",
-                "--sources",
-                "ck12",
-                "--out-dir",
-                "data/meta/catalogs",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation",
-            "name": "CK-12 Step 3 - Curate Catalog",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--catalog-dir",
-                "data/meta/catalogs",
-                "--out",
-                "data/meta/oer_sources.json",
-                "--validate-urls",
-                "--allow-pdf",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest",
-            "name": "CK-12 Step 4 - Generate Manifest",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["corpus", "download", "--sources", "ck12"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "CK-12 Step 5 - Corpus Download",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "--source",
-                "ck12",
-                "--input-dir",
-                "data/corpus/raw/ck12",
-                "--output-dir",
-                "data/corpus/raw/ck12",
-            ],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text",
-            "name": "CK-12 Step 6 - Extract PDF Text",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["corpus", "normalize", "--sources", "ck12"],
-            "cwd": "${workspaceFolder}",
-            "module": "lexile_corpus_tuner.cli",
-            "name": "CK-12 Step 7 - Corpus Normalize",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": ["${relativeFile}", "--output", "${relativeFile}"],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "justMyCode": true,
-            "module": "scripts.dev_tools.markdown_label_formatter",
-            "name": "Python: Format current markdown file",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "execute-all",
-                "${input:FeaturePath}",
-                "--preferred-model",
-                "${input:PreferredModel}",
-                "--max-fix-attempts",
-                "10",
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "neverOpen",
-            "module": "scripts.dev_tools.atomic_executor.cli",
-            "name": "Python: Atomic Executor (Execute All, 10 retries)",
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "execute-all",
-                "${input:FeaturePath}",
-                "--preferred-model",
-                "${input:PreferredModel}",
-                "--max-fix-attempts",
-                "10",
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "neverOpen",
-            "module": "scripts.dev_tools.atomic_executor.cli",
-            "name": "Python: Atomic Executor (Terminal Streaming, no redirect)",
-            "redirectOutput": false,
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "execute-all",
-                "${input:FeaturePath}",
-                "--preferred-model",
-                "${input:PreferredModel}",
-                "--max-fix-attempts",
-                "10",
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "neverOpen",
-            "module": "scripts.dev_tools.atomic_executor.cli",
-            "name": "Python: Atomic Executor (Run without Debugger)",
-            "noDebug": true,
-            "request": "launch",
-            "type": "debugpy",
-        },
-        {
-            "args": [
-                "execute-all",
-                "${input:FeaturePath}",
-                "--preferred-model",
-                "${input:PreferredModel}",
-                "--max-fix-attempts",
-                "10",
-            ],
-            "console": "externalTerminal",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "neverOpen",
-            "module": "scripts.dev_tools.atomic_executor.cli",
-            "name": "Python: Atomic Executor (External Terminal, no debug)",
-            "noDebug": true,
-            "request": "launch",
-            "type": "debugpy",
-        },
-    ],
-    "inputs": [
-        {
-            "default": "docs/features/active/",
-            "description": "Path to feature folder (e.g. docs/features/active/feature-name)",
-            "id": "FeaturePath",
-            "type": "promptString",
-        },
-        {
-            "default": "GPT-5.1-Codex-Max",
-            "description": "Copilot model to force for atomic executor runs",
-            "id": "PreferredModel",
-            "options": [
-                "Claude Sonnet 4.5",
-                "Claude Haiku 4.5",
-                "Claude Opus 4.5",
-                "Claude Sonnet 4",
-                "GPT-5.1-Codex-Max",
-                "GPT-5.1-Codex",
-                "GPT-5.2",
-                "GPT-5.1",
-                "GPT-5",
-                "GPT-5.1-Codex-Mini",
-                "GPT-5 mini",
-                "GPT-4.1",
-                "Gemini 3 Pro (Preview)",
-            ],
-            "type": "pickString",
-        },
-    ],
-    "version": "0.2.0",
+  "$schema": "./schemas/launch.schema.json",
+  "configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Collect Commit Context",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/dev-tools/collect-commit-context.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "--base",
+        "main"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "scripts.dev_tools.collect_pr_context",
+      "name": "Python: Collect PR Context",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--potential-path",
+        "docs/features/potential/2025-12-16-promote-potential-bug.md",
+        "--promotion-type",
+        "bug"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "scripts.dev_tools.potential_to_issue",
+      "name": "Python: Promote Potential -> Issue (bug)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "-ItemName",
+        "'Lexile OpenAI Key'"
+      ],
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Load OpenAI Key",
+      "request": "launch",
+      "script": "${workspaceFolder}/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/load-openai-key.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Link Parent/Child Issues",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/dev-tools/link-parent-child.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "-InputPath",
+        "${workspaceFolder}/artifacts/pester/powershell-coverage.xml",
+        "-OutputPath",
+        "${workspaceFolder}/artifacts/pester/powershell-coverage.koverage.xml",
+        "-RepoRoot",
+        "${workspaceFolder}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "name": "PowerShell: Convert PoshQC Coverage to Relative",
+      "request": "launch",
+      "script": "${workspaceFolder}/scripts/powershell/PoshQC/convert-poshqc-coverage.ps1",
+      "type": "PowerShell"
+    },
+    {
+      "args": [
+        "analyze",
+        "--input-path",
+        "examples/example_corpus/chapter1.txt",
+        "--config",
+        "examples/example_config.yaml"
+      ],
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true,
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Python: Analyze chapter1.txt",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "rewrite",
+        "--input-path",
+        "examples/example_corpus/chapter1.txt",
+        "--output-path",
+        "artifacts/vscode_chapter1",
+        "--config",
+        "examples/example_config.yaml",
+        "--rewrite-enabled",
+        "--openai-enabled",
+        "--openai-model",
+        "gpt-4.1-mini"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Python: Rewrite chapter1.txt",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "name": "Python: Current File",
+      "program": "${file}",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--languages",
+        "en"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.build_gutenberg_id_list",
+      "name": "Step 0.1 - Build Gutenberg ID List",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--languages",
+        "en"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.gutenberg_query_builder_ui",
+      "name": "Step 0.2 - Curate Gutenberg ID List",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "download"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 1 - Corpus Download",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--input",
+        "data/meta/gutenberg/gutenberg_books.parquet",
+        "--output",
+        "data/meta/gutenberg/gutenberg_books_enhanced.parquet",
+        "--checkpoint",
+        "data/meta/gutenberg/.original_pub_year.ckpt",
+        "--cache-dir",
+        "data/cache/original_pub_year",
+        "--rate-limit",
+        "5",
+        "--fuzzy-threshold",
+        "0.9"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.enrich_original_pub_year.__main__",
+      "name": "Step 1.5 - Enrich Original Pub Year",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--dump",
+        "data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2",
+        "--output",
+        "data/corpus/raw/simple_wiki/simplewiki_articles.jsonl"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump",
+      "name": "Step 2 - Extract Simple Wiki",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "normalize",
+        "--shard-size-tokens",
+        "100000"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 3 - Corpus Normalize",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "frequencies"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 4 - Corpus Frequencies",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "fetch-texts",
+        "--catalog",
+        "data/calibration/catalog/lexile_catalog.csv",
+        "--texts-root",
+        "data/calibration/texts"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 5 - Calibration Fetch Texts",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "build-dataset",
+        "--catalog",
+        "data/calibration/catalog/lexile_catalog.csv",
+        "--texts-root",
+        "data/calibration/texts",
+        "--output",
+        "data/calibration/calibration_dataset.parquet"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 6 - Calibration Build Dataset",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "calibration",
+        "fit",
+        "data/calibration/calibration_dataset.parquet",
+        "--out",
+        "data/model/lexile_regression_model.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "Step 7 - Calibration Fit",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--sources",
+        "openstax,ck12",
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog",
+      "name": "OER Step 1 - Build Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-file",
+        "data/meta/catalogs/openstax_catalog.jsonl",
+        "--output",
+        "data/meta/catalogs/openstax_enriched.jsonl"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment",
+      "name": "OER Step 2 - Enrich Catalog (OpenStax)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--require-text",
+        "--sources",
+        "openstax,ck12",
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation",
+      "name": "OER Step 3 - Curate Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--out",
+        "data/meta/oer_sources.json",
+        "--validate-urls"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest",
+      "name": "OER Step 4 - Generate Manifest",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_ui",
+      "name": "OER Step 5 - Visual Curation UI",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog",
+      "name": "CK-12 Step 1 - Build Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-file",
+        "data/meta/catalogs/ck12_catalog.jsonl",
+        "--output",
+        "data/meta/catalogs/ck12_enriched.jsonl"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment",
+      "name": "CK-12 Step 2 - Enrich Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--require-pdf",
+        "--sources",
+        "ck12",
+        "--out-dir",
+        "data/meta/catalogs"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation",
+      "name": "CK-12 Step 3 - Curate Catalog",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--catalog-dir",
+        "data/meta/catalogs",
+        "--out",
+        "data/meta/oer_sources.json",
+        "--validate-urls",
+        "--allow-pdf"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest",
+      "name": "CK-12 Step 4 - Generate Manifest",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "download",
+        "--sources",
+        "ck12"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "CK-12 Step 5 - Corpus Download",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "--source",
+        "ck12",
+        "--input-dir",
+        "data/corpus/raw/ck12",
+        "--output-dir",
+        "data/corpus/raw/ck12"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text",
+      "name": "CK-12 Step 6 - Extract PDF Text",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "corpus",
+        "normalize",
+        "--sources",
+        "ck12"
+      ],
+      "cwd": "${workspaceFolder}",
+      "module": "lexile_corpus_tuner.cli",
+      "name": "CK-12 Step 7 - Corpus Normalize",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "${relativeFile}",
+        "--output",
+        "${relativeFile}"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true,
+      "module": "scripts.dev_tools.markdown_label_formatter",
+      "name": "Python: Format current markdown file",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Execute All, 10 retries)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Terminal Streaming, no redirect)",
+      "redirectOutput": false,
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Run without Debugger)",
+      "noDebug": true,
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "externalTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (External Terminal, no debug)",
+      "noDebug": true,
+      "request": "launch",
+      "type": "debugpy"
+    }
+  ],
+  "inputs": [
+    {
+      "default": "docs/features/active/",
+      "description": "Path to feature folder (e.g. docs/features/active/feature-name)",
+      "id": "FeaturePath",
+      "type": "promptString"
+    },
+    {
+      "default": "GPT-5.1-Codex-Max",
+      "description": "Copilot model to force for atomic executor runs",
+      "id": "PreferredModel",
+      "options": [
+        "Claude Sonnet 4.5",
+        "Claude Haiku 4.5",
+        "Claude Opus 4.5",
+        "Claude Sonnet 4",
+        "GPT-5.1-Codex-Max",
+        "GPT-5.1-Codex",
+        "GPT-5.2",
+        "GPT-5.1",
+        "GPT-5",
+        "GPT-5.1-Codex-Mini",
+        "GPT-5 mini",
+        "GPT-4.1",
+        "Gemini 3 Pro (Preview)"
+      ],
+      "type": "pickString"
+    }
+  ],
+  "version": "0.2.0"
 }
