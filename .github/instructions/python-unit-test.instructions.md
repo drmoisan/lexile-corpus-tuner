@@ -59,6 +59,7 @@ If there is any conflict between these documents, halt and notify the user.
 ## 4. Respecting the Toolchain Loop
 
 - When running the “After Making Changes” toolchain loop from the general code change policy on Python work, your **testing step** must be performed with **Pytest**.
+- Approved command: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
 - Do **not** substitute other test runners or frameworks for Python code unless explicitly instructed to do so.
 
 This file defines **how** Python tests are written and structured; the general code change policy defines **when** the toolchain (including tests) must be run and how strictly that loop must be followed.

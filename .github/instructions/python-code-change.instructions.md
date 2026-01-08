@@ -26,6 +26,7 @@ These are the required tools for Python code in this repo:
 
    - All Python code must be formatted with **Black** (default settings).
    - Do not hand-format; if a diff disagrees with Black, Black wins.
+   - Approved command: `poetry run black .`
 
 2. **Linting — Ruff**
 
@@ -43,6 +44,7 @@ These are the required tools for Python code in this repo:
           - Each approach you tried and why it failed
           - Why a suppression is the only remaining option
    - Use **targeted, single-line** suppressions with required comment format from `python-suppressions.instructions.md`.
+   - Approved command: `poetry run ruff check`
 
 3. **Typing — Pyright**
 
@@ -65,6 +67,7 @@ These are the required tools for Python code in this repo:
    - When using untyped third-party libraries:
      - Wrap usage in custom functions or classes with proper type hints.
      - Use **line-specific** `# type: ignore[...]` comments instead of excluding whole files or directories.
+   - Approved command: `poetry run pyright`
 
 > **Testing tools and behavior are defined in the unit test policies.** Do not define test behavior here; instead, obey `general-unit-test.instructions.md` and `python-unit-test.instructions.md`.
 
