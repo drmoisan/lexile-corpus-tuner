@@ -45,9 +45,9 @@
 - [x] [P3-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py with module docstring and typed stubs
 - [x] [P3-T2] Implement `fetch_flexbook_html(url: str) -> str` in ck12_enrichment.py with requests, timeout, and status validation
 - [x] [P3-T3] Implement `parse_flexbook_metadata(html: str) -> dict[str, str | None]` in ck12_enrichment.py extracting author, grade, and language fields
-- [ ] [P3-T4] Implement `extract_pdf_url(html: str) -> str | None` in ck12_enrichment.py parsing FLEXBOOK HTML for PDF link
-- [ ] [P3-T5] Implement `enrich_entry_logic(entry: CatalogEntry, metadata: dict[str, str | None], pdf_url: str | None) -> CatalogEntry` in ck12_enrichment.py merging enrichment
-- [ ] [P3-T6] Add Typer CLI entrypoint `enrich_ck12_catalog` wiring fetch, parse, and enrich behaviors
+- [x] [P3-T4] Implement `extract_pdf_url(html: str) -> str | None` in ck12_enrichment.py parsing FLEXBOOK HTML for PDF link
+- [x] [P3-T5] Implement `enrich_entry_logic(entry: CatalogEntry, metadata: dict[str, str | None], pdf_url: str | None) -> CatalogEntry` in ck12_enrichment.py merging enrichment
+- [x] [P3-T6] Add Typer CLI entrypoint `enrich_ck12_catalog` wiring fetch, parse, and enrich behaviors
 
 ### Phase 4 — PDF Extraction (extract_pdf_text.py)
 - [ ] [P4-T1] Create src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_pdf_text.py with module docstring and typed stubs

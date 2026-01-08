@@ -333,8 +333,63 @@
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
       "module": "scripts.dev_tools.atomic_executor.cli",
       "name": "Python: Atomic Executor (Execute All, 10 retries)",
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Terminal Streaming, no redirect)",
+      "redirectOutput": false,
+      "request": "launch",
+      "type": "debugpy"
+    }
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (Run without Debugger)",
+      "noDebug": true,
+      "request": "launch",
+      "type": "debugpy"
+    },
+    {
+      "args": [
+        "execute-all",
+        "${input:FeaturePath}",
+        "--preferred-model",
+        "${input:PreferredModel}",
+        "--max-fix-attempts",
+        "10"
+      ],
+      "console": "externalTerminal",
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "neverOpen",
+      "module": "scripts.dev_tools.atomic_executor.cli",
+      "name": "Python: Atomic Executor (External Terminal, no debug)",
+      "noDebug": true,
       "request": "launch",
       "type": "debugpy"
     }

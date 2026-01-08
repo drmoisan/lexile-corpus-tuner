@@ -33,16 +33,18 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import Any, cast
+from urllib.parse import urlparse
 
 import requests
 import typer
 from bs4 import BeautifulSoup
 
-if TYPE_CHECKING:
-    from .oer_models import CatalogEntry
+from .ck12_catalog import write_catalog_jsonl
+from .oer_models import CatalogEntry, DownloadCandidate
 
 REQUEST_TIMEOUT_SECONDS = 30
+FLEXBOOK_BASE_URL = "https://flexbooks.ck12.org/cbook/"
 
 app = typer.Typer(
     help="Enrich CK-12 catalog entries with metadata and PDF download links."
@@ -124,7 +126,7 @@ def parse_flexbook_metadata(html: str) -> dict[str, str | None]:
             continue
 
         json_objects = cast(
-            list[object],
+            "list[object]",
             parsed_json if isinstance(parsed_json, list) else [parsed_json],
         )
 
@@ -133,7 +135,7 @@ def parse_flexbook_metadata(html: str) -> dict[str, str | None]:
             if not isinstance(node, dict):
                 continue
 
-            typed_node = cast(dict[str, object], node)
+            typed_node = cast("dict[str, object]", node)
 
             if metadata["author"] is None:
                 metadata["author"] = _extract_author_from_ldjson(typed_node)
@@ -208,7 +210,51 @@ def extract_pdf_url(html: str) -> str | None:
     Side Effects:
         None. Pure transformation of provided HTML.
     """
-    raise NotImplementedError("extract_pdf_url is not implemented yet.")
+    soup = BeautifulSoup(html, "html.parser")
+    pdf_candidates: list[str] = []
+    seen: set[str] = set()
+
+    # Scan anchor/button elements for href-like attributes pointing to PDF exports.
+    for tag in soup.find_all(["a", "button"]):
+        for attr in ("href", "data-href", "data-url"):
+            raw_value = _get_first_str(tag.get(attr))
+            candidate = _normalize_text(raw_value)
+            if candidate is None:
+                continue
+
+            lowered = candidate.lower()
+            if ".pdf" not in lowered and "/pdf/" not in lowered:
+                continue
+
+            if candidate not in seen:
+                pdf_candidates.append(candidate)
+                seen.add(candidate)
+
+    if not pdf_candidates:
+        return None
+
+    def _score_candidate(url: str) -> int:
+        lowered = url.lower()
+        score = 0
+        if "/flx/pdf/" in lowered:
+            score += 3
+        if lowered.endswith(".pdf"):
+            score += 2
+        if "/pdf/" in lowered:
+            score += 1
+        return score
+
+    # Prefer URLs that match CK-12 export paths and explicit .pdf extensions.
+    best_candidate = max(pdf_candidates, key=_score_candidate)
+
+    parsed = urlparse(best_candidate)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(f"PDF link is not an absolute URL: {best_candidate}")
+
+    if not parsed.path.lower().endswith(".pdf"):
+        raise ValueError(f"PDF link does not point to a PDF file: {best_candidate}")
+
+    return best_candidate
 
 
 def enrich_entry_logic(
@@ -231,12 +277,44 @@ def enrich_entry_logic(
         CatalogEntry: New entry instance containing merged enrichment data.
 
     Raises:
-        ValueError: If enrichment inputs are inconsistent (e.g., conflicting IDs).
+        ValueError: If the provided PDF URL is not an absolute HTTP(S) URL.
 
     Side Effects:
         None. Pure function returning a new catalog entry instance.
     """
-    raise NotImplementedError("enrich_entry_logic is not implemented yet.")
+    normalized_pdf_url = _normalize_text(pdf_url)
+    if pdf_url is not None:
+        if normalized_pdf_url is None:
+            raise ValueError("PDF URL must be non-empty when provided")
+        parsed_pdf = urlparse(normalized_pdf_url)
+        if parsed_pdf.scheme not in {"http", "https"} or not parsed_pdf.netloc:
+            raise ValueError("PDF URL must be an absolute HTTP(S) URL")
+
+    language_candidate = _normalize_language_code(metadata.get("language"))
+    merged_languages: list[str] = list(entry.language)
+    # Preserve existing language ordering while appending new metadata when absent.
+    if language_candidate and language_candidate not in merged_languages:
+        merged_languages.append(language_candidate)
+
+    candidates: list[DownloadCandidate] = list(entry.download_candidates)
+    # Attach a PDF download candidate when provided, avoiding duplicate URLs.
+    if normalized_pdf_url is not None:
+        pdf_candidate = DownloadCandidate(
+            format="application/pdf", url=normalized_pdf_url, size=None
+        )
+        if not any(candidate.url == pdf_candidate.url for candidate in candidates):
+            candidates.append(pdf_candidate)
+
+    return CatalogEntry(
+        source_id=entry.source_id,
+        identifier=entry.identifier,
+        title=entry.title,
+        creator=metadata.get("author") or entry.creator,
+        year=entry.year,
+        language=merged_languages,
+        license_url=entry.license_url,
+        download_candidates=candidates,
+    )
 
 
 @app.command()
@@ -244,6 +322,8 @@ def enrich_ck12_catalog(
     catalog_file: Path = typer.Option(  # noqa: B008 - Typer framework pattern
         Path("data/meta/catalogs/ck12_catalog.jsonl"),
         help="Path to the CK-12 catalog JSONL file to enrich.",
+        exists=True,
+        readable=True,
     ),
     output: Path = typer.Option(  # noqa: B008 - Typer framework pattern
         Path("data/meta/catalogs/ck12_enriched.jsonl"),
@@ -267,11 +347,116 @@ def enrich_ck12_catalog(
     Side Effects:
         Implementation will perform HTTP requests, parsing, and filesystem writes.
     """
-    raise NotImplementedError("enrich_ck12_catalog CLI is not implemented yet.")
+    entries = _read_catalog(catalog_file)
+    enriched_entries: list[CatalogEntry] = []
+
+    # Process entries sequentially so a failure on one row does not corrupt others.
+    for entry in entries:
+        try:
+            flexbook_url = _build_flexbook_url(entry.identifier)
+            html = fetch_flexbook_html(flexbook_url)
+            metadata = parse_flexbook_metadata(html)
+            pdf_url = extract_pdf_url(html)
+            enriched_entries.append(enrich_entry_logic(entry, metadata, pdf_url))
+        except Exception as exc:  # noqa: BLE001 - CLI top-level enrichment loop
+            typer.echo(
+                f"Skipping {entry.identifier} due to enrichment error: {exc}", err=True
+            )
+
+    write_catalog_jsonl(enriched_entries, output)
+    typer.echo(f"Wrote {len(enriched_entries)} enriched CK-12 entries to {output}")
 
 
 if __name__ == "__main__":
     app()  # pragma: no cover - CLI dispatch
+
+
+def _build_flexbook_url(identifier: str) -> str:
+    """
+    Construct the FlexBook URL from a catalog identifier slug.
+
+    Purpose:
+        Catalog entries store only the stable slug; this helper rebuilds the
+        absolute FlexBook URL needed to fetch enrichment HTML.
+
+    Args:
+        identifier (str): Stable slug derived from the FlexBook path segment.
+
+    Returns:
+        str: Fully-qualified FlexBook URL ending with a trailing slash.
+
+    Raises:
+        ValueError: If the identifier is empty after normalization.
+    """
+    normalized_slug = _normalize_text(identifier)
+    if normalized_slug is None:
+        raise ValueError("Catalog entry identifier cannot be empty")
+    return f"{FLEXBOOK_BASE_URL}{normalized_slug}/"
+
+
+def _read_catalog(path: Path) -> list[CatalogEntry]:
+    """
+    Read a catalog JSONL file into CatalogEntry objects.
+
+    Purpose:
+        Provide a typed loader for CK-12 catalog rows so enrichment can operate
+        on consistent value objects while preserving download candidates.
+
+    Args:
+        path (Path): Path to the catalog JSONL file.
+
+    Returns:
+        list[CatalogEntry]: Parsed catalog entries in file order.
+    """
+    entries: list[CatalogEntry] = []
+
+    # Iterate JSONL lines to reconstruct CatalogEntry objects.
+    for line in path.read_text(encoding="utf-8").splitlines():
+        raw = cast("dict[str, Any]", json.loads(line))
+        raw_candidates = cast(
+            "list[dict[str, object]]", raw.get("download_candidates", [])
+        )
+        candidates = [
+            _candidate_from_mapping(candidate) for candidate in raw_candidates
+        ]
+        entries.append(
+            CatalogEntry(
+                source_id=raw.get("source_id"),
+                identifier=raw["identifier"],
+                title=raw.get("title"),
+                creator=raw.get("creator"),
+                year=raw.get("year"),
+                language=raw.get("language") or [],
+                license_url=raw.get("license_url"),
+                download_candidates=candidates,
+            )
+        )
+
+    return entries
+
+
+def _candidate_from_mapping(candidate: dict[str, object]) -> DownloadCandidate:
+    """
+    Convert a raw mapping into a DownloadCandidate with safe defaults.
+
+    Purpose:
+        Normalize persisted download candidate dictionaries back into typed
+        objects without assuming field presence.
+
+    Args:
+        candidate (dict[str, object]): Raw dictionary from JSONL.
+
+    Returns:
+        DownloadCandidate: Rehydrated download candidate instance.
+    """
+    format_raw = candidate.get("format")
+    url_raw = candidate.get("url")
+    size_raw = candidate.get("size")
+    return DownloadCandidate(
+        format=str(format_raw) if format_raw is not None else "",
+        url=str(url_raw) if url_raw is not None else "",
+        size=size_raw if isinstance(size_raw, int) else None,
+    )
 
 
 def _get_first_str(value: str | list[str] | None) -> str | None:
@@ -352,16 +537,16 @@ def _extract_author_from_ldjson(node: dict[str, object]) -> str | None:
         return _normalize_text(author_field)
 
     if isinstance(author_field, dict):
-        author_data = cast(dict[str, object], author_field)
-        return _normalize_text(cast(str | None, author_data.get("name")))
+        author_data = cast("dict[str, object]", author_field)
+        return _normalize_text(cast("str | None", author_data.get("name")))
 
     if isinstance(author_field, list):
         # Prefer the first author entry when multiple are provided.
-        for author_candidate in cast(list[object], author_field):
+        for author_candidate in cast("list[object]", author_field):
             if isinstance(author_candidate, dict):
-                candidate_data = cast(dict[str, object], author_candidate)
+                candidate_data = cast("dict[str, object]", author_candidate)
                 name_value = _normalize_text(
-                    cast(str | None, candidate_data.get("name"))
+                    cast("str | None", candidate_data.get("name"))
                 )
                 if name_value:
                     return name_value
@@ -398,14 +583,14 @@ def _extract_field(node: dict[str, object], keys: list[str]) -> str | None:
 
         if isinstance(value, list):
             # Grab the first non-empty string entry.
-            for item in cast(list[object], value):
+            for item in cast("list[object]", value):
                 if isinstance(item, str):
                     normalized_item = _normalize_text(item)
                     if normalized_item:
                         return normalized_item
 
         if isinstance(value, dict) and "name" in value:
-            typed_val = cast(dict[str, object], value)
+            typed_val = cast("dict[str, object]", value)
             nested_value = typed_val.get("name")
             if isinstance(nested_value, str):
                 return nested_value
