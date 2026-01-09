@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest  # noqa: TCH002 - pytest required at runtime for fixtures
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
     ck12_enrichment,
@@ -11,8 +13,8 @@ def test_fetch_flexbook_html_success(monkeypatch: pytest.MonkeyPatch) -> None:
     fetch_flexbook_html should return HTML text when the HTTP call succeeds.
 
     Purpose:
-        Confirm the happy path performs an HTTP GET with the configured timeout
-        and returns the response text without alteration.
+        Confirm the happy path performs an HTTP GET with the configured timeout,
+        browser headers, and returns the response text without alteration.
 
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture to replace requests.get for isolation.
@@ -27,9 +29,12 @@ def test_fetch_flexbook_html_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def _fake_get(url: str, timeout: int) -> _FakeResponse:
+    def _fake_get(
+        url: str, headers: dict[str, str] | None = None, timeout: int | None = None
+    ) -> _FakeResponse:
         """Capture request parameters and return a fake response."""
         captured["url"] = url
+        captured["headers"] = headers
         captured["timeout"] = timeout
         return _FakeResponse()
 
@@ -39,6 +44,7 @@ def test_fetch_flexbook_html_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result == "<html>flexbook</html>"
     assert captured["url"] == "https://example.com/flexbook"
+    assert captured["headers"] == ck12_enrichment.REQUEST_HEADERS
     assert captured["timeout"] == ck12_enrichment.REQUEST_TIMEOUT_SECONDS
 
 
@@ -96,3 +102,34 @@ def test_extract_pdf_url_prefers_flexbook_pdf() -> None:
     pdf_url = ck12_enrichment.extract_pdf_url(html)
 
     assert pdf_url == "https://flexbooks.ck12.org/flx/pdf/ck-12-algebra-1.pdf"
+
+
+def test_ck12_enrichment_cli_dispatch_happens_after_helper_definitions() -> None:
+    """
+    `ck12_enrichment` should define helpers before invoking Typer CLI dispatch.
+
+    Purpose:
+        Prevent a regression where `python -m ...ck12_enrichment` executes
+        `app()` before defining helper functions (like `_read_catalog`,
+        `_normalize_text`, etc.). That ordering causes runtime `NameError` when
+        the CLI command invokes those helpers.
+
+    Notes:
+        This test intentionally checks source ordering rather than executing the
+        CLI, to avoid network and filesystem side effects during unit tests.
+        We check for `_extract_field` as it's the last helper defined before
+        the dispatch block.
+    """
+
+    source = Path(ck12_enrichment.__file__).read_text(encoding="utf-8")
+
+    # Find the last helper function definition (the one closest to EOF before dispatch).
+    last_helper_index = source.find("def _extract_field")
+    assert last_helper_index != -1, "_extract_field helper not found in source"
+
+    dispatch_index = source.rfind('if __name__ == "__main__":')
+    assert dispatch_index != -1, "__main__ dispatch block not found in source"
+
+    assert (
+        dispatch_index > last_helper_index
+    ), "CLI dispatch must happen after all helper definitions"

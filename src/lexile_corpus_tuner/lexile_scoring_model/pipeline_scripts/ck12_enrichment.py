@@ -46,6 +46,22 @@ from .oer_models import CatalogEntry, DownloadCandidate
 REQUEST_TIMEOUT_SECONDS = 30
 FLEXBOOK_BASE_URL = "https://flexbooks.ck12.org/cbook/"
 
+# HTTP headers to mimic a real browser and avoid 403 Forbidden (Issue #73)
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9," "image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
 app = typer.Typer(
     help="Enrich CK-12 catalog entries with metadata and PDF download links."
 )
@@ -58,6 +74,7 @@ def fetch_flexbook_html(url: str) -> str:
     Purpose:
         Centralize HTTP retrieval so timeouts, retries, and error handling can
         be applied consistently across enrichment calls.
+        Includes browser-like headers to avoid 403 Forbidden responses.
 
     Args:
         url (str): Fully-qualified FlexBook URL to fetch.
@@ -69,10 +86,13 @@ def fetch_flexbook_html(url: str) -> str:
         RuntimeError: When the request fails or returns a non-success status.
 
     Side Effects:
-        Implementation will issue an HTTP GET request with a timeout.
+        Implementation will issue an HTTP GET request with a timeout and
+        browser headers.
     """
     try:
-        response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = requests.get(
+            url, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS
+        )
     except requests.RequestException as exc:  # pragma: no cover - network failure path
         raise RuntimeError(f"Failed to fetch FlexBook HTML from {url}") from exc
 
@@ -367,10 +387,6 @@ def enrich_ck12_catalog(
     typer.echo(f"Wrote {len(enriched_entries)} enriched CK-12 entries to {output}")
 
 
-if __name__ == "__main__":
-    app()  # pragma: no cover - CLI dispatch
-
-
 def _build_flexbook_url(identifier: str) -> str:
     """
     Construct the FlexBook URL from a catalog identifier slug.
@@ -596,3 +612,7 @@ def _extract_field(node: dict[str, object], keys: list[str]) -> str | None:
                 return nested_value
 
     return None
+
+
+if __name__ == "__main__":
+    app()  # pragma: no cover - CLI dispatch

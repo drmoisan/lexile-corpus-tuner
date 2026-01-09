@@ -200,7 +200,15 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
 ) -> None:
     """CLI to curate catalogs in a directory and emit curated files + skip logs."""
     allowed = [s.strip().lower() for s in sources.split(",") if s.strip()]
-    catalogs = sorted(catalog_dir.glob("*_catalog.jsonl"))
+    # Prefer enriched catalogs when available (they contain full metadata + PDFs).
+    base_catalogs = sorted(catalog_dir.glob("*_catalog.jsonl"))
+    catalogs: list[Path] = []
+    for base_path in base_catalogs:
+        enriched_path = base_path.parent / base_path.name.replace(
+            "_catalog", "_enriched"
+        )
+        # Use enriched version when it exists, otherwise fall back to base catalog.
+        catalogs.append(enriched_path if enriched_path.exists() else base_path)
     # When PDF is explicitly required, skip the text/plain check to support CK-12 flows.
     effective_require_text = require_text and not require_pdf
     # Curate each catalog independently so outputs remain per-source.
@@ -212,8 +220,18 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
             allowed,
             require_pdf=require_pdf,
         )
-        curated_path = out_dir / catalog_path.name.replace("_catalog", "_curated")
-        skips_path = out_dir / catalog_path.name.replace("_catalog", "_skips")
+        # Derive curated/skip names from the source prefix
+        # (before _catalog or _enriched).
+        # Input: ck12_catalog.jsonl or ck12_enriched.jsonl
+        # Output: ck12_curated.jsonl
+        if "_enriched.jsonl" in catalog_path.name:
+            base_name = catalog_path.name.replace("_enriched.jsonl", "")
+        elif "_catalog.jsonl" in catalog_path.name:
+            base_name = catalog_path.name.replace("_catalog.jsonl", "")
+        else:
+            base_name = catalog_path.stem
+        curated_path = out_dir / f"{base_name}_curated.jsonl"
+        skips_path = out_dir / f"{base_name}_skips.jsonl"
         _write_catalog(curated_path, included)
         _write_skips(skips_path, skipped)
         typer.echo(
