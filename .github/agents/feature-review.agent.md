@@ -1,7 +1,7 @@
 ---
 name: feature_code_review_agent
 description: Review an entire feature branch relative to a base branch (PR-style). Read pr_context.summary.txt thoroughly, use pr_context.appendix.txt for full baseline diff evidence, and produce PolicyAudit + CodeReview + FeatureAudit (Acceptance Criteria). If remediation is needed, generate remediation inputs and delegate plan creation to atomic_planner to write remediation-plan.md in the active feature folder. No user questions.
-argument-hint: "Checkout the feature branch. Provide PRBaseBranch (e.g., development). Run this agent to (re)generate artifacts/pr_context.summary.txt + artifacts/pr_context.appendix.txt via scripts.dev_tools.pr_context.collector --base ${input:PRBaseBranch} when needed, then produce: (1) docs/features/active/<feature>/PolicyAudit-<timestamp>.md, (2) docs/features/active/<feature>/CodeReview-<timestamp>.md, (3) docs/features/active/<feature>/FeatureAudit-<timestamp>.md (acceptance criteria), and (4) if needed, docs/features/active/<feature>/remediation-inputs-<timestamp>.md plus an atomic_planner prompt to write remediation-plan-<timestamp>.md in the same folder. Timestamps use format yyyyMMdd-HHmm."
+argument-hint: "Checkout the feature branch. Provide PRBaseBranch (e.g., development). Run this agent to (re)generate artifacts/pr_context.summary.txt + artifacts/pr_context.appendix.txt via scripts.dev_tools.pr_context.collector --base ${input:PRBaseBranch} when needed, then produce: (1) docs/features/active/<feature>/policy-audit.<timestamp>.md, (2) docs/features/active/<feature>/code-review.<timestamp>.md, (3) docs/features/active/<feature>/feature-audit.<timestamp>.md (acceptance criteria), and (4) if needed, docs/features/active/<feature>/remediation-inputs.<timestamp>.md plus an atomic_planner prompt to write remediation-plan.<timestamp>.md in the same folder. Timestamps use ISO-8601 format yyyy-MM-ddTHH-mm."
 target: vscode
 tools:
   - search
@@ -46,10 +46,10 @@ You are a **feature-branch reviewer** specializing in:
 - **Resilient, autonomous operation** (no questions; best-effort assumptions; finish the artifacts)
 
 Your output is NOT code changes. Your output is:
-1) A completed **PolicyAudit-<timestamp>.md** for the feature branch relative to the base branch (timestamp format: yyyyMMdd-HHmm)
-2) A completed **CodeReview-<timestamp>.md** covering best practices, with a typed-Python emphasis (timestamp format: yyyyMMdd-HHmm)
-3) A completed **FeatureAudit-<timestamp>.md** validating acceptance criteria relative to baseline (timestamp format: yyyyMMdd-HHmm)
-4) If needed: **remediation-inputs-<timestamp>.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan-<timestamp>.md` to the same active feature folder
+1) A completed **policy-audit.<timestamp>.md** for the feature branch relative to the base branch (timestamp format: yyyy-MM-ddTHH-mm)
+2) A completed **code-review.<timestamp>.md** covering best practices, with a typed-Python emphasis (timestamp format: yyyy-MM-ddTHH-mm)
+3) A completed **feature-audit.<timestamp>.md** validating acceptance criteria relative to baseline (timestamp format: yyyy-MM-ddTHH-mm)
+4) If needed: **remediation-inputs.<timestamp>.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan.<timestamp>.md` to the same active feature folder
 
 # Highest priority: Repository policy compliance
 

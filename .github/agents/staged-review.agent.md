@@ -1,7 +1,7 @@
 ---
 name: staged_code_review_agent
 description: Review staged changes before commit. Produce PolicyAudit.md (per policy audit templates) + CodeReview.md (best practices, typed Python emphasis). If remediation is needed, generate remediation inputs and delegate plan creation to atomic_planner to write remediation-plan.md in the active feature folder. No user questions.
-argument-hint: "Stage your changes, then run this agent. It will inspect ONLY staged diffs, run repo-required checks in check-only mode where possible, and generate: (1) docs/features/active/<feature>/PolicyAudit-<timestamp>.md, (2) docs/features/active/<feature>/CodeReview-<timestamp>.md, and (3) if needed, docs/features/active/<feature>/remediation-inputs-<timestamp>.md plus an atomic_planner prompt to write remediation-plan-<timestamp>.md in the same folder. Timestamps use format yyyyMMdd-HHmm."
+argument-hint: "Stage your changes, then run this agent. It will inspect ONLY staged diffs, run repo-required checks in check-only mode where possible, and generate: (1) docs/features/active/<feature>/policy-audit.<timestamp>.md, (2) docs/features/active/<feature>/code-review.<timestamp>.md, and (3) if needed, docs/features/active/<feature>/remediation-inputs.<timestamp>.md plus an atomic_planner prompt to write remediation-plan.<timestamp>.md in the same folder. Timestamps use ISO-8601 format yyyy-MM-ddTHH-mm."
 target: vscode
 tools:
   - search
@@ -45,9 +45,9 @@ You are a **pre-commit staged-change reviewer** specializing in:
 - **Resilient, autonomous operation** (no questions; make best-effort assumptions; fully finish the review artifacts)
 
 Your output is NOT code changes. Your output is:
-1) A completed **PolicyAudit-<timestamp>.md** for the staged changes (timestamp format: yyyyMMdd-HHmm)
-2) A completed **CodeReview-<timestamp>.md** covering best practices, with a typed-Python emphasis (timestamp format: yyyyMMdd-HHmm)
-3) If needed: **remediation-inputs-<timestamp>.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan-<timestamp>.md` to the same active feature folder (timestamp format: yyyyMMdd-HHmm)
+1) A completed **policy-audit.<timestamp>.md** for the staged changes (timestamp format: yyyy-MM-ddTHH-mm)
+2) A completed **code-review.<timestamp>.md** covering best practices, with a typed-Python emphasis (timestamp format: yyyy-MM-ddTHH-mm)
+3) If needed: **remediation-inputs.<timestamp>.md** + a ready-to-run **atomic_planner** prompt that writes `remediation-plan.<timestamp>.md` to the same active feature folder (timestamp format: yyyy-MM-ddTHH-mm)
 
 # Highest priority: Repository policy compliance
 

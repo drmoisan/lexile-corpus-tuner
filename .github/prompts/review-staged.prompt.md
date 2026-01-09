@@ -17,23 +17,23 @@ Write outputs to the **active feature folder** determined by the agent. If no ac
 
 ### Required deliverables
 
-All filenames must include a timestamp in the format `yyyyMMdd-HHmm` (e.g., `PolicyAudit-20260108-1430.md`).
+All filenames must include a timestamp in ISO-8601 format `yyyy-MM-ddTHH-mm` (e.g., `policy-audit.2026-01-08T14-30.md`).
 
-1. `PolicyAudit-<timestamp>.md`
-   - A completed Policy Audit document based on the repo's PolicyAudit template and the policy_audit template guidance.
+1. `policy-audit.<timestamp>.md`
+   - A completed Policy Audit document based on the repo's policy-audit template and the policy_audit template guidance.
    - Must include PASS/PARTIAL/FAIL (or equivalent) statuses with evidence (commands run, outputs, file references).
 
-2. `CodeReview-<timestamp>.md`
+2. `code-review.<timestamp>.md`
    - A staged-diff-based review emphasizing strongly typed Python best practices and repo compliance.
    - Must include a clear go/no-go recommendation for committing.
 
 ### Conditional deliverables (only if remediation is required)
 
-3. `remediation-inputs-<timestamp>.md`
+3. `remediation-inputs.<timestamp>.md`
    - Concrete, enumerated fix list with acceptance criteria and verification commands.
 
 4. An `atomic_planner` prompt (copy/paste-ready) that instructs `atomic_planner` to WRITE:
-   - `remediation-plan-<timestamp>.md` in the same active feature folder as the audit documents.
+   - `remediation-plan.<timestamp>.md` in the same active feature folder as the audit documents.
 
 ## Context Template
 

@@ -1,5 +1,8 @@
 # 2026-01-06-populate-open-stax-ck-12-manifest-73 — Spec
 
+- **Status:** Superseded
+- **Outcome:** CK-12 workflow specified as PDF-based; later evidence invalidated the PDF assumption.
+- **Root Cause:** CK-12 does not expose PDF endpoints in observed sessions (HAR shows only JSON/HTML reader APIs + assets).
 - Issue: #73
 - Owner: drmoisan
 - Last Updated: 2026-01-06

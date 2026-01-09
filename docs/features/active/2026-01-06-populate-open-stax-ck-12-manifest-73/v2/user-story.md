@@ -1,5 +1,7 @@
 # `2026-01-06-populate-open-stax-ck-12-manifest-73` — User Story
 
+- **Status:** Superseded by v3
+- **Root Cause:** Spec updated in v3
 - Issue: #73
 - Owner: drmoisan
 - Status: In Progress

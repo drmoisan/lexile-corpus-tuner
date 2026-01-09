@@ -24,8 +24,8 @@ When performing a policy audit:
    - Read [README.md](./README.md) in this directory for the detailed audit process and usage instructions.
 
 2. Use the policy audit template  
-   - Use [PolicyAudit.template.md](./PolicyAudit.template.md) as the structural starting point for the audit document.
-   - Create a working copy (for example: `docs/features/active/<feature>/PolicyAudit.md`) rather than editing the template in place.
+   - Use [policy-audit.yyyy-MM-ddTHH-mm.md](./policy-audit.yyyy-MM-ddTHH-mm.md) as the structural starting point for the audit document.
+   - Create a working copy (for example: `docs/features/active/<feature>/policy-audit.2026-01-08T14-30.md`) rather than editing the template in place.
 
 3. Use the canonical policy documents for evaluation (read-only)  
    - General code change policy: `.github/instructions/general-code-change.instructions.md`
@@ -47,8 +47,8 @@ When asked to perform a Policy Audit for a component, branch, or PR:
    - **Document baseline coverage BEFORE making changes** (if development has not yet started, or shelve changes temporarily to establish baseline).
 
 2. **Create an audit document**
-   - Generate a timestamp in format `yyyyMMdd-HHmm` (e.g., "20260108-1430" for Jan 8, 2026 at 2:30 PM).
-   - Copy [PolicyAudit.template.md](./PolicyAudit.template.md) to the requested location with timestamped filename: `PolicyAudit-<timestamp>.md` (e.g., feature folder or PR docs).
+   - Generate a timestamp in ISO-8601 format `yyyy-MM-ddTHH-mm` (e.g., "2026-01-08T14-30" for Jan 8, 2026 at 2:30 PM).
+   - Copy [policy-audit.yyyy-MM-ddTHH-mm.md](./policy-audit.yyyy-MM-ddTHH-mm.md) to the requested location with timestamped filename: `policy-audit.<timestamp>.md` (e.g., feature folder or PR docs).
    - Replace placeholders (`[Component Name]`, dates, paths, counts) as described in [README.md](./README.md).
    - **For multi-language changes:**
      - Fill in the Coverage Metrics by Language table with one row per language.
