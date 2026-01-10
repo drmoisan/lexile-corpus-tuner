@@ -18,19 +18,71 @@ last_updated: 2026-01-10
 
 ### Phase 0 — Context & guardrails
 
-- [ ] [P0-T1] Pin spec and acceptance criteria
+**Plan-of-record:** This timestamped file (`plan.2026-01-10T15-21.md`) is authoritative for execution. Any references elsewhere to `plan.md` are not applicable for this feature folder.
+
+
+- [ ] [P0-T1] Read repo Copilot instructions (policy order)
+	- Files:
+		- `.github/copilot-instructions.md`
+	- Acceptance:
+		- Confirm the repo’s policy order is understood and will be followed for this change.
+
+- [ ] [P0-T2] Read general code-change policy (toolchain loop + bugfix workflow)
+	- Files:
+		- `.github/instructions/general-code-change.instructions.md`
+	- Acceptance:
+		- Confirm the required toolchain loop (format → lint → type-check → test) must be run until clean.
+
+- [ ] [P0-T3] Read Python code-change policy (Black/Ruff/Pyright expectations)
+	- Files:
+		- `.github/instructions/python-code-change.instructions.md`
+	- Acceptance:
+		- Confirm strict typing + suppression rules are understood.
+
+- [ ] [P0-T4] Read unit test policies (no temp files; deterministic; pytest)
+	- Files:
+		- `.github/instructions/general-unit-test.instructions.md`
+		- `.github/instructions/python-unit-test.instructions.md`
+	- Acceptance:
+		- Confirm tests must not write temporary files and must avoid external dependencies.
+
+- [ ] [P0-T5] Confirm authoritative docs and missing user story
+	- Notes:
+		- `spec.md` is authoritative.
+		- No `user-story.md` exists for this feature folder (expected for this bug).
+	- Acceptance:
+		- Any “user story” references are treated as “not applicable” for this feature.
+
+- [ ] [P0-T6] Branch hygiene: implement #80 on a dedicated branch
+	- Acceptance:
+		- Do not implement #80 on an unrelated feature branch (e.g., #73).
+		- Work occurs on a dedicated branch for #80 so review/rollback is isolated.
+
+- [ ] [P0-T7] Capture baseline toolchain status (record pass/fail)
+	- Commands (repo standard):
+		- `poetry run black .`
+		- `poetry run ruff check`
+		- `poetry run pyright`
+		- `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+	- Acceptance:
+		- Baseline is captured before changes (even if it’s already passing).
+
+- [ ] [P0-T8] Pin spec and acceptance criteria
 	- References:
 		- `docs/features/active/2026-01-10-atomic-executor-throttling-80/spec.md`
 	- Acceptance:
 		- This plan explicitly covers every item in the spec's **Acceptance Criteria** section.
 
-- [ ] [P0-T2] Identify current Copilot invocation seam(s)
+- [ ] [P0-T9] Identify current Copilot invocation seam(s)
 	- Files:
 		- `scripts/dev_tools/atomic_executor/cli.py`: `run_copilot()`, `_stream_copilot_output()`, `_execute_one_task()`
 	- Acceptance:
 		- Document (in plan notes or code comments during implementation) that `_execute_one_task()` currently retries only on QC failures, and does not handle Copilot non-zero exits.
 
-- [ ] [P0-T3] Choose safe defaults and config surface (call-rate based)
+- [ ] [P0-T10] Choose safe defaults and config surface (call-rate based)
 	- Defaults (initial proposal, adjust only with justification in PR):
 		- max calls per window: 6
 		- window seconds: 60
@@ -42,10 +94,44 @@ last_updated: 2026-01-10
 		- Defaults are conservative and bounded (no infinite retry by default).
 		- All settings are explicitly “calls per time window”, not token based.
 
-### Phase 1 — Deterministic primitives (unit-testable)
+### Phase 1 — Regression tests (fail first)
 
+- [ ] [P1-T1] Add failing regression test: throttling does not abort run; retries instead
+	- New test module:
+		- `tests/scripts/dev_tools/atomic_executor/test_executor_throttle_retry_regression.py`
+	- Technique (deterministic; no real Copilot CLI):
+		- Simulate a Copilot outcome sequence: throttle → success.
+		- Verify the executor retries within the same task, and does not advance ordering until the retry succeeds.
+		- This may target the planned runner seam API (added later), so failure-before-fix can be due to missing seam and/or missing retry behavior.
+	- Acceptance:
+		- This test fails against the current code before implementing throttling retry support.
+		- The test does not invoke the real `copilot` binary and makes no network calls.
 
-- [ ] [P1-T1] Introduce an injectable Copilot runner seam (for deterministic tests)
+- [ ] [P1-T2] Add unit tests for throttle classifier (positive + negative cases)
+	- New test module (avoid extending large existing files):
+		- `tests/scripts/dev_tools/atomic_executor/test_copilot_throttling_classifier.py`
+	- Acceptance:
+		- This test fails against the current code before implementing the classifier.
+		- Tests are deterministic (no network, no subprocess, no filesystem writes).
+
+- [ ] [P1-T3] Add unit tests for call-rate limiter scheduling (no real sleep)
+	- New test module:
+		- `tests/scripts/dev_tools/atomic_executor/test_copilot_rate_limiter.py`
+	- Acceptance:
+		- This test fails against the current code before implementing the limiter.
+		- Uses a fake clock + fake sleeper and asserts scheduled sleep durations.
+
+- [ ] [P1-T4] Add unit tests for exponential backoff growth + reset/decay
+	- New test module:
+		- `tests/scripts/dev_tools/atomic_executor/test_copilot_backoff.py`
+	- Acceptance:
+		- This test fails against the current code before implementing the backoff.
+		- Uses deterministic `RandomSource`.
+		- Verifies capped growth and reset/decay behavior.
+
+### Phase 2 — Deterministic primitives (unit-testable)
+
+- [ ] [P2-T1] Introduce an injectable Copilot runner seam (for deterministic tests)
 	- Files (one of the following approaches; prefer the smallest change that stays typed):
 		- Option A: `scripts/dev_tools/atomic_executor/cli.py` (add an injectable runner parameter to `run_copilot()`)
 		- Option B: new adapter module `scripts/dev_tools/atomic_executor/copilot_runner.py` used by `run_copilot()`
@@ -54,7 +140,7 @@ last_updated: 2026-01-10
 		- The seam returns enough information to support throttling classification (at minimum: exit code + output tail).
 		- The production implementation continues to stream output to console + log file as it does today.
 
-- [ ] [P1-T2] Add a call-rate limiter abstraction (queue-of-timestamps)
+- [ ] [P2-T2] Add a call-rate limiter abstraction (queue-of-timestamps)
 	- Add new module (or equivalent cohesive location):
 		- `scripts/dev_tools/atomic_executor/copilot_throttling.py`
 	- Symbols (names may vary, but keep them explicit + typed):
@@ -65,7 +151,7 @@ last_updated: 2026-01-10
 		- Limiter enforces at most `max_calls` in the last `window_seconds`.
 		- Limiter uses injected `clock`/`sleeper` so tests avoid real sleeping.
 
-- [ ] [P1-T3] Add exponential backoff policy with jitter + bounded cap
+- [ ] [P2-T3] Add exponential backoff policy with jitter + bounded cap
 	- Location: `scripts/dev_tools/atomic_executor/copilot_throttling.py`
 	- Symbols:
 		- `ExponentialBackoff(base_seconds: float, max_seconds: float, random_source: RandomSource)`
@@ -75,7 +161,7 @@ last_updated: 2026-01-10
 		- Backoff state increments on throttle events.
 		- Backoff resets/decays after a stable (non-throttle) period per spec intent (define explicitly in code + tests).
 
-- [ ] [P1-T4] Implement throttle classification from output tail (not exception stdout/stderr)
+- [ ] [P2-T4] Implement throttle classification from output tail (not exception stdout/stderr)
 	- Location: `scripts/dev_tools/atomic_executor/copilot_throttling.py`
 	- Symbols:
 		- `classify_copilot_failure(exit_code: int, output_tail: str) -> FailureKind`
@@ -83,29 +169,6 @@ last_updated: 2026-01-10
 	- Acceptance:
 		- Positive classifications include patterns like “rate limit”, “rate limited”, “throttle”, “429”, “503” (case-insensitive).
 		- Negative samples (permission errors, auth errors, generic failures) do not classify as throttle.
-
-### Phase 2 — Regression tests (fail first)
-
-- [ ] [P2-T1] Add unit tests for throttle classifier (positive + negative cases)
-	- New test module (avoid extending large existing files):
-		- `tests/scripts/dev_tools/atomic_executor/test_copilot_throttling_classifier.py`
-	- Acceptance:
-		- Tests are deterministic (no network, no subprocess, no filesystem writes).
-		- At least one test fails before implementation of the classifier.
-
-- [ ] [P2-T2] Add unit tests for call-rate limiter scheduling (no real sleep)
-	- New test module:
-		- `tests/scripts/dev_tools/atomic_executor/test_copilot_rate_limiter.py`
-	- Acceptance:
-		- Uses a fake clock + fake sleeper and asserts scheduled sleep durations.
-		- At least one test fails before limiter implementation.
-
-- [ ] [P2-T3] Add unit tests for exponential backoff growth + reset/decay
-	- New test module:
-		- `tests/scripts/dev_tools/atomic_executor/test_copilot_backoff.py`
-	- Acceptance:
-		- Uses deterministic `RandomSource`.
-		- Verifies capped growth and reset/decay behavior.
 
 ### Phase 3 — Wire throttling policy into Copilot invocation
 
@@ -181,3 +244,27 @@ last_updated: 2026-01-10
 	- Acceptance:
 		- Notes explicitly state: no attempt was made to trigger real throttling; behavior is covered via deterministic tests.
 		- Includes links to key tests covering classifier/limiter/backoff/order/bounded retries.
+
+### Phase 7 — Release QC gate (must be last)
+
+- [ ] [P7-T1] Run the full repo QC gate for all languages; must pass clean
+	- Purpose:
+		- This is the final release gate. It cannot be considered successful unless the repo is fully compliant.
+	- Preferred:
+		- Run the VS Code task: `QC: 5 Run All Checks`
+	- If running manually, run the full toolchain for all languages (in this order):
+		- `poetry run python -m scripts.dev_tools.format_json`
+		- `poetry run python -m scripts.dev_tools.validate_json`
+		- `poetry run python -m scripts.dev_tools.shell_qc format`
+		- `poetry run python -m scripts.dev_tools.shell_qc check`
+		- `poetry run python -m scripts.dev_tools.shell_qc test`
+		- `poetry run black .`
+		- `poetry run ruff check`
+		- `poetry run pyright`
+		- `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+		- `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+	- Acceptance:
+		- All checks pass in a single final pass (no lingering formatting or lint diffs).
+		- If any step changes files or fails, fix issues and restart the gate from the beginning.
