@@ -3,7 +3,7 @@
 - Issue: #80
 - Owner: 2026-01-10-atomic-executor-throttling
 - Date: 2026-01-10
-- Status: Draft
+- Status: Planned
 
 ## Context
 `atomic_executor` intermittently gets throttled while orchestrating atomic tasks via GitHub Copilot CLI.
