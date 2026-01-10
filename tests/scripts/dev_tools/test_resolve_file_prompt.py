@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from scripts.dev_tools.resolve_file_prompt import (
-    build_context_injection,
     main,
     resolve_prompt,
     strip_front_matter,
@@ -32,6 +31,48 @@ def test_resolve_prompt_relative_path():
     assert expected_fragment in result
     assert "${file}" not in result
     assert "\\" not in result
+
+
+def test_resolve_prompt_resolves_folderpath_name_spec_and_user_story_exists() -> None:
+    """Resolves ${folderpath}, ${name}, ${spec}, and ${user-story}.
+
+    This test simulates a workspace where user-story.md exists without touching
+    the filesystem.
+    """
+    template = (
+        "Folder=${folderpath}\n"
+        "Name=${name}\n"
+        "Spec=${spec}$\n"
+        "Story=${user-story}\n"
+        "File=${file}\n"
+    )
+
+    cwd = Path.cwd()
+    feature_dir = (
+        cwd
+        / "docs"
+        / "features"
+        / "active"
+        / "2026-01-10-atomic-executor-throttling-80"
+    )
+    target = feature_dir / "plan.2026-01-10T15-21.md"
+
+    expected_folderpath = str(feature_dir.relative_to(cwd))
+    expected_spec = str(Path(expected_folderpath) / "spec.md")
+    expected_story = str(Path(expected_folderpath) / "user-story.md")
+
+    def _exists(self: Path) -> bool:
+        # Simulate a workspace where user-story.md exists without touching disk.
+        return self.name == "user-story.md"
+
+    with patch.object(Path, "exists", _exists):
+        result = resolve_prompt(template, target, cwd)
+
+    assert expected_folderpath in result
+    assert "atomic-executor-throttling" in result
+    assert expected_spec in result
+    assert expected_story in result
+    assert "${" not in result
 
 
 def test_resolve_prompt_outside_cwd():
@@ -63,6 +104,31 @@ def test_resolve_prompt_forward_slashes():
     assert "\\" not in result
 
 
+def test_resolve_prompt_name_extraction_for_versioned_plan_folder() -> None:
+    """When folderpath leaf starts with 'v', name is derived from the parent folder."""
+    template = "Name=${name} Folder=${folderpath}"
+    cwd = Path.cwd()
+    feature_dir = (
+        cwd
+        / "docs"
+        / "features"
+        / "active"
+        / "2026-01-10-atomic-executor-throttling-80"
+    )
+    version_dir = feature_dir / "v2"
+    target = version_dir / "plan.md"
+
+    def _exists_false(self: Path) -> bool:
+        return False
+
+    with patch.object(Path, "exists", _exists_false):
+        result = resolve_prompt(template, target, cwd)
+
+    assert "atomic-executor-throttling" in result
+    assert str(version_dir.relative_to(cwd)) in result
+    assert "${" not in result
+
+
 def test_strip_front_matter():
     """Test that YAML front matter is correctly stripped."""
     content = """---
@@ -88,58 +154,6 @@ def test_strip_front_matter_no_front_matter():
     result = strip_front_matter(content)
 
     assert result == content
-
-
-def test_build_context_injection_for_plan_with_docs(tmp_path: Path):
-    """Test context injection when spec.md and user-story.md exist."""
-    # Create test directory structure
-    feature_dir = tmp_path / "docs" / "features" / "active" / "test-feature"
-    feature_dir.mkdir(parents=True)
-
-    plan_path = feature_dir / "plan.md"
-    spec_path = feature_dir / "spec.md"
-    user_story_path = feature_dir / "user-story.md"
-
-    plan_path.write_text("# Plan")
-    spec_path.write_text("# Spec")
-    user_story_path.write_text("# User Story")
-
-    result = build_context_injection(plan_path)
-
-    assert "## Authoritative Requirements" in result
-    assert "spec.md" in result
-    assert "user-story.md" in result
-    assert "Technical specification" in result
-    assert "User stories and acceptance criteria" in result
-
-
-def test_build_context_injection_missing_docs(tmp_path: Path):
-    """Test no context injection when spec.md or user-story.md missing."""
-    feature_dir = tmp_path / "docs" / "features" / "active" / "test-feature"
-    feature_dir.mkdir(parents=True)
-
-    plan_path = feature_dir / "plan.md"
-    plan_path.write_text("# Plan")
-
-    result = build_context_injection(plan_path)
-
-    assert result == ""
-
-
-def test_build_context_injection_non_plan_file(tmp_path: Path):
-    """Test no context injection for non-plan.md files."""
-    feature_dir = tmp_path / "docs" / "features" / "active" / "test-feature"
-    feature_dir.mkdir(parents=True)
-
-    other_path = feature_dir / "spec.md"
-    user_story_path = feature_dir / "user-story.md"
-
-    other_path.write_text("# Spec")
-    user_story_path.write_text("# User Story")
-
-    result = build_context_injection(other_path)
-
-    assert result == ""
 
 
 def test_resolve_prompt_strips_front_matter():

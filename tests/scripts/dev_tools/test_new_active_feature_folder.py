@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -148,7 +150,7 @@ def _seed_feature_template(fs: FakeFileSystem, workspace: Path) -> None:
         ),
     )
     fs.write_text(
-        template_dir / "plan.md",
+        template_dir / "plan.yyyy-MM-ddTHH-mm.md",
         "\n".join(
             [
                 "- Owner: name",
@@ -177,12 +179,16 @@ def _seed_bug_template(fs: FakeFileSystem, workspace: Path) -> None:
         ),
     )
     fs.write_text(
-        template_dir / "plan.md",
+        template_dir / "plan.yyyy-MM-ddTHH-mm.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
-                "<feature-name>",
+                "- **Issue:** <#id or TBD>",
+                "- **Owner:** <name>",
+                "- **Date:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <template>",
+                "- **Outcome:** <outcome>",
+                "- **Root Cause:** <rca>",
+                "<bug-name>",
             ]
         ),
     )
@@ -221,12 +227,14 @@ def test_create_feature_folder_moves_potential_and_updates_files() -> None:
     )
 
     code_launcher = FakeCodeLauncher()
+    fixed_now = datetime(2024, 1, 2, 3, 4, tzinfo=ZoneInfo("America/New_York"))
     result = mod.create_active_folder(
         feature_name="json-quality",
         feature_type="feature",
         workspace=workspace,
         fs=fs,
         code_launcher=code_launcher,
+        now_provider=lambda: fixed_now,
     )
 
     expected_folder = (
@@ -240,6 +248,11 @@ def test_create_feature_folder_moves_potential_and_updates_files() -> None:
     assert "problem text" in user_story
     assert "first item" in user_story
     assert "#63" in user_story
+
+    plan_path = expected_folder / "plan.2024-01-02T03-04.md"
+    assert fs.exists(plan_path)
+    plan_content = fs.read_text(plan_path)
+    assert "- Last Updated: 2024-01-02" in plan_content
     assert code_launcher.calls, "code launcher should be invoked"
 
 
@@ -278,6 +291,7 @@ def test_create_bug_folder_uses_issue_metadata_and_sections() -> None:
     issue_meta = mod.IssueMeta(number="77", author="octocat", updated_date="2024-02-02")
     fetcher = FakeIssueFetcher(issue_meta)
     code_launcher = FakeCodeLauncher()
+    fixed_now = datetime(2024, 2, 3, 4, 5, tzinfo=ZoneInfo("America/New_York"))
 
     result = mod.create_active_folder(
         feature_name="bug-case",
@@ -287,6 +301,7 @@ def test_create_bug_folder_uses_issue_metadata_and_sections() -> None:
         fs=fs,
         issue_fetcher=fetcher,
         code_launcher=code_launcher,
+        now_provider=lambda: fixed_now,
     )
 
     expected_folder = workspace / "docs" / "features" / "active" / "bug-case-77"
@@ -303,6 +318,14 @@ def test_create_bug_folder_uses_issue_metadata_and_sections() -> None:
     assert "octocat" in spec_content
     assert "2024-02-02" in spec_content
     assert fetcher.calls == ["77"]
+
+    plan_path = expected_folder / "plan.2024-02-03T04-05.md"
+    assert fs.exists(plan_path)
+    plan_content = fs.read_text(plan_path)
+    assert "- **Issue:** #77" in plan_content
+    assert "- **Owner:** octocat" in plan_content
+    assert "- **Date:** 2024-02-03T04-05" in plan_content
+    assert "- **Status:** Draft" in plan_content
     assert code_launcher.calls, "code launcher should be invoked"
 
 

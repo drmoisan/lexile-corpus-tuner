@@ -3,7 +3,7 @@ agent: 'atomic_planner'
 description: 'Update an existing implementation plan file with new or update requirements to provide new features, refactoring existing code or upgrading packages, design, architecture or infrastructure.'
 tools: ['search/changes', 'search/codebase', 'edit/editFiles', 'vscode/extensions', 'web/fetch', 'web/githubRepo', 'vscode/openSimpleBrowser', 'read/problems', 'execute/createAndRunTask', 'execute/getTaskOutput', 'execute/runTask', 'search', 'search/searchResults', 'read/terminalLastCommand', 'read/terminalSelection', 'execute/testFailure', 'search/usages', 'vscode/vscodeAPI']
 ---
-# Update Implementation Plan
+# Update Implementation Plan - `${name}`
 
 ## Primary Directive
 
@@ -16,6 +16,7 @@ This prompt is designed for AI-to-AI communication and automated processing. All
 ## Core Requirements
 
 - Generate implementation plans that are fully executable by AI agents
+- Plan should deliver all of the requirements detailed in the `${spec}` and the `${user-story}` 
 - Use deterministic language with zero ambiguity
 - Structure all content for automated parsing and execution
 - Ensure complete self-containment with no external dependencies for understanding
@@ -28,6 +29,7 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 
 - Each phase must have measurable completion criteria
 - Tasks within phases must be executable in parallel unless dependencies are specified
+- Unit testing should be written in a TDD manner so that no development code is written without testing to verify that it works
 - All task descriptions must include specific file paths, function names, and exact implementation details
 - No task should require human interpretation or decision-making
 

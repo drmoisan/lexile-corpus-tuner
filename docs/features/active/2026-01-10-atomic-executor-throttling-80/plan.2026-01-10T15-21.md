@@ -1,9 +1,13 @@
-# <bug-name> (Plan)
+- Issue: #80
+# 2026-01-10-atomic-executor-throttling-80 (Plan)
 
-- Issue: <#id or TBD>
-- Owner: <name>
-- Date: YYYY-MM-DD
-- Status: Draft
+- **Issue:** #80
+- **Owner:** drmoisan
+- **Date:** 2026-01-10T15-21
+- **Status:** Draft
+- **Outcome:** <outcome>
+- **Root Cause:** <rca>
+
 
 **Phase 0 — Context & Inputs**
 - [ ] [P0-T1] Link approved spec: <spec link>

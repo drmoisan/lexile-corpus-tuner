@@ -1,5 +1,13 @@
-"""
-Resolves ${file} variable in a prompt template and copies the result to clipboard.
+"""scripts.dev_tools.resolve_file_prompt
+
+Resolves ${...} variables in a prompt template and copies the result to clipboard.
+
+Supported variables:
+    - ${file}: Workspace-relative path to the target file (forward slashes).
+    - ${folderpath}: Workspace-relative folder path of the target file.
+    - ${name}: Feature name derived from folder naming convention.
+    - ${spec}: Path to spec.md under ${folderpath}.
+    - ${user-story}: Path to user-story.md under ${folderpath}, annotated when missing.
 
 Usage:
     python resolve_file_prompt.py \\
@@ -10,6 +18,7 @@ Usage:
 import argparse
 import importlib
 import importlib.util
+import re
 import sys
 import types
 from pathlib import Path
@@ -72,40 +81,179 @@ def strip_front_matter(content: str) -> str:
     return content
 
 
-def build_context_injection(target_path: Path) -> str:
-    """
-    Builds additional context if spec.md and user-story.md exist alongside target.
+def _split_path_platform_agnostic(path_str: str) -> list[str]:
+    """Split a path string into components, treating both '\\' and '/' as separators.
+
+    Purpose:
+        The resolver needs to operate consistently across Windows and Unix-like
+        platforms. The folderpath it derives may be rendered with either
+        separator depending on context.
 
     Args:
-        target_path (Path): The target file being resolved.
+        path_str (str): A path string (typically workspace-relative).
 
     Returns:
-        str: Context injection text or empty string.
+        list[str]: Non-empty path components.
     """
-    # Only inject context for plan.md files
-    if target_path.name != "plan.md":
-        return ""
+    # Split on either separator to stay platform-agnostic.
+    parts = [p for p in re.split(r"[\\/]+", path_str) if p]
+    return parts
 
-    target_dir = target_path.parent
-    spec_path = target_dir / "spec.md"
-    user_story_path = target_dir / "user-story.md"
 
-    if spec_path.exists() and user_story_path.exists():
-        relative_spec = spec_path.relative_to(target_path.parent.parent.parent)
-        relative_story = user_story_path.relative_to(target_path.parent.parent.parent)
-        spec_str = str(relative_spec).replace("\\", "/")
-        story_str = str(relative_story).replace("\\", "/")
+def _try_relative_to_workspace(path: Path, workspace_root: Path) -> Path:
+    """Return path relative to workspace_root when possible.
 
-        return (
-            f"\n\n## Authoritative Requirements\n\n"
-            f"This plan must fully deliver on the requirements defined in:\n"
-            f"- `{spec_str}` - Technical specification and implementation details\n"
-            f"- `{story_str}` - User stories and acceptance criteria\n\n"
-            f"Read both documents thoroughly before generating the plan. "
-            f"The plan must be sufficient to satisfy all requirements in these "
-            f"authoritative sources."
-        )
-    return ""
+    Purpose:
+        Most prompts should refer to workspace-relative paths. If the target is
+        outside the workspace, fall back to the original path.
+
+    Args:
+        path (Path): Path to relativize.
+        workspace_root (Path): Workspace root (usually the repo root).
+
+    Returns:
+        Path: A relative path when possible, else the original path.
+    """
+    try:
+        return path.resolve().relative_to(workspace_root.resolve())
+    except ValueError:
+        return path
+
+
+def _resolve_folderpath(target_path: Path, workspace_root: Path) -> str:
+    """Resolve ${folderpath} from a target file.
+
+    Args:
+        target_path (Path): The target file path.
+        workspace_root (Path): Workspace root used for relative resolution.
+
+    Returns:
+        str: Workspace-relative folder path of the target.
+    """
+    relative_target = _try_relative_to_workspace(target_path, workspace_root)
+    folder = relative_target.parent
+    return str(folder)
+
+
+def _resolve_feature_foldername(folderpath: str) -> str:
+    """Determine the feature folder name from folderpath.
+
+    Rules:
+        - Split folderpath into components using platform-agnostic delimiters.
+        - If the leaf folder starts with 'v', treat it as a versioned plan
+          folder and use the parent folder as the feature folder.
+
+    Args:
+        folderpath (str): Workspace-relative folder path.
+
+    Returns:
+        str: Feature folder name (the folder containing the feature docs).
+
+    Raises:
+        ValueError: If folderpath is empty or cannot be parsed.
+    """
+    parts = _split_path_platform_agnostic(folderpath)
+    if not parts:
+        raise ValueError("folderpath is empty")
+
+    leaf = parts[-1]
+    if leaf.startswith("v") and len(parts) >= 2:
+        return parts[-2]
+    return leaf
+
+
+def _resolve_name_from_feature_foldername(feature_foldername: str) -> str:
+    """Extract ${name} from a feature folder name.
+
+    Purpose:
+        Feature folders follow the convention:
+            yyyy-MM-dd-${name}-${issue}
+        where ${name} may contain hyphens.
+
+    Args:
+        feature_foldername (str): Feature folder name.
+
+    Returns:
+        str: Extracted name portion, or the original folder name if it does not
+        match the expected pattern.
+    """
+    parts = feature_foldername.split("-")
+
+    # Decision logic:
+    # - If the folder name matches the date prefix and has a trailing issue
+    #   token, extract the middle as the name.
+    # - Otherwise, fall back to the whole folder name.
+    if (
+        len(parts) >= 5
+        and len(parts[0]) == 4
+        and len(parts[1]) == 2
+        and len(parts[2]) == 2
+    ):
+        if (
+            parts[0].isdigit()
+            and parts[1].isdigit()
+            and parts[2].isdigit()
+            and parts[-1].isdigit()
+        ):
+            name_parts = parts[3:-1]
+            if name_parts:
+                return "-".join(name_parts)
+
+    return feature_foldername
+
+
+def _resolve_spec_path(folderpath: str) -> str:
+    """Resolve ${spec} as ${folderpath}/spec.md using the OS delimiter."""
+    return str(Path(folderpath) / "spec.md")
+
+
+def _resolve_user_story_value(folderpath: str, workspace_root: Path) -> str:
+    """Resolve ${user-story} with existence awareness.
+
+    Args:
+        folderpath (str): Workspace-relative folder path.
+        workspace_root (Path): Workspace root used for existence checks.
+
+    Returns:
+        str: A user-story path string. If the file is missing, the string is
+        annotated with a clear marker.
+    """
+    rel_story = Path(folderpath) / "user-story.md"
+    full_story = workspace_root / rel_story
+
+    if full_story.exists():
+        return str(rel_story)
+
+    return f"{rel_story} (missing)"
+
+
+def _extract_template_variables(template: str) -> set[str]:
+    """Extract variable names from ${var} placeholders in a template."""
+    return {m.group(1) for m in re.finditer(r"\$\{([^}]+)\}", template)}
+
+
+def _replace_all_variables(template: str, variables: dict[str, str]) -> str:
+    """Replace all ${var} placeholders in template using the provided mapping.
+
+    Raises:
+        ValueError: If any placeholder in the template cannot be resolved.
+    """
+    referenced = _extract_template_variables(template)
+    missing = sorted(v for v in referenced if v not in variables)
+    if missing:
+        raise ValueError(f"Unresolved template variables: {', '.join(missing)}")
+
+    resolved = template
+
+    # Apply substitutions deterministically (sorted key order for stability).
+    for key in sorted(referenced):
+        resolved = resolved.replace(f"${{{key}}}", variables[key])
+
+    # Safety check: no placeholders remain.
+    if _extract_template_variables(resolved):
+        raise ValueError("Template resolution failed: unresolved placeholders remain")
+
+    return resolved
 
 
 def resolve_prompt(template_content: str, target_path: Path, cwd: Path) -> str:
@@ -125,24 +273,24 @@ def resolve_prompt(template_content: str, target_path: Path, cwd: Path) -> str:
     # Strip front matter first
     content = strip_front_matter(template_content)
 
-    try:
-        # adaptable: try to resolve relative to cwd
-        # Note: We resolve both to ensure we are comparing absolute paths
-        relative_target = target_path.resolve().relative_to(cwd.resolve())
-    except ValueError:
-        # fallback if file is outside cwd
-        relative_target = target_path
+    relative_target = _try_relative_to_workspace(target_path, cwd)
 
-    # Perform substitution; force forward slashes for prompt consistency
-    path_str = str(relative_target).replace("\\", "/")
-    resolved = content.replace("${file}", path_str)
+    # Keep ${file} forward-slashed to match existing prompt style.
+    file_str = str(relative_target).replace("\\", "/")
 
-    # Inject context about spec.md and user-story.md if applicable
-    context_injection = build_context_injection(target_path)
-    if context_injection:
-        resolved += context_injection
+    folderpath = _resolve_folderpath(target_path, cwd)
+    feature_foldername = _resolve_feature_foldername(folderpath)
+    name = _resolve_name_from_feature_foldername(feature_foldername)
 
-    return resolved
+    variables: dict[str, str] = {
+        "file": file_str,
+        "folderpath": folderpath,
+        "name": name,
+        "spec": _resolve_spec_path(folderpath),
+        "user-story": _resolve_user_story_value(folderpath, cwd),
+    }
+
+    return _replace_all_variables(content, variables)
 
 
 def main() -> None:

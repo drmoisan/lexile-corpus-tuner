@@ -8,8 +8,10 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -23,6 +25,8 @@ PLACEHOLDERS = [
     "<name>",
     "<bug-name>",
 ]
+
+PLAN_TIMESTAMP_TEMPLATE_NAME = "plan.yyyy-MM-ddTHH-mm.md"
 
 
 @dataclass
@@ -100,6 +104,45 @@ def resolve_workspace() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def get_est_timestamp(now_provider: Callable[[], datetime] | None = None) -> str:
+    """Return a Windows-friendly ISO-ish timestamp string for America/New_York.
+
+    Purpose:
+        Generate a single timestamp token that can safely be used in filenames and
+        inserted into plan documents. The repo conventions use `YYYY-MM-DDTHH-mm`
+        (hyphen in the time portion) to avoid `:` which is illegal in Windows
+        filenames.
+
+    Args:
+        now_provider (Callable[[], datetime] | None): Optional clock injection for
+            tests. When provided, its return value is interpreted as a timezone-aware
+            datetime.
+
+    Returns:
+        str: Timestamp formatted as `YYYY-MM-DDTHH-mm` in America/New_York.
+
+    Raises:
+        ValueError: If now_provider returns a naive datetime.
+    """
+
+    # Prefer a test-injected clock for determinism; otherwise use local wall time.
+    now = (
+        now_provider()
+        if now_provider
+        else datetime.now(tz=ZoneInfo("America/New_York"))
+    )
+    if now.tzinfo is None:
+        raise ValueError("now_provider must return a timezone-aware datetime")
+    localized = now.astimezone(ZoneInfo("America/New_York"))
+    return localized.strftime("%Y-%m-%dT%H-%M")
+
+
+def extract_date_from_timestamp(timestamp: str) -> str:
+    """Extract `YYYY-MM-DD` date component from a `YYYY-MM-DDTHH-mm` timestamp."""
+
+    return timestamp.split("T", 1)[0]
+
+
 def validate_feature_name(feature_name: str) -> None:
     if not feature_name or not NAME_PATTERN.fullmatch(feature_name):
         raise ValueError(
@@ -158,6 +201,7 @@ def set_header_placeholder(
     issue_field: str,
     owner_field: str,
     updated_field: str,
+    status_field: str | None = None,
 ) -> str:
     result = content
     for placeholder in PLACEHOLDERS:
@@ -165,22 +209,75 @@ def set_header_placeholder(
     result = re.sub(r"#`?<id>`?", issue_field, result)
     result = result.replace("<#id or TBD>", issue_field)
     result = result.replace("#<tracking-issue>", issue_field)
+
+    # Update Issue/Owner/Date/Status fields in both plain and bold-list formats.
+    # These variants appear across multiple templates.
     result = re.sub(
-        r"^- Owner:\s+(?:name|<name>)",
+        r"^-\s*\*\*Issue:\*\*\s+.*$",
+        f"- **Issue:** {issue_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+    result = re.sub(
+        r"^-\s*Issue\s*:\s+.*$",
+        f"- Issue: {issue_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+
+    result = re.sub(
+        r"^-\s*\*\*Owner:\*\*\s+(?:name|<name>|.*)$",
+        f"- **Owner:** {owner_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+    result = re.sub(
+        r"^-\s*Owner\s*:\s+(?:name|<name>|.*)$",
         f"- Owner: {owner_field}",
         result,
         flags=re.MULTILINE,
     )
+
     result = re.sub(
-        r"^- Date:\s+YYYY-MM-DD", f"- Date: {updated_field}", result, flags=re.MULTILINE
+        r"^-\s*\*\*Date:\*\*\s+.*$",
+        f"- **Date:** {updated_field}",
+        result,
+        flags=re.MULTILINE,
     )
     result = re.sub(
-        r"^- Last Updated:\s+YYYY-MM-DD",
+        r"^-\s*Date\s*:\s+YYYY-MM-DD$",
+        f"- Date: {updated_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+    result = result.replace("<yyyy-MM-ddTHH-mm>", updated_field)
+
+    result = re.sub(
+        r"^-\s*Last Updated\s*:\s+YYYY-MM-DD$",
         f"- Last Updated: {updated_field}",
         result,
         flags=re.MULTILINE,
     )
-    if not re.search(r"^- Issue:\s*#?", result, flags=re.MULTILINE):
+
+    if status_field is not None:
+        result = re.sub(
+            r"^-\s*\*\*Status:\*\*\s+.*$",
+            f"- **Status:** {status_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+        result = re.sub(
+            r"^-\s*Status\s*:\s+.*$",
+            f"- Status: {status_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+
+    if not re.search(
+        r"^-\s*(?:\*\*Issue:\*\*|Issue)\s*:\s*#?",
+        result,
+        flags=re.MULTILINE,
+    ):
         result = f"- Issue: {issue_field}\n{result}"
     return result
 
@@ -234,12 +331,79 @@ def copy_template(
     feature_type: str, template_dir: Path, target_dir: Path, fs: FileSystem
 ) -> None:
     if feature_type == "bug":
-        for name in ("spec.md", "plan.md"):
+        for name in ("spec.md", PLAN_TIMESTAMP_TEMPLATE_NAME, "plan.md"):
             src = template_dir / name
             if fs.exists(src):
                 fs.copy_file(src, target_dir / name)
+                # Prefer the timestamped plan template when both exist.
+                if name == PLAN_TIMESTAMP_TEMPLATE_NAME:
+                    break
     else:
         fs.copy_tree(template_dir, target_dir)
+
+
+def materialize_plan_file(
+    feature_type: str,
+    target_dir: Path,
+    feature_name: str,
+    issue_field: str,
+    owner_field: str,
+    plan_timestamp: str,
+    fs: FileSystem,
+) -> Path | None:
+    """Rename and stamp plan templates when a timestamped plan template exists.
+
+    Purpose:
+        Some templates use a timestamp placeholder in the plan filename
+        (`plan.yyyy-MM-ddTHH-mm.md`). This function renames that file to
+        `plan.<timestamp>.md` and updates key header fields so the filename matches
+        the timestamp inside the document.
+
+    Args:
+        feature_type (str): One of feature/refactor/epic/bug.
+        target_dir (Path): Newly created active folder.
+        feature_name (str): Slug/name inserted into doc placeholders.
+        issue_field (str): Issue identifier string (e.g., #73).
+        owner_field (str): Owner name.
+        plan_timestamp (str): Timestamp token in `YYYY-MM-DDTHH-mm` (EST/ET).
+        fs (FileSystem): File abstraction.
+
+    Returns:
+        Path | None: Materialized plan path, or None if no plan file exists.
+    """
+
+    template_plan = target_dir / PLAN_TIMESTAMP_TEMPLATE_NAME
+    if fs.exists(template_plan):
+        target_plan = target_dir / f"plan.{plan_timestamp}.md"
+
+        # Rename first to avoid leaving template placeholders behind.
+        fs.move(template_plan, target_plan)
+        content = fs.read_text(target_plan)
+
+        # Use full timestamp for bug plans; use date-only for other plans.
+        if feature_type == "bug":
+            updated_field = plan_timestamp
+            status_field = "Draft"
+        else:
+            updated_field = extract_date_from_timestamp(plan_timestamp)
+            status_field = None
+
+        content = set_header_placeholder(
+            content,
+            feature_name=feature_name,
+            issue_field=issue_field,
+            owner_field=owner_field,
+            updated_field=updated_field,
+            status_field=status_field,
+        )
+        fs.write_text(target_plan, content)
+        return target_plan
+
+    # Fallback for older templates.
+    legacy = target_dir / "plan.md"
+    if fs.exists(legacy):
+        return legacy
+    return None
 
 
 def default_issue_fetcher(issue_number: str) -> IssueMeta | None:
@@ -319,12 +483,13 @@ def update_feature_docs(
     updated_field: str,
     fs: FileSystem,
     sections: dict[str, str],
+    plan_path: Path | None = None,
 ) -> list[Path]:
     files_to_open: list[Path] = []
     if feature_type == "feature":
         user_story = target_dir / "user-story.md"
         spec = target_dir / "spec.md"
-        plan = target_dir / "plan.md"
+        plan = plan_path or target_dir / "plan.md"
         _apply_header_and_sections(
             user_story,
             feature_name,
@@ -360,7 +525,7 @@ def update_feature_docs(
         files_to_open.extend([user_story, spec, plan])
     elif feature_type == "refactor":
         spec = target_dir / "spec.md"
-        plan = target_dir / "plan.md"
+        plan = plan_path or target_dir / "plan.md"
         _apply_header_and_sections(
             spec,
             feature_name,
@@ -390,7 +555,7 @@ def update_feature_docs(
         files_to_open.append(initiative)
     elif feature_type == "bug":
         spec = target_dir / "spec.md"
-        plan = target_dir / "plan.md"
+        plan = plan_path or target_dir / "plan.md"
 
         context_parts: list[str] = []
         if sections.get("bug_summary"):
@@ -435,8 +600,18 @@ def update_feature_docs(
             fs,
             updates,
         )
+        # For bug plan docs, we want the full timestamp in the Date field.
+        plan_updated_field = updated_field
+        if plan_path is not None and plan_path.name.startswith("plan."):
+            plan_updated_field = plan_path.stem.split(".", 1)[1]
         _apply_header_and_sections(
-            plan, feature_name, issue_field, owner_field, updated_field, fs, []
+            plan,
+            feature_name,
+            issue_field,
+            owner_field,
+            plan_updated_field,
+            fs,
+            [],
         )
         files_to_open.extend([spec, plan])
     return files_to_open
@@ -451,6 +626,7 @@ def create_active_folder(
     fs: FileSystem | None = None,
     issue_fetcher: Callable[[str], IssueMeta | None] = default_issue_fetcher,
     code_launcher: Callable[[Iterable[Path]], bool] = default_code_launcher,
+    now_provider: Callable[[], datetime] | None = None,
 ) -> ActiveFolderResult:
     if feature_type not in {"feature", "refactor", "epic", "bug"}:
         raise ValueError("Type must be one of: feature, refactor, epic, bug")
@@ -494,6 +670,28 @@ def create_active_folder(
     owner_field = issue_meta.author if issue_meta else "name"
     updated_field = issue_meta.updated_date if issue_meta else "YYYY-MM-DD"
 
+    # One timestamp token is generated per folder creation and used consistently
+    # for any timestamped plan file names and their document bodies.
+    plan_timestamp = get_est_timestamp(now_provider)
+    plan_path = materialize_plan_file(
+        feature_type=feature_type,
+        target_dir=target_dir,
+        feature_name=feature_name,
+        issue_field=issue_field,
+        owner_field=owner_field,
+        plan_timestamp=plan_timestamp,
+        fs=filesystem,
+    )
+
+    # If we materialized a plan file, use its date (not the issue updated date)
+    # when updating plan headers for non-bug types.
+    if (
+        feature_type != "bug"
+        and plan_path is not None
+        and plan_path.name.startswith("plan.")
+    ):
+        updated_field = extract_date_from_timestamp(plan_timestamp)
+
     sections: dict[str, str] = {
         "problem": get_section(potential_content, "Problem / Why"),
         "behavior": get_section(potential_content, "Proposed Behavior"),
@@ -522,6 +720,7 @@ def create_active_folder(
         updated_field,
         filesystem,
         sections,
+        plan_path=plan_path,
     )
 
     potential_issue_path = None
