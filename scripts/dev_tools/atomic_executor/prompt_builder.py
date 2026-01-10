@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
 from typing import TYPE_CHECKING
 
+from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
+
 if TYPE_CHECKING:
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
 
@@ -89,12 +91,11 @@ class PromptBuilder:
         """
         template = self._read_text(self.template_path)
 
-        plan_path = feature_dir / "plan.md"
+        resolved_plan = resolve_feature_plan(feature_dir)
+        plan_path = resolved_plan.path
         spec_path = feature_dir / "spec.md"
         story_path = feature_dir / "user-story.md"
 
-        if not plan_path.is_file():
-            raise FileNotFoundError(f"Missing required plan.md: {plan_path}")
         if not spec_path.is_file():
             raise FileNotFoundError(f"Missing required spec.md: {spec_path}")
 
@@ -193,7 +194,11 @@ checks, update plan.md by checking ONLY this task:
 - Change '- [ ] [{current_task.task_id}]' to '- [x] [{current_task.task_id}]'
 - Do not modify other lines.
 
----- BEGIN plan.md ----
+If `plan.md` does not exist in the feature folder, update this file instead:
+- {resolved_plan.update_filename}
+
+Plan file on disk: {resolved_plan.update_filename}
+
 {plan_text}
 ---- END plan.md ----
 

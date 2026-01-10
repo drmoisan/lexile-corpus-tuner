@@ -12,6 +12,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from scripts.dev_tools.atomic_executor.plan_discovery import is_plan_file_path
+
 
 class FeatureResolver:
     """
@@ -26,14 +28,14 @@ class FeatureResolver:
         feature_name, feature_dir = resolver.resolve(path_arg, feature_arg)
 
     Flow:
-        1. If path_arg is a directory or plan.md, use it directly
+        1. If path_arg is a directory or plan file, use it directly
         2. If --feature provided, use that
         3. Otherwise, infer from git branch name using fuzzy matching
         4. Raise error if resolution is ambiguous or fails
 
     Invariants:
         - workspace and active_dir must exist
-        - Resolved feature folder must contain plan.md
+        - Resolved feature folder must contain a plan file
 
     Side Effects:
         - Calls git commands to determine current branch (if needed)
@@ -76,10 +78,10 @@ class FeatureResolver:
         """
         p = Path(path_arg)
 
-        # Direct path resolution (feature folder or plan.md)
+        # Direct path resolution (feature folder or plan file)
         if p.is_dir():
             return p.name, p.resolve()
-        if p.is_file() and p.name == "plan.md":
+        if p.is_file() and is_plan_file_path(p):
             feature_dir = p.parent.resolve()
             return feature_dir.name, feature_dir
 

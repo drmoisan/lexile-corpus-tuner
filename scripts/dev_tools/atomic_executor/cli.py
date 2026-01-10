@@ -17,6 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
+from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
 from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
 from scripts.dev_tools.atomic_executor.prompt_builder import PromptBuilder
 from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
@@ -755,12 +756,15 @@ def main(argv: list[str] | None = None) -> int:
     resolver = FeatureResolver(workspace, active_dir)
     _, feature_dir = resolver.resolve(args.path, args.feature)
 
-    plan_path = feature_dir / "plan.md"
+    try:
+        resolved_plan = resolve_feature_plan(feature_dir)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    plan_path = resolved_plan.path
     prompt_template_path = (workspace / args.prompt_template).resolve()
 
-    if not plan_path.is_file():
-        print(f"Missing required plan.md: {plan_path}", file=sys.stderr)
-        return 2
     if not prompt_template_path.is_file():
         print(
             f"Prompt template not found: {prompt_template_path}",
