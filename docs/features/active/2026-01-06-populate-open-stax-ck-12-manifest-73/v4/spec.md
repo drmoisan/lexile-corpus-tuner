@@ -153,6 +153,7 @@ headers = {
 	4. Extract text content, preserving reading order
 	5. Strip navigation and boilerplate elements
 	6. Handle extraction failures gracefully (log error, skip file, continue pipeline)
+	7. Log warning for sections with <100 chars text (image-only heuristic); include in manifest but flag.
 - Output: Plain text file parallel to the fetched JSON (e.g., `section-8384007.json` → `section-8384007.txt`)
 - Quality considerations: XHTML is well-structured; alt text for images is included in `<img alt="...">` attributes
 
