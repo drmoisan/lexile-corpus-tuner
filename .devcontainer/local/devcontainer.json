@@ -33,7 +33,8 @@
         "bierner.markdown-mermaid",
         "mechatroner.rainbow-csv",
         "openai.chatgpt",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "bierner.markdown-checkbox"
       ],
       "settings": {
         "[python]": {
