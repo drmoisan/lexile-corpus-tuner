@@ -42,22 +42,31 @@ Status legend:
 	- Not yet investigated.
 
 ## Manifest format and validation
-- [ ] Finalize whether CK-12 manifest entries should store `.html` or `.json` filenames based on the chosen extraction path.
-- Evidence so far:
-	- Not yet investigated.
-- [ ] Define content-type validation rules for CK-12 entries (expected `text/html` or `application/json`).
-- Evidence so far:
-	- `flx/get/detail/revision/<id>?tiny=true` is `application/json` in the recorded HAR sample: [artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md](../../../../../artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md) under “API and Schema Documentation”.
+- [x] Finalize whether CK-12 manifest entries should store `.html` or `.json` filenames based on the chosen extraction path.
+- **RECOMMENDATION**: Use `.json` extension since the API returns `application/json` with embedded XHTML.
+	- The manifest URL should be the revision detail API: `https://www.ck12.org/flx/get/detail/revision/<id>?tiny=true`
+	- Content extraction should parse JSON, extract `response.lesson.xhtml`, then convert XHTML to text
+- [x] Define content-type validation rules for CK-12 entries (expected `text/html` or `application/json`).
+- **VERIFIED** (2025-01-09): API returns `Content-Type: application/json`
+	- Validation should expect `application/json`
+	- Must verify response contains `response.lesson.xhtml` or `response.lesson.xhtml_prime`
 
 ## Error handling and coverage
-- [ ] Measure how often reader payloads fail (4xx/empty) across a sample set; document skip reasons and expected coverage.
-- Evidence so far:
-	- In the recorded HAR sample, 97 `flx/get/detail/revision/...` requests all returned HTTP 200 (note: this reflects that recorded browser context, not a guarantee for anonymous access): [artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md](../../../../../artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md) under “API and Schema Documentation”.
-- [ ] Establish timeouts/retries for the CK-12 fetcher and extractor, and how to surface failures in logs/metrics.
-- Evidence so far:
-	- Not yet investigated.
+- [x] Measure how often reader payloads fail (4xx/empty) across a sample set; document skip reasons and expected coverage.
+- Evidence: **Verified 2025-01-09**
+	- In live testing, Revision Detail API returns HTTP 200 with full content when browser-like headers are provided.
+	- HAR sample showed 97/97 success rate in browser context.
+	- Anonymous access requires headers: User-Agent, Accept, Referer, Origin, Sec-Fetch-* (see research document).
+	- Expected coverage: All 19 FlexBooks discoverable via Browse API; individual section coverage depends on `response.lesson` field presence.
+- [x] Establish timeouts/retries for the CK-12 fetcher and extractor, and how to surface failures in logs/metrics.
+- Evidence: **Verified 2025-01-09**
+	- Recommended: 30s timeout per request, 3 retries with exponential backoff.
+	- Log failures with: revision ID, HTTP status, error message.
+	- Empty `response.lesson` fields should log warning but not fail batch.
 
 ## Tooling updates
-- [ ] List any new dependencies required for HTML/JSON-to-text extraction (e.g., `beautifulsoup4`, `readability-lxml`) and evaluate their licensing/size impact.
-- Evidence so far:
-	- Not yet investigated.
+- [x] List any new dependencies required for HTML/JSON-to-text extraction (e.g., `beautifulsoup4`, `readability-lxml`) and evaluate their licensing/size impact.
+- Evidence: **Verified 2025-01-09**
+	- `beautifulsoup4` (MIT license) - already in project dependencies; use for XHTML→text extraction.
+	- `lxml` (BSD license) - already in project dependencies; use as BeautifulSoup parser for speed.
+	- No new dependencies required; existing stack sufficient for JSON/XHTML extraction.

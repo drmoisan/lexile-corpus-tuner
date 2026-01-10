@@ -1,11 +1,11 @@
 # 2026-01-06-populate-open-stax-ck-12-manifest-73 — Spec
 
 - **Status:** Active
-- **Outcome:** CK-12 spec revised to fetch reader JSON/HTML and extract text; manifest and validation to be updated from PDF to HTML/JSON.
-- **Root Cause:** HAR evidence shows CK-12 content is served via flx/get/detail/revision/<id> (and related APIs) and not via PDF downloads.
+- **Outcome:** CK-12 spec revised to use Browse API for catalog discovery; vanity slugs are NOT resolvable—only canonical handles work; content fetched via JSON API with embedded XHTML.
+- **Root Cause:** Research confirmed: (1) HAR evidence shows CK-12 content is served via flx/get/detail/revision/<id> APIs, (2) vanity URL slugs like `ck-12-physics` do not exist in CK-12's database—only canonical handles like `CK-12-Physics-FlexBook-2.0` work.
 - Issue: #73
 - Owner: drmoisan
-- Last Updated: 2026-01-06
+- Last Updated: 2026-01-09
 
 ## Overview
 
@@ -26,24 +26,29 @@ Implement a Gutenberg-style workflow for OpenStax and CK-12 OER: programmaticall
 
 **Observed fact (HAR: artifacts/www.ck12.org.har):** Neither FlexBook 1.0 nor 2.0 sessions expose PDF downloads. The network traffic is limited to JSON/HTML payloads from `https://www.ck12.org/flx/get/detail/revision/<id>?tiny=true`, `flx/get/appdata/reader_library`, and image datastreams. No `.pdf` URLs are present.
 
-1) **Catalog**: Scrape the CK-12 FlexBook catalog at `https://www.ck12.org/fbbrowse/list?grade=all%20grades&language=all%20languages&subject=all%20subjects`; extract book titles, URLs, and subject categories; persist to `data/meta/catalogs/ck12_catalog.jsonl`.
-2) **Enrich**: For each book URL (e.g., `https://flexbooks.ck12.org/cbook/...`), resolve the FlexBook revision ID and fetch chapter payloads via the reader APIs (e.g., `flx/get/detail/revision/<id>?tiny=true` + associated assets):
+**Research finding (2025-01-09):** Vanity URL slugs (e.g., `ck-12-physics` from `https://flexbooks.ck12.org/cbook/ck-12-physics/`) do NOT exist in CK-12's database. Only canonical handles from the Browse API work (e.g., `CK-12-Physics-FlexBook-2.0`). The workflow MUST use the Browse API for catalog discovery rather than parsing vanity URLs.
+
+1) **Catalog**: Use CK-12 Browse API at `https://www.ck12.org/flx/browse/flexbook?limit=200` to enumerate all available FlexBooks; extract `artifactID`, `artifactType`, `handle`, `title`, `perma`; persist to `data/meta/catalogs/ck12_catalog.jsonl`.
+   - **Critical**: Do NOT attempt to resolve vanity slugs from the fbbrowse list page—they are marketing URLs that don't map to database artifacts.
+2) **Enrich**: For each artifact, call Perma API `https://www.ck12.org/flx/get/perma/<artifactType>/<handle>` to get full metadata including:
+	- `revisions[0].children` containing chapter/section revision IDs
 	- Author/creator information
 	- Last modified / publication metadata if present in the JSON
 	- Grade level and language
 	- License (CK-12 Curriculum Materials License)
-	- Chapter HTML/JSON content blobs suitable for text extraction (not PDF)
-	Append a primary reader content URL and any supporting asset URLs to `download_candidates`.
-3) **Curate**: Filter catalog rows to those with retrievable reader content (HTTP 200, non-empty HTML/JSON). Record skip reasons for items that lack resolvable reader payloads or return errors.
-4) **Manifest**: Generate `data/meta/oer_sources.json` entries with `source_id=ck12`, stable slug `id` (derived from FlexBook URL slug), a direct reader content URL (HTML/JSON), and `.html` (or `.json`) `filename`. The manifest should align with the downstream extractor expectations (HTML/JSON → text step).
-5) **Download**: `lexile-scoring-model-pipeline corpus download --sources "ck12"` fetches reader content to `data/corpus/raw/ck12` using manifest URLs.
-6) **HTML/Text Extraction**: New pipeline step to extract raw text from the downloaded reader payloads:
-	- Input: `data/corpus/raw/ck12/*.(html|json)`
+	Append section revision IDs to `download_candidates`.
+3) **Curate**: Filter catalog rows to those with retrievable revision content (valid revision IDs that return HTTP 200). Record skip reasons for items that lack resolvable revisions or return errors.
+4) **Manifest**: Generate `data/meta/oer_sources.json` entries with `source_id=ck12`, stable slug `id` (derived from canonical `handle`, NOT vanity URL), direct revision API URL (`https://www.ck12.org/flx/get/detail/revision/<id>?tiny=true`), and `.json` `filename`.
+5) **Download**: `lexile-scoring-model-pipeline corpus download --sources "ck12"` fetches revision JSON to `data/corpus/raw/ck12` using manifest URLs. Must include browser-like headers (see Required Headers section).
+6) **JSON/XHTML/Text Extraction**: New pipeline step to extract raw text from the downloaded revision payloads:
+	- Input: `data/corpus/raw/ck12/*.json`
+	- Parse JSON and extract `response.lesson.xhtml` (or `response.lesson.xhtml_prime`)
+	- Convert XHTML to plain text using BeautifulSoup
 	- Output: `data/corpus/raw/ck12/*.txt` (parallel text files)
 	- Handle extraction errors gracefully; log files that fail text extraction.
 7) **Normalize**: `lexile-scoring-model-pipeline corpus normalize --sources "ck12"` ingests the extracted `.txt` files.
 
-**Note**: Because PDFs are not exposed in the current CK-12 flows, skip logic must key off reader content availability, not PDF detection.
+**Note**: Because vanity slugs do not resolve, the catalog step MUST use Browse API discovery. The `id` in the manifest should be derived from the canonical `handle` field, not from parsed URLs.
 
 ## Inputs / Outputs
 
@@ -77,16 +82,16 @@ Implement a Gutenberg-style workflow for OpenStax and CK-12 OER: programmaticall
 - `source_id` controls the raw subfolder used by download/normalize.
 - `id` must be deterministic:
 	- OpenStax: lowercase hyphen slug from immutable IA `identifier`
-	- CK-12: lowercase hyphen slug from FlexBook URL path segment
+	- CK-12: lowercase hyphen slug from canonical `handle` (e.g., `ck-12-physics-flexbook-2-0` from `CK-12-Physics-FlexBook-2.0`). **NOT** from vanity URL slugs.
 - `url` must be directly downloadable:
 	- OpenStax: Prefer `_djvu.txt` from IA, else other `text/plain` formats
-	- CK-12: Reader content URL (HTML/JSON) that can be fetched without interactive browser flows; if authentication is required, document headers/cookies.
+	- CK-12: Revision Detail API URL (`https://www.ck12.org/flx/get/detail/revision/<id>?tiny=true`). Requires browser-like headers for anonymous access.
 - `filename` must match source format:
 	- OpenStax: `.txt` extension for text files
-	- CK-12: `.html` (or `.json`) extension for reader payloads; extracted to `.txt` in a separate step
+	- CK-12: `.json` extension for revision API responses (content extraction parses JSON → extracts XHTML → converts to text)
 - Validation: 
 	- OpenStax: HTTP 200 status and `Content-Type` starting with `text/`
-	- CK-12: HTTP 200 status and `Content-Type` starting with `application/json` or `text/html`
+	- CK-12: HTTP 200 status and `Content-Type` of `application/json`; response must contain `response.lesson.xhtml` or `response.lesson.xhtml_prime`
 	- Failures are logged and skipped
 
 ### Internet Archive Workflow (OpenStax Only)
@@ -101,32 +106,55 @@ Implement a Gutenberg-style workflow for OpenStax and CK-12 OER: programmaticall
 
 ### CK-12 Native Scraping Workflow (New Approach)
 
-- Catalog page: `https://www.ck12.org/fbbrowse/list?grade=all%20grades&language=all%20languages&subject=all%20subjects`
-- Extract book entries with:
-	- Title (from link text)
-	- FlexBook URL (e.g., `https://flexbooks.ck12.org/cbook/ck-12-interactive-middle-school-math-6-for-ccss/`)
-	- Subject category (from page section headers like "Algebra", "Biology", etc.)
-- For each book URL, fetch metadata:
-	- Author/Creator (typically "CK-12" or contributor name)
-	- Last Modified date
-	- License (CK-12 Curriculum Materials License)
-	- Grade level (if available in title or metadata)
-	- Language (default "eng", detect Spanish editions from title)
-	- Reader content link discovery:
-		- Resolve revision ID and call reader APIs such as `flx/get/detail/revision/<id>?tiny=true`
-		- Capture chapter HTML/JSON payloads sufficient for text extraction
-		- If no reader content is reachable (4xx/empty), mark as interactive-only and skip
-- Curation rules: require retrievable reader content; enforce language/grade/subject filters.
-- Slug rule: `id = generate_stable_slug(flexbook_url_slug)` → extract last path segment, lowercase, hyphenated.
+**Critical Research Finding (2025-01-09)**: The original plan to scrape `fbbrowse/list` and resolve vanity slugs is NOT viable. Vanity slugs like `ck-12-physics` do not exist in CK-12's database—only canonical handles work.
 
-**HTML/Text Extraction Requirements:**
-- Library: Use an HTML-to-text path (e.g., `readability-lxml` + `beautifulsoup4`, or a structured JSON-to-text renderer); avoid PDF libraries because no PDF endpoints are present.
+**Verified Algorithm** (see [artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md](../../../../../artifacts/research/20260109-ck12-slug-to-revision-mapping-research.md)):
+
+1. **Browse API** (catalog discovery):
+   - Endpoint: `https://www.ck12.org/flx/browse/flexbook?limit=200`
+   - Returns: List of all available FlexBooks with `artifactID`, `artifactType`, `handle`, `title`, `perma`
+   - Note: `artifactType=cbook` returns 0 results; physics books are under `artifactType=flexbook`
+
+2. **Perma API** (metadata + revision hierarchy):
+   - Endpoint: `https://www.ck12.org/flx/get/perma/<artifactType>/<handle>`
+   - Example: `/flx/get/perma/cbook/CK-12-Physics-FlexBook-2.0`
+   - Returns: `{response: {<artifactType>: {revisions: [{children: [...]}]}}}`
+   - Children contain full chapter objects with nested `revisions[0].children` containing section revision IDs
+
+3. **Revision Detail API** (content):
+   - Endpoint: `https://www.ck12.org/flx/get/detail/revision/<revisionID>?tiny=true`
+   - Returns: JSON with content under `response.lesson` (NOT `response.section`)
+   - Fields: `xhtml` (full XHTML document), `xhtml_prime` (alternate format), `title`, `summary`
+
+**Required Headers for Anonymous Access**:
+```python
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.ck12.org/",
+    "Origin": "https://www.ck12.org",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
+```
+
+**Slug Derivation Rule**:
+- `id = generate_stable_slug(handle)` → lowercase, replace dots/spaces with hyphens
+- Example: `CK-12-Physics-FlexBook-2.0` → `ck-12-physics-flexbook-2-0`
+- **Do NOT** use vanity URL slugs (e.g., `ck-12-physics` from marketing URLs)
+
+**JSON/XHTML/Text Extraction Requirements:**
+- Library: `beautifulsoup4` with `lxml` parser for XHTML extraction
 - Extraction strategy:
-	- Preserve readable order of chapters; strip navigation and boilerplate.
-	- Normalize whitespace and headings; retain alt text for figures when available in JSON.
-	- Handle extraction failures gracefully (log error, skip file, continue pipeline).
-- Output: Plain text file parallel to the fetched payload (e.g., `book.html` → `book.txt`).
-- Quality considerations: Ensure the extractor tolerates inline math/images; record where content is missing (e.g., image-only sections).
+	1. Parse downloaded JSON file
+	2. Extract `response.lesson.xhtml` (or `response.lesson.xhtml_prime`)
+	3. Parse XHTML with BeautifulSoup
+	4. Extract text content, preserving reading order
+	5. Strip navigation and boilerplate elements
+	6. Handle extraction failures gracefully (log error, skip file, continue pipeline)
+- Output: Plain text file parallel to the fetched JSON (e.g., `section-8384007.json` → `section-8384007.txt`)
+- Quality considerations: XHTML is well-structured; alt text for images is included in `<img alt="...">` attributes
 
 ## API / CLI Surface
 
@@ -146,23 +174,24 @@ Implement a Gutenberg-style workflow for OpenStax and CK-12 OER: programmaticall
 - Normalize:
 	- `poetry run lexile-scoring-model-pipeline corpus normalize --sources "openstax"`
 
-### CK-12 (Native Scraping) Commands
+### CK-12 (API-based Discovery) Commands
 
-- Catalog build (new scraper):
+- Catalog build (Browse API):
 	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog --out-dir data/meta/catalogs`
-	- Scrapes `https://www.ck12.org/fbbrowse/list`, outputs `ck12_catalog.jsonl`
-- Enrichment (fetch per-book metadata):
+	- Calls `https://www.ck12.org/flx/browse/flexbook?limit=200`, outputs `ck12_catalog.jsonl`
+	- **Note**: Uses Browse API, NOT fbbrowse scraping (vanity slugs don't resolve)
+- Enrichment (Perma API for metadata + revision IDs):
 	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment --catalog-file data/meta/catalogs/ck12_catalog.jsonl --output data/meta/catalogs/ck12_enriched.jsonl`
-	- Follows each FlexBook URL to extract detailed metadata and PDF download links
+	- Calls `/flx/get/perma/<artifactType>/<handle>` for each artifact to get revision hierarchy
 - Curation + manifest emit:
-	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-pdf --sources "ck12" --out-dir data/meta/catalogs`
-	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls --allow-pdf`
-- Download (PDFs):
+	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-json --sources "ck12" --out-dir data/meta/catalogs`
+	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls`
+- Download (JSON revision payloads):
 	- `poetry run lexile-scoring-model-pipeline corpus download --sources "ck12"`
-	- Downloads PDF files to `data/corpus/raw/ck12/`
-- PDF Text Extraction (new step):
-	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12`
-	- Extracts `.txt` files parallel to `.pdf` files
+	- Downloads JSON revision files to `data/corpus/raw/ck12/` using browser-like headers
+- JSON/XHTML Text Extraction (new step):
+	- `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_ck12_text --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12`
+	- Parses JSON, extracts `response.lesson.xhtml`, converts to `.txt` files
 - Normalize:
 	- `poetry run lexile-scoring-model-pipeline corpus normalize --sources "ck12"`
 	- Processes the extracted `.txt` files
@@ -201,10 +230,17 @@ Return/side effects: catalog/manifest files written, download exits non-zero on 
 
 ## Implementation Decisions / Deviations
 
-- CK-12 catalog parsing currently captures titles and FlexBook URLs; subject categories, license metadata, and publication dates are not populated in catalog rows.
-- CK-12 enrichment extracts author/grade/language via JSON-LD/meta/regex heuristics but does not populate license or publication date; PDF link discovery requires absolute `.pdf` URLs from anchors/buttons, and per-entry enrichment failures are skipped with stderr output (no skip log entry).
-- Manifest validation uses HEAD-only checks with source-specific content-type gates (text/* for OpenStax, application/pdf for CK-12); there is no GET/Range fallback when HEAD is blocked.
-- PDF extraction uses `pdfplumber` only with a 30s per-file timeout and up to 4 concurrent workers; there is no `pypdf` fallback, and empty extractions raise `ValueError` (logged) while batch processing continues.
+**Research-driven changes (2025-01-09)**:
+- CK-12 catalog source changed from `fbbrowse/list` scraping to Browse API (`/flx/browse/flexbook`) due to vanity slug resolution failure.
+- CK-12 manifest URLs use Revision Detail API (`/flx/get/detail/revision/<id>?tiny=true`) instead of hypothetical PDF endpoints.
+- CK-12 content extraction uses JSON → XHTML → text path (via `response.lesson.xhtml`), not PDF extraction.
+- CK-12 slug derivation uses canonical `handle` from Browse API, not vanity URL path segments.
+- CK-12 download requires browser-like headers (User-Agent, Referer, Origin, Sec-Fetch-*) for anonymous access.
+
+**Prior decisions (retained)**:
+- CK-12 enrichment extracts author/grade/language via JSON-LD/meta/regex heuristics; per-entry enrichment failures are skipped with stderr output.
+- Manifest validation uses HEAD-only checks with source-specific content-type gates (text/* for OpenStax, application/json for CK-12).
+- JSON/XHTML extraction uses `beautifulsoup4` with 30s per-file timeout and up to 4 concurrent workers; empty extractions raise `ValueError` (logged) while batch processing continues.
 
 ## Definition of Done
 
