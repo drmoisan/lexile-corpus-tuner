@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import argparse
 import codecs
+import contextlib
 import os
+import selectors
 import shutil
 import subprocess
 import sys
+import time
 from functools import lru_cache
 from pathlib import Path
+from typing import IO, cast
 
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
 from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
@@ -305,6 +309,7 @@ def run_copilot(
     preferred_model: str | None,
     run_id: str,
     resume_session: bool = False,
+    _idle_timeout_seconds: float | None = None,
 ) -> None:
     """
     Invoke GitHub Copilot CLI with prompt and tool permissions.
@@ -504,42 +509,132 @@ def run_copilot(
                 cwd=workspace,
                 stdin=prompt_f,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Merge stderr into stdout
+                stderr=subprocess.STDOUT,
             )
 
             decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-
-            # Stream output
-            if process.stdout:
-                while True:
-                    # Read small chunks of bytes for responsiveness
-                    # We use os.read() like semantics on the pipe if possible,
-                    # but process.stdout.read(1) ensures we don't block waiting
-                    # for a large buffer
-                    chunk = process.stdout.read(1)
-                    if not chunk and process.poll() is not None:
-                        break
-
-                    if chunk:
-                        text_chunk = decoder.decode(chunk, final=False)
-                        if text_chunk:
-                            print(text_chunk, end="", flush=True)
-                            f.write(text_chunk)
-                            f.flush()
-
-            # Flush any remaining chars from decoder
-            remaining = decoder.decode(b"", final=True)
-            if remaining:
-                print(remaining, end="", flush=True)
-                f.write(remaining)
-                f.flush()
-
-            return_code = process.wait()
-            if return_code != 0:
-                raise subprocess.CalledProcessError(return_code, argv)
+            idle_timeout = _resolve_idle_timeout_seconds(_idle_timeout_seconds)
+            _stream_copilot_output(
+                process=process,
+                decoder=decoder,
+                log_file=f,
+                task_id=task_id,
+                idle_timeout_seconds=idle_timeout,
+            )
 
     # Post-processing: deduplicate prompt from session file
     _clean_session_file(share_path, prompt_text)
+
+
+def _resolve_idle_timeout_seconds(configured: float | None) -> float | None:
+    """Resolve the idle timeout value from argument or environment.
+
+    An idle timeout of ``None`` disables hang detection. A value ``<= 0`` also
+    disables the timeout. Environment variable
+    ``ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS`` overrides the default when
+    the helper is invoked without an explicit timeout.
+    """
+
+    if configured is not None:
+        return configured if configured > 0 else None
+
+    env_val = os.environ.get("ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS")
+    if env_val is None:
+        return 300.0
+
+    env_val = env_val.strip()
+    if not env_val:
+        return 300.0
+
+    try:
+        parsed = float(env_val)
+    except ValueError:
+        return 300.0
+
+    return parsed if parsed > 0 else None
+
+
+def _stream_copilot_output(
+    *,
+    process: subprocess.Popen[bytes],
+    decoder: codecs.IncrementalDecoder,
+    log_file: IO[str],
+    task_id: str,
+    idle_timeout_seconds: float | None,
+) -> None:
+    """Stream Copilot output with hang detection.
+
+    Purpose:
+        Avoid silent hangs when the Copilot CLI is waiting for interactive
+        input by enforcing an idle timeout on stdout activity. Terminates the
+        process and raises ``TimeoutError`` when exceeded.
+    """
+
+    # Selector-based non-blocking read to avoid hard blocking on stdout.
+    selector = selectors.DefaultSelector()
+    if process.stdout:
+        try:
+            selector.register(process.stdout, selectors.EVENT_READ)
+        except ValueError:
+            # Some test doubles may not expose a real file descriptor; skip
+            # registration and rely on poll/idle timeout instead.
+            pass
+
+    last_activity = time.monotonic()
+
+    while True:
+        # Poll stdout readiness with a small timeout to keep the loop
+        # responsive while still allowing idle timeout checks.
+        events = selector.select(timeout=0.1)
+
+        # Drain any ready streams.
+        for key, _ in events:
+            stream_obj = key.fileobj
+            stream = cast(IO[bytes], stream_obj)
+            read1 = getattr(stream, "read1", None)
+            chunk: bytes
+            if callable(read1):
+                chunk = cast(bytes, read1(4096))
+            else:
+                chunk = stream.read(4096)
+
+            if chunk:
+                text_chunk = decoder.decode(chunk, final=False)
+                if text_chunk:
+                    print(text_chunk, end="", flush=True)
+                    log_file.write(text_chunk)
+                    log_file.flush()
+                last_activity = time.monotonic()
+            else:
+                selector.unregister(stream_obj)
+
+        # Break once the process finishes and all streams are drained.
+        if process.poll() is not None and not selector.get_map():
+            break
+
+        # Hang detection based on idle time (no output + still running).
+        if idle_timeout_seconds is not None:
+            idle_duration = time.monotonic() - last_activity
+            if idle_duration > idle_timeout_seconds:
+                process.kill()
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    process.wait(timeout=5)
+                raise TimeoutError(
+                    "Copilot CLI produced no output for "
+                    f"{idle_timeout_seconds} seconds while executing task "
+                    f"{task_id}; terminated to avoid hanging."
+                )
+
+    # Flush decoder tail.
+    remaining = decoder.decode(b"", final=True)
+    if remaining:
+        print(remaining, end="", flush=True)
+        log_file.write(remaining)
+        log_file.flush()
+
+    return_code = process.wait()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, process.args)
 
 
 @lru_cache(maxsize=4)

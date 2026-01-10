@@ -199,8 +199,9 @@ If `plan.md` does not exist in the feature folder, update this file instead:
 
 Plan file on disk: {resolved_plan.update_filename}
 
+---- BEGIN {resolved_plan.display_label} ----
 {plan_text}
----- END plan.md ----
+---- END {resolved_plan.display_label} ----
 
 ---- BEGIN spec.md ----
 {spec_text}

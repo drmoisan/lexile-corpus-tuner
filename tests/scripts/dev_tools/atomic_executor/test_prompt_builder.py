@@ -133,7 +133,7 @@ class TestPromptBuilderBuild:
         )
         builder = PromptBuilder(tmp_path, template)
 
-        with pytest.raises(FileNotFoundError, match="Missing required plan.md"):
+        with pytest.raises(FileNotFoundError, match="Missing required plan file"):
             builder.build(feature_dir, task)
 
     def test_build_raises_for_missing_spec(self, tmp_path: Path) -> None:

@@ -534,7 +534,7 @@ class TestMainEdgeCases:
 
         assert exit_code == 2
         captured = capsys.readouterr()
-        assert "Missing required plan.md" in captured.err
+        assert "Missing required plan file" in captured.err
 
     def test_main_returns_zero_when_plan_already_complete(
         self,
@@ -1214,3 +1214,70 @@ class TestRunCopilot:
         )
 
         assert "--session-path" not in captured_argv
+
+    def test_run_copilot_times_out_when_cli_is_idle(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() terminates when Copilot CLI produces no output."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        copilot_exe = bin_dir / "copilot"
+        copilot_exe.write_text("#!/bin/sh\nexit 0")
+        copilot_exe.chmod(0o755)
+
+        path = os.environ.get("PATH", "")
+        monkeypatch.setenv("PATH", f"{str(bin_dir)}{os.pathsep}{path}")
+        monkeypatch.setenv("ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS", "0.2")
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
+
+        stdout_r, stdout_w = os.pipe()
+        os.close(stdout_w)
+        stdout_stream = os.fdopen(stdout_r, "rb", buffering=0)
+
+        hung_process_holder: dict[str, object] = {}
+
+        class HungProcess:
+            def __init__(self, argv: list[str]) -> None:
+                self.args = argv
+                self.stdout = stdout_stream
+                self.returncode: int | None = None
+                self.killed = False
+
+            def poll(self) -> int | None:
+                return self.returncode
+
+            def wait(self, timeout: float | None = None) -> int | None:
+                return self.returncode
+
+            def kill(self) -> None:
+                self.killed = True
+                self.returncode = -9
+
+        def fake_popen(argv: list[str], *args: object, **kwargs: object) -> HungProcess:
+            proc = HungProcess(argv)
+            hung_process_holder["proc"] = proc
+            return proc
+
+        monkeypatch.setattr("subprocess.Popen", fake_popen)
+
+        log_file = tmp_path / "log" / "test.log"
+
+        with pytest.raises(TimeoutError):
+            run_copilot(
+                workspace=tmp_path,
+                prompt_text="idle prompt",
+                log_file=log_file,
+                task_id="P1-T1",
+                preferred_model=None,
+                run_id="2026-01-07_000000",
+            )
+
+        proc = hung_process_holder.get("proc")
+        assert proc is not None
+        assert getattr(proc, "killed", False) is True
+        stdout_stream.close()

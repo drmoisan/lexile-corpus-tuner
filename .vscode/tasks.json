@@ -101,6 +101,18 @@
         "atomic_executor"
       ],
       "type": "pickString"
+    },
+    {
+      "default": "gpt-5.1-codex-max",
+      "description": "Preferred model passed to --preferred-model (e.g., gpt-5.1-codex-max)",
+      "id": "AtomicPreferredModel",
+      "type": "promptString"
+    },
+    {
+      "default": "docs/features/active/",
+      "description": "Path to feature folder or plan file (relative or absolute)",
+      "id": "AtomicFeaturePath",
+      "type": "promptString"
     }
   ],
   "tasks": [
@@ -754,6 +766,33 @@
       "presentation": {
         "panel": "new",
         "reveal": "always"
+      },
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "scripts.dev_tools.atomic_executor.cli",
+        "execute",
+        "${input:AtomicFeaturePath}",
+        "--workspace",
+        "${workspaceFolder}",
+        "--preferred-model",
+        "${input:AtomicPreferredModel}"
+      ],
+      "command": "poetry",
+      "detail": "Starts the atomic executor with prompts for feature folder and preferred model.",
+      "label": "Atomic Executor: Execute (prompted)",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always",
+        "showReuseMessage": false
       },
       "problemMatcher": [],
       "type": "shell"

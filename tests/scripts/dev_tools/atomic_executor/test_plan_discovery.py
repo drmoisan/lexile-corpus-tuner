@@ -103,7 +103,7 @@ class TestResolveFeaturePlan:
         def fake_is_file(self: Path) -> bool:
             return False
 
-        def fake_glob(self: Path, pattern: str):
+        def fake_glob(self: Path, pattern: str) -> list[Path]:
             assert pattern == "plan.*.md"
             return []
 
