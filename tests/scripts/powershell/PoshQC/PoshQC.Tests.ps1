@@ -237,6 +237,49 @@ Describe 'Invoke-PoshQCAnalyze' {
                 -Logger { param([string] $Message) [void] $Message } } |
             Should -Throw 'PSScriptAnalyzer reported 1 issue(s).'
     }
+
+    It 'retries transient NullReferenceExceptions and succeeds' {
+        $script:poshqcAnalyzeCalls = 0
+
+        {
+            Invoke-PoshQCAnalyze -Root '/repo' -SettingsPath '/settings.psd1' -EnsureModule { } -TestPathExists { $true } `
+                -GetFileList { @([pscustomobject]@{ FullName = '/repo/file.ps1'; Extension = '.ps1' }) } `
+                -AnalyzeFile {
+                param([string] $Path, [string] $Settings)
+                [void] $Path
+                [void] $Settings
+                $script:poshqcAnalyzeCalls++
+                if ($script:poshqcAnalyzeCalls -le 2) {
+                    throw [System.NullReferenceException]::new('boom')
+                }
+                @()
+            } `
+                -ReloadAnalyzerModule { } -Logger { param([string] $Message) [void] $Message } `
+                -NullReferenceRetryCount 4 -NullReferenceInitialDelayMilliseconds 0
+        } | Should -Not -Throw
+
+        $script:poshqcAnalyzeCalls | Should -Be 3
+    }
+
+    It 'fails after exhausting NullReferenceException retries' {
+        $script:poshqcAnalyzeCalls = 0
+
+        {
+            Invoke-PoshQCAnalyze -Root '/repo' -SettingsPath '/settings.psd1' -EnsureModule { } -TestPathExists { $true } `
+                -GetFileList { @([pscustomobject]@{ FullName = '/repo/file.ps1'; Extension = '.ps1' }) } `
+                -AnalyzeFile {
+                param([string] $Path, [string] $Settings)
+                [void] $Path
+                [void] $Settings
+                $script:poshqcAnalyzeCalls++
+                throw [System.NullReferenceException]::new('boom')
+            } `
+                -ReloadAnalyzerModule { } -Logger { param([string] $Message) [void] $Message } `
+                -NullReferenceRetryCount 2 -NullReferenceInitialDelayMilliseconds 0
+        } | Should -Throw '*Invoke-ScriptAnalyzer failed for /repo/file.ps1*NullReferenceException*boom*'
+
+        $script:poshqcAnalyzeCalls | Should -Be 3
+    }
 }
 
 Describe 'Convert-PoshQCCoverageToRelative' {
@@ -480,4 +523,6 @@ Describe 'Invoke-PoshQCTest' {
         ($copyArgs[2] -replace '\\', '/') | Should -Be ($expectedKoveragePath -replace '\\', '/')
     }
 }
+
+
 

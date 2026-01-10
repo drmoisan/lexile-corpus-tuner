@@ -211,6 +211,8 @@ function Invoke-PoshQCAnalyze {
         [string] $Root,
         [string] $SettingsPath = $script:PssaSettings,
         [string[]] $ExcludeDirs = $script:DefaultExcludedDirs,
+        [int] $NullReferenceRetryCount = 4,
+        [int] $NullReferenceInitialDelayMilliseconds = 200,
         [scriptblock] $EnsureModule = {
             param([string] $Name, [string] $ErrorMessage)
             if (-not (Get-Module -ListAvailable -Name $Name)) { throw $ErrorMessage }
@@ -221,6 +223,17 @@ function Invoke-PoshQCAnalyze {
         [scriptblock] $AnalyzeFile = {
             param([string] $Path, [string] $Settings)
             Invoke-ScriptAnalyzer -Path $Path -Settings $Settings -Severity Error, Warning, Information -ErrorAction Stop
+        },
+        [scriptblock] $ReloadAnalyzerModule = {
+            # Retry path: ScriptAnalyzer has intermittent engine-level NullReferenceExceptions.
+            # Re-importing the module can reset internal state without masking legitimate findings.
+            try {
+                Remove-Module -Name PSScriptAnalyzer -Force -ErrorAction SilentlyContinue
+            } catch {
+                # Best-effort reset; if removal fails we still attempt re-import.
+                Write-Verbose "Remove-Module PSScriptAnalyzer failed during retry reset: $($_.Exception.Message)"
+            }
+            Import-Module -Name PSScriptAnalyzer -Force -ErrorAction Stop
         },
         [scriptblock] $Logger = {
             param([string] $Message)
@@ -249,21 +262,42 @@ function Invoke-PoshQCAnalyze {
     $results = @()
     foreach ($file in $files) {
         try {
-            $results += & $AnalyzeFile $file.FullName $SettingsPath
-        } catch {
-            $errorType = $_.Exception.GetType().FullName
-            $errorMessage = $_.Exception.Message
+            $attempts = 0
+            $maxAttempts = 1 + [math]::Max(0, $NullReferenceRetryCount)
+            $delayMs = [math]::Max(0, $NullReferenceInitialDelayMilliseconds)
 
-            if ($errorType -eq 'System.NullReferenceException') {
+            while ($attempts -lt $maxAttempts) {
+                $attempts++
                 try {
                     $results += & $AnalyzeFile $file.FullName $SettingsPath
-                    continue
+                    break
                 } catch {
                     $errorType = $_.Exception.GetType().FullName
                     $errorMessage = $_.Exception.Message
+
+                    if ($errorType -ne 'System.NullReferenceException') {
+                        throw
+                    }
+
+                    if ($attempts -ge $maxAttempts) {
+                        throw
+                    }
+
+                    $pssaVersion = (Get-Module -Name PSScriptAnalyzer | Select-Object -First 1).Version
+                    & $Logger "Transient ScriptAnalyzer engine error (NullReferenceException) on $($file.FullName); retrying ($attempts/$maxAttempts). PSScriptAnalyzer=$pssaVersion PS=$($PSVersionTable.PSVersion)"
+
+                    if ($delayMs -gt 0) {
+                        Start-Sleep -Milliseconds $delayMs
+                        $delayMs = [math]::Min($delayMs * 2, 5000)
+                    }
+
+                    # Best-effort reset between retries.
+                    & $ReloadAnalyzerModule
                 }
             }
-
+        } catch {
+            $errorType = $_.Exception.GetType().FullName
+            $errorMessage = $_.Exception.Message
             throw "Invoke-ScriptAnalyzer failed for $($file.FullName) ($errorType): $errorMessage"
         }
     }
