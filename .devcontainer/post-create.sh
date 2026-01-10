@@ -226,6 +226,28 @@ poetry run pyright --version
 poetry run pytest --version
 
 # -----------------------------------------------------------------------------
+# GitHub Copilot CLI verification
+# -----------------------------------------------------------------------------
+echo ""
+echo "Verifying GitHub Copilot CLI..."
+if command -v copilot >/dev/null 2>&1; then
+    COPILOT_PATH="$(command -v copilot)"
+    echo "copilot: $COPILOT_PATH"
+
+    # If we ever see the VS Code extension shim on PATH inside the container,
+    # warn loudly. The atomic executor needs the real CLI binary.
+    if echo "$COPILOT_PATH" | grep -qi "github\.copilot-chat"; then
+        echo "⚠ Warning: 'copilot' resolves to a VS Code shim path."
+        echo "  Install the real GitHub Copilot CLI (https://gh.io/copilot-install) and ensure it is first on PATH."
+    fi
+
+    copilot --version || echo "⚠ Warning: copilot --version failed"
+else
+    echo "⚠ Warning: GitHub Copilot CLI not found on PATH (command: copilot)."
+    echo "  The atomic executor requires it. See: https://gh.io/copilot-install"
+fi
+
+# -----------------------------------------------------------------------------
 # PowerShell tooling verification
 # -----------------------------------------------------------------------------
 echo ""

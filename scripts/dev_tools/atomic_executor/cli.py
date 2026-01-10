@@ -11,10 +11,11 @@ import argparse
 import codecs
 import contextlib
 import os
-import selectors
+import queue
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -408,13 +409,18 @@ def run_copilot(
         Returns:
             bool: True if the path looks like the VS Code shim, otherwise False.
         """
-        norm = exe_path.replace("/", "\\").lower()
+        # Normalize separators so we can detect shim paths across:
+        # - Windows local VS Code (Code/User/globalStorage/...)
+        # - VS Code Remote / devcontainers (.vscode-server/.../globalStorage/...)
+        norm = exe_path.replace("\\", "/").lower()
 
-        # Normalize repeated backslashes (helps in tests and when paths are
+        # Normalize repeated slashes (helps in tests and when paths are
         # string-escaped by tooling).
-        while "\\\\" in norm:
-            norm = norm.replace("\\\\", "\\")
-        return "\\code\\user\\globalstorage\\github.copilot-chat\\copilotcli\\" in norm
+        while "//" in norm:
+            norm = norm.replace("//", "/")
+
+        # The key reliable signature is the Copilot Chat extension storage path.
+        return "/github.copilot-chat/" in norm and "/copilotcli/" in norm
 
     # Find copilot on PATH, skipping VS Code shims.
     # shutil.which() only returns the first match, but the VS Code extension
@@ -570,50 +576,70 @@ def _stream_copilot_output(
         process and raises ``TimeoutError`` when exceeded.
     """
 
-    # Selector-based non-blocking read to avoid hard blocking on stdout.
-    selector = selectors.DefaultSelector()
-    if process.stdout:
+    # Cross-platform streaming approach:
+    # - `selectors` / `select.select` cannot monitor pipes on Windows, and will
+    #   raise WinError 10038/10022. A background reader thread avoids that.
+    # - The main thread maintains idle-timeout enforcement.
+    q: queue.Queue[bytes | None] = queue.Queue()
+
+    def _reader() -> None:
+        """Read bytes from stdout until EOF and push them to the queue."""
+
+        stream = process.stdout
+        if stream is None:
+            q.put(None)
+            return
+
+        read1 = getattr(stream, "read1", None)
         try:
-            selector.register(process.stdout, selectors.EVENT_READ)
-        except ValueError:
-            # Some test doubles may not expose a real file descriptor; skip
-            # registration and rely on poll/idle timeout instead.
-            pass
+            # Continuously drain Copilot stdout in chunks so the main thread can
+            # enforce idle timeouts without blocking on reads.
+            while True:
+                chunk: bytes
+                if callable(read1):
+                    chunk = cast(bytes, read1(4096))
+                else:
+                    chunk = stream.read(4096)
+
+                if not chunk:
+                    break
+
+                q.put(chunk)
+        finally:
+            q.put(None)
+
+    reader_thread = threading.Thread(target=_reader, daemon=True)
+    reader_thread.start()
 
     last_activity = time.monotonic()
+    saw_eof = False
 
+    # Consume output opportunistically while enforcing idle-timeout termination
+    # if Copilot produces no output and remains running.
     while True:
-        # Poll stdout readiness with a small timeout to keep the loop
-        # responsive while still allowing idle timeout checks.
-        events = selector.select(timeout=0.1)
+        try:
+            item = q.get(timeout=0.1)
+        except queue.Empty:
+            item = None
 
-        # Drain any ready streams.
-        for key, _ in events:
-            stream_obj = key.fileobj
-            stream = cast(IO[bytes], stream_obj)
-            read1 = getattr(stream, "read1", None)
-            chunk: bytes
-            if callable(read1):
-                chunk = cast(bytes, read1(4096))
-            else:
-                chunk = stream.read(4096)
+        if item is None:
+            # Distinguish between "no data right now" (queue.Empty) and EOF.
+            if not reader_thread.is_alive() and not saw_eof:
+                saw_eof = True
+        else:
+            text_chunk = decoder.decode(item, final=False)
+            if text_chunk:
+                print(text_chunk, end="", flush=True)
+                log_file.write(text_chunk)
+                log_file.flush()
+            last_activity = time.monotonic()
 
-            if chunk:
-                text_chunk = decoder.decode(chunk, final=False)
-                if text_chunk:
-                    print(text_chunk, end="", flush=True)
-                    log_file.write(text_chunk)
-                    log_file.flush()
-                last_activity = time.monotonic()
-            else:
-                selector.unregister(stream_obj)
-
-        # Break once the process finishes and all streams are drained.
-        if process.poll() is not None and not selector.get_map():
+        # Break once the process finishes AND the reader has reached EOF.
+        if process.poll() is not None and saw_eof and q.empty():
             break
 
         # Hang detection based on idle time (no output + still running).
-        if idle_timeout_seconds is not None:
+        if idle_timeout_seconds is not None and process.poll() is None:
             idle_duration = time.monotonic() - last_activity
             if idle_duration > idle_timeout_seconds:
                 process.kill()

@@ -971,6 +971,55 @@ class TestRunCopilot:
                 run_id="2026-01-07_000000",
             )
 
+    def test_run_copilot_rejects_vscode_shim_remote_paths(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() rejects the VS Code Remote/Devcontainer shim path."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        # VS Code Remote (including devcontainers) stores its shim under a Linux
+        # path, e.g. ~/.vscode-server/data/User/globalStorage/github.copilot-chat/
+        # copilotCli/. If we accidentally execute this shim, it can block waiting
+        # for interactive install/auth and appear as a hang.
+        shim_dir = (
+            tmp_path
+            / ".vscode-server"
+            / "data"
+            / "User"
+            / "globalStorage"
+            / "github.copilot-chat"
+            / "copilotCli"
+        )
+        shim_dir.mkdir(parents=True)
+
+        fake_shim = shim_dir / "copilot"
+        fake_shim.touch()
+        fake_shim.chmod(0o755)
+
+        # Ensure the shim is the ONLY PATH entry.
+        monkeypatch.setenv("PATH", str(shim_dir))
+
+        # Guard: if the implementation tries to execute the shim, fail the test.
+        def _should_not_invoke_popen(*args: object, **kwargs: object) -> None:
+            pytest.fail("run_copilot attempted to execute a VS Code shim")
+
+        monkeypatch.setattr("subprocess.Popen", _should_not_invoke_popen)
+
+        log_file = tmp_path / "test.log"
+
+        with pytest.raises(
+            FileNotFoundError,
+            match=r"Required executable not found on PATH: copilot\b",
+        ):
+            run_copilot(
+                workspace=tmp_path,
+                prompt_text="test prompt",
+                log_file=log_file,
+                task_id="P1-T1",
+                preferred_model=None,
+                run_id="2026-01-07_000000",
+            )
+
     def test_run_copilot_creates_log_directory(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:

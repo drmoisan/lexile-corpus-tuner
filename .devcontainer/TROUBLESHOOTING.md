@@ -220,6 +220,47 @@ Add to devcontainer.json:
 
 ---
 
+### 8. `atomic_executor` hangs / Copilot CLI not found
+
+#### Symptoms
+- `poetry run python -m scripts.dev_tools.atomic_executor.cli execute ...` appears to hang
+- Log shows Copilot invocation but no output arrives
+- Error: `Required executable not found on PATH: copilot`
+
+#### Root cause
+The atomic executor requires the **real** GitHub Copilot CLI binary (`copilot`).
+VS Code may also place a *shim* on PATH (from the Copilot Chat extension) that can
+prompt for install/auth and block.
+
+#### Solutions
+
+**Verify which `copilot` is being used**
+```bash
+command -v copilot
+copilot --version
+```
+
+You should see a path like `/usr/local/bin/copilot` inside the container. If the
+path includes `github.copilot-chat`, you're likely using the VS Code shim.
+
+**Authenticate Copilot CLI (first-time setup)**
+If the CLI prompts for auth during execution, run it manually once so it can
+complete the interactive flow:
+
+```bash
+copilot auth login
+```
+
+**Tighten hang detection (optional)**
+The executor enforces an idle timeout (defaults to 300s). You can override it
+for faster feedback:
+
+```bash
+export ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS=60
+```
+
+---
+
 ### 8. Volume Mount Problems
 
 #### Symptoms
