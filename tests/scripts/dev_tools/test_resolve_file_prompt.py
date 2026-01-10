@@ -129,6 +129,24 @@ def test_resolve_prompt_name_extraction_for_versioned_plan_folder() -> None:
     assert "${" not in result
 
 
+def test_resolve_prompt_removes_user_story_clause_when_missing() -> None:
+    """When user-story.md is absent, remove the literal clause from the template."""
+    template = "Requirements: `${spec}` and the `${user-story}`."
+    cwd = Path.cwd()
+    target = cwd / "docs" / "features" / "active" / "2026-01-10-x-1" / "plan.md"
+
+    def _exists_false(self: Path) -> bool:
+        return False
+
+    with patch.object(Path, "exists", _exists_false):
+        result = resolve_prompt(template, target, cwd)
+
+    assert "`${spec}`" not in result
+    assert "spec.md" in result
+    assert " and the " not in result
+    assert "${" not in result
+
+
 def test_strip_front_matter():
     """Test that YAML front matter is correctly stripped."""
     content = """---

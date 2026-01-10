@@ -227,6 +227,23 @@ def _resolve_user_story_value(folderpath: str, workspace_root: Path) -> str:
     return f"{rel_story} (missing)"
 
 
+def _remove_user_story_clause_when_missing(template: str) -> str:
+    """Remove the user-story clause from the template when no user story exists.
+
+    Purpose:
+        Some prompts include a natural-language clause that assumes a user story
+        exists (e.g., "and the `${user-story}`"). When the file is absent, we
+        delete the clause entirely to avoid confusing instructions.
+
+    Args:
+        template (str): Prompt template content.
+
+    Returns:
+        str: Updated template content with the clause removed.
+    """
+    return template.replace(" and the `${user-story}`", "")
+
+
 def _extract_template_variables(template: str) -> set[str]:
     """Extract variable names from ${var} placeholders in a template."""
     return {m.group(1) for m in re.finditer(r"\$\{([^}]+)\}", template)}
@@ -289,6 +306,12 @@ def resolve_prompt(template_content: str, target_path: Path, cwd: Path) -> str:
         "spec": _resolve_spec_path(folderpath),
         "user-story": _resolve_user_story_value(folderpath, cwd),
     }
+
+    # If the user story is missing, remove the specific clause that references it.
+    # This keeps the prompt deterministic and avoids instructing agents to read a
+    # document that does not exist.
+    if "(missing)" in variables["user-story"]:
+        content = _remove_user_story_clause_when_missing(content)
 
     return _replace_all_variables(content, variables)
 
