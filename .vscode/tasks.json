@@ -776,7 +776,7 @@
         "python",
         "-m",
         "scripts.dev_tools.atomic_executor.cli",
-        "execute",
+        "execute-all",
         "${input:AtomicFeaturePath}",
         "--workspace",
         "${workspaceFolder}",
