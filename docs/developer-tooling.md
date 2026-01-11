@@ -301,6 +301,23 @@ poetry run python -m scripts.dev_tools.atomic_executor.cli execute \
   --print-prompt
 ```
 
+### Copilot CLI throttling controls
+
+The executor self-regulates GitHub Copilot CLI usage based on **call frequency** (calls per time window), not token usage.
+
+Key flags (safe defaults):
+
+- `--copilot-cli-max-calls-per-window` (default: 6)
+- `--copilot-cli-window-seconds` (default: 60)
+- `--copilot-cli-backoff-base-seconds` (default: 2)
+- `--copilot-cli-backoff-max-seconds` (default: 60)
+- `--copilot-cli-output-tail-bytes` (default: 4096) — bounded output capture used for throttle classification
+- `--copilot-cli-max-retries` (default: 8) — bounded retries on detected throttling
+
+Platform note:
+
+- GitHub Copilot CLI native Windows PowerShell support is experimental; WSL is recommended on Windows when available.
+
 ## VS Code Integration
 
 ### Recommended Extensions

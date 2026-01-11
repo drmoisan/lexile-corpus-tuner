@@ -21,6 +21,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import IO, cast
 
+from scripts.dev_tools.atomic_executor.copilot_runner import CopilotRunResult
+from scripts.dev_tools.atomic_executor.copilot_throttling import (
+    CallRateLimiter,
+    ExponentialBackoff,
+    FailureKind,
+    SystemClock,
+    SystemRandom,
+    TimeSleeper,
+    classify_copilot_failure,
+)
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
 from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
 from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
@@ -30,6 +40,14 @@ from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
 PROTECTED_BRANCHES = {"main", "master", "development"}
 LOG_DIR = ".agent_logs"
+
+# Safe, bounded defaults for Copilot CLI throttling controls (issue #80).
+DEFAULT_COPILOT_CLI_MAX_CALLS_PER_WINDOW = 6
+DEFAULT_COPILOT_CLI_WINDOW_SECONDS = 60.0
+DEFAULT_COPILOT_CLI_BACKOFF_BASE_SECONDS = 2.0
+DEFAULT_COPILOT_CLI_BACKOFF_MAX_SECONDS = 60.0
+DEFAULT_COPILOT_CLI_OUTPUT_TAIL_BYTES = 4096
+DEFAULT_COPILOT_CLI_MAX_RETRIES = 8
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -90,6 +108,49 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                 "Preferred AI model (Copilot CLI --model value or display name), "
                 "e.g. 'gpt-5.1-codex-max' or 'Claude Sonnet 4.5'."
             ),
+        )
+
+        sp.add_argument(
+            "--copilot-cli-max-calls-per-window",
+            type=int,
+            default=DEFAULT_COPILOT_CLI_MAX_CALLS_PER_WINDOW,
+            help=(
+                "Max Copilot CLI calls per time window "
+                "(call-rate based; not token based)."
+            ),
+        )
+        sp.add_argument(
+            "--copilot-cli-window-seconds",
+            type=float,
+            default=DEFAULT_COPILOT_CLI_WINDOW_SECONDS,
+            help="Window size in seconds for call-rate limiting.",
+        )
+        sp.add_argument(
+            "--copilot-cli-backoff-base-seconds",
+            type=float,
+            default=DEFAULT_COPILOT_CLI_BACKOFF_BASE_SECONDS,
+            help="Base seconds for exponential backoff after throttling.",
+        )
+        sp.add_argument(
+            "--copilot-cli-backoff-max-seconds",
+            type=float,
+            default=DEFAULT_COPILOT_CLI_BACKOFF_MAX_SECONDS,
+            help="Maximum seconds for exponential backoff cap after throttling.",
+        )
+        sp.add_argument(
+            "--copilot-cli-output-tail-bytes",
+            type=int,
+            default=DEFAULT_COPILOT_CLI_OUTPUT_TAIL_BYTES,
+            help=(
+                "Number of Copilot output bytes to retain as an in-memory tail for "
+                "throttling classification and error messages."
+            ),
+        )
+        sp.add_argument(
+            "--copilot-cli-max-retries",
+            type=int,
+            default=DEFAULT_COPILOT_CLI_MAX_RETRIES,
+            help="Max throttle-triggered retries per atomic task (bounded by default).",
         )
 
     sp_exec = sub.add_parser("execute", help="Execute from first unchecked or --start.")
@@ -311,7 +372,8 @@ def run_copilot(
     run_id: str,
     resume_session: bool = False,
     _idle_timeout_seconds: float | None = None,
-) -> None:
+    _output_tail_bytes: int | None = None,
+) -> CopilotRunResult:
     """
     Invoke GitHub Copilot CLI with prompt and tool permissions.
 
@@ -324,15 +386,22 @@ def run_copilot(
         run_id (str): Run id for grouping per-task artifacts.
         resume_session (bool): Reuse prior Copilot session for this task if True.
 
+    Returns:
+        CopilotRunResult: Exit code and a bounded output tail snippet.
+
     Raises:
         FileNotFoundError: If the `copilot` CLI executable is not available.
-        CalledProcessError: If Copilot CLI execution fails.
+        TimeoutError: If Copilot produces no output for the idle timeout.
 
     Side Effects:
         - Executes `copilot` CLI command
         - Writes to log file
         - Writes a per-task session share markdown file
     """
+
+    output_tail_bytes = 4096 if _output_tail_bytes is None else _output_tail_bytes
+    if output_tail_bytes < 0:
+        output_tail_bytes = 0
 
     def normalize_copilot_model(model: str) -> str:
         """
@@ -520,16 +589,19 @@ def run_copilot(
 
             decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
             idle_timeout = _resolve_idle_timeout_seconds(_idle_timeout_seconds)
-            _stream_copilot_output(
+            exit_code, output_tail = _stream_copilot_output(
                 process=process,
                 decoder=decoder,
                 log_file=f,
                 task_id=task_id,
                 idle_timeout_seconds=idle_timeout,
+                output_tail_bytes=output_tail_bytes,
             )
 
     # Post-processing: deduplicate prompt from session file
     _clean_session_file(share_path, prompt_text)
+
+    return CopilotRunResult(exit_code=exit_code, output_tail=output_tail)
 
 
 def _resolve_idle_timeout_seconds(configured: float | None) -> float | None:
@@ -567,14 +639,27 @@ def _stream_copilot_output(
     log_file: IO[str],
     task_id: str,
     idle_timeout_seconds: float | None,
-) -> None:
+    output_tail_bytes: int | None,
+) -> tuple[int, str]:
     """Stream Copilot output with hang detection.
 
     Purpose:
         Avoid silent hangs when the Copilot CLI is waiting for interactive
         input by enforcing an idle timeout on stdout activity. Terminates the
         process and raises ``TimeoutError`` when exceeded.
+
+        While streaming, retain a bounded tail buffer of the raw output bytes.
+        This tail is returned to callers for throttling classification and
+        actionable error messages.
     """
+
+    # Retain a bounded output tail in bytes so throttling classification can be
+    # performed without reading the log file or depending on exception
+    # stdout/stderr.
+    output_tail_bytes = 0 if output_tail_bytes is None else output_tail_bytes
+    if output_tail_bytes < 0:
+        output_tail_bytes = 0
+    tail_buffer = bytearray()
 
     # Cross-platform streaming approach:
     # - `selectors` / `select.select` cannot monitor pipes on Windows, and will
@@ -627,6 +712,11 @@ def _stream_copilot_output(
             if not reader_thread.is_alive() and not saw_eof:
                 saw_eof = True
         else:
+            if output_tail_bytes > 0:
+                tail_buffer.extend(item)
+                if len(tail_buffer) > output_tail_bytes:
+                    del tail_buffer[:-output_tail_bytes]
+
             text_chunk = decoder.decode(item, final=False)
             if text_chunk:
                 print(text_chunk, end="", flush=True)
@@ -659,8 +749,7 @@ def _stream_copilot_output(
         log_file.flush()
 
     return_code = process.wait()
-    if return_code != 0:
-        raise subprocess.CalledProcessError(return_code, process.args)
+    return (return_code, tail_buffer.decode("utf-8", errors="replace"))
 
 
 @lru_cache(maxsize=4)
@@ -721,7 +810,7 @@ def _log_msg(log_file: Path, msg: str) -> None:
         f.write(f"{msg}\n")
 
 
-def _execute_one_task(
+def execute_one_task(
     workspace: Path,
     cur: PlanTask,
     parser: PlanParser,
@@ -733,6 +822,10 @@ def _execute_one_task(
     feature_dir: Path,
     preferred_model: str | None,
     run_id: str,
+    copilot_rate_limiter: CallRateLimiter,
+    copilot_backoff: ExponentialBackoff,
+    copilot_max_retries: int,
+    copilot_output_tail_bytes: int,
     print_prompt: bool = False,
     copy_prompt: bool = False,
 ) -> int:
@@ -749,8 +842,17 @@ def _execute_one_task(
         prompt_template_path (Path): Path to prompt template.
         max_fix_attempts (int): Max number of retries (0 = infinite).
         feature_dir (Path): Active feature directory.
-        preferred_model (str | None): Preferred AI model name to force in Copilot CLI.
+        preferred_model (str | None): Preferred AI model name to force in Copilot
+            CLI.
         run_id (str): Run id for grouping per-task artifacts.
+        copilot_rate_limiter (CallRateLimiter): Per-run call limiter that caps the
+            number of Copilot CLI invocations per time window.
+        copilot_backoff (ExponentialBackoff): Backoff strategy used when a Copilot
+            call appears throttled.
+        copilot_max_retries (int): Max number of throttle-triggered retries per
+            atomic task.
+        copilot_output_tail_bytes (int): Number of bytes of Copilot output tail to
+            retain for failure classification.
         print_prompt (bool): If True, print prompt and return.
         copy_prompt (bool): If True, copy prompt and return.
 
@@ -802,15 +904,77 @@ def _execute_one_task(
         print(msg)
         _log_msg(log_file, f"INFO: {msg}")
 
-        run_copilot(
-            workspace=workspace,
-            prompt_text=prompt_text,
-            log_file=log_file,
-            task_id=cur.task_id,
-            preferred_model=preferred_model,
-            run_id=run_id,
-            resume_session=attempt > 1,
-        )
+        copilot_invocation = 0
+        throttle_retries = 0
+
+        # Throttle-aware Copilot invocation loop.
+        # - Rate-limit *call frequency* with the injected limiter.
+        # - On throttle-like failures, apply bounded exponential backoff and retry.
+        # - On non-throttle failures, fail fast with actionable context.
+        while True:
+            copilot_rate_limiter.acquire()
+
+            copilot_result = run_copilot(
+                workspace=workspace,
+                prompt_text=prompt_text,
+                log_file=log_file,
+                task_id=cur.task_id,
+                preferred_model=preferred_model,
+                run_id=run_id,
+                resume_session=(attempt > 1 or copilot_invocation > 0),
+                _output_tail_bytes=copilot_output_tail_bytes,
+            )
+            copilot_invocation += 1
+
+            if copilot_result.exit_code == 0:
+                # A successful Copilot run clears any accumulated throttle state.
+                copilot_backoff.on_success()
+                break
+
+            failure_kind = classify_copilot_failure(
+                exit_code=copilot_result.exit_code,
+                output_tail=copilot_result.output_tail,
+            )
+            if failure_kind is FailureKind.NON_THROTTLE:
+                err_msg = (
+                    "Copilot CLI failed (non-throttle). "
+                    f"exit_code={copilot_result.exit_code}. "
+                    f"output_tail={copilot_result.output_tail!r}"
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                print(f"See log: {log_file}", file=sys.stderr)
+                return 5
+
+            # Throttle-like failure: bounded retry with backoff.
+            if copilot_max_retries < 0:
+                copilot_max_retries = 0
+
+            if throttle_retries >= copilot_max_retries:
+                err_msg = (
+                    f"Copilot CLI appears throttled, but max retries "
+                    f"({copilot_max_retries}) were exhausted for task {cur.task_id}."
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                print(f"See log: {log_file}", file=sys.stderr)
+                return 5
+
+            delay_seconds = copilot_backoff.on_throttle()
+            throttle_retries += 1
+
+            retry_msg = (
+                f"Copilot throttled for task {cur.task_id}; retry "
+                f"{throttle_retries}/{copilot_max_retries} after "
+                f"{delay_seconds:.2f}s backoff."
+            )
+            print(retry_msg)
+            _log_msg(log_file, f"WARN: {retry_msg}")
+
+            # Apply the backoff delay using the injected sleeper so tests can
+            # remain deterministic (no real sleeps).
+            if delay_seconds > 0:
+                copilot_rate_limiter.sleeper.sleep(delay_seconds)
 
         # Refresh plan/task state after Copilot run
         cur_after = parser.find_task_by_id(cur.task_id)
@@ -932,9 +1096,25 @@ def main(argv: list[str] | None = None) -> int:
     )
     qc_runner = QCRunner(workspace)
 
+    # Per-run throttling controls. The limiter must persist across tasks to
+    # regulate overall call cadence.
+    copilot_rate_limiter = CallRateLimiter(
+        max_calls=args.copilot_cli_max_calls_per_window,
+        window_seconds=args.copilot_cli_window_seconds,
+        clock=SystemClock(),
+        sleeper=TimeSleeper(),
+    )
+
     while True:
+        # Backoff state is per-task; it resets after successful Copilot invocations.
+        copilot_backoff = ExponentialBackoff(
+            base_seconds=args.copilot_cli_backoff_base_seconds,
+            max_seconds=args.copilot_cli_backoff_max_seconds,
+            random_source=SystemRandom(),
+        )
+
         # Build prompt and execute
-        result = _execute_one_task(
+        result = execute_one_task(
             workspace=workspace,
             cur=cur,
             parser=parser,
@@ -946,6 +1126,10 @@ def main(argv: list[str] | None = None) -> int:
             feature_dir=feature_dir,
             preferred_model=args.preferred_model,
             run_id=run_id,
+            copilot_rate_limiter=copilot_rate_limiter,
+            copilot_backoff=copilot_backoff,
+            copilot_max_retries=args.copilot_cli_max_retries,
+            copilot_output_tail_bytes=args.copilot_cli_output_tail_bytes,
             print_prompt=args.print_prompt,
             copy_prompt=args.copy_prompt,
         )
