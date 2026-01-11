@@ -16,6 +16,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from scripts.dev_tools.atomic_executor.cli import main
+from scripts.dev_tools.atomic_executor.copilot_runner import CopilotRunResult
 from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
 
 
@@ -53,6 +54,9 @@ def mock_dependencies() -> Generator[dict[str, Any], None, None]:
 
         resolver_instance = MockResolver.return_value
         resolver_instance.resolve.return_value = (Mock(), Path("/mock/feature/dir"))
+
+        # Treat Copilot CLI as succeeding so tests can focus on QC retry orchestration.
+        MockRunCopilot.return_value = CopilotRunResult(exit_code=0, output_tail="")
 
         yield {
             "parser_cls": MockParser,
@@ -210,8 +214,8 @@ def test_execute_all_aborts_with_exit_code_5_on_persistent_failure(
     mocks["parser"].next_unchecked_task.side_effect = [task1, task2]
     mocks["parser"].phase_complete.return_value = False
 
-    # Mock _execute_one_task to return 0 (Task1 success) then 5 (Task2 recurring fail)
-    with patch("scripts.dev_tools.atomic_executor.cli._execute_one_task") as mock_exec:
+    # Mock execute_one_task to return 0 (Task1 success) then 5 (Task2 recurring fail)
+    with patch("scripts.dev_tools.atomic_executor.cli.execute_one_task") as mock_exec:
         mock_exec.side_effect = [0, 5]
 
         # In execute-all mode
