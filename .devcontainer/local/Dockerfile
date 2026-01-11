@@ -73,6 +73,12 @@ RUN mkdir -p ~/.config/powershell
 USER root
 RUN wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
     | bash -s -- latest /usr/local/bin
+
+# Install GitHub Copilot CLI (real agentic CLI, not the VS Code extension shim).
+# Pinned to a known-good release for repeatable devcontainer builds.
+ARG COPILOT_CLI_VERSION=0.0.377
+RUN wget -qO- https://gh.io/copilot-install \
+    | VERSION="${COPILOT_CLI_VERSION}" PREFIX="/usr/local" bash
 USER vscode
 
 # Set default shell to PowerShell for convenience
