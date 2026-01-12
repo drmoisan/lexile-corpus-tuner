@@ -19,6 +19,8 @@ import argparse
 import importlib
 import importlib.util
 import re
+import shutil
+import subprocess
 import sys
 import types
 from pathlib import Path
@@ -48,6 +50,71 @@ def _missing_pyperclip_copy(text: str) -> None:
     raise RuntimeError(
         "Clipboard support requires the optional 'pyperclip' dependency."
     )
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Attempt to copy text to the clipboard.
+
+    Purpose:
+        VS Code tasks often run inside Linux containers where `pyperclip` may be
+        installed but not usable (it depends on external clipboard tools). This
+        function provides a robust best-effort copy that:
+        1) Tries pyperclip first (when available).
+        2) Falls back to common platform clipboard commands.
+
+    Args:
+        text (str): Text to copy.
+
+    Returns:
+        bool: True if text was copied to a clipboard mechanism, else False.
+
+    Side Effects:
+        May invoke a platform clipboard command via subprocess.
+    """
+
+    pyperclip_exception_type = getattr(pyperclip, "PyperclipException", None)
+    exception_types: list[type[BaseException]] = [OSError, RuntimeError]
+    if isinstance(pyperclip_exception_type, type) and issubclass(
+        pyperclip_exception_type, Exception
+    ):
+        exception_types.append(pyperclip_exception_type)
+    pyperclip_copy_exceptions = tuple(exception_types)
+
+    try:
+        pyperclip.copy(text)
+        return True
+    except pyperclip_copy_exceptions as error:
+        pyperclip_error = error
+
+    commands: tuple[list[str], ...] = (
+        ["pbcopy"],
+        ["wl-copy"],
+        ["xclip", "-selection", "clipboard"],
+        ["xsel", "--clipboard", "--input"],
+        ["clip"],
+        ["clip.exe"],
+    )
+
+    # Try known clipboard commands. We resolve the executable path first to
+    # avoid partial-path execution issues.
+    for command in commands:
+        executable = shutil.which(command[0])
+        if executable is None:
+            continue
+        try:
+            subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+                [executable, *command[1:]],
+                input=text,
+                text=True,
+                check=True,
+            )
+            return True
+        except subprocess.CalledProcessError:
+            continue
+
+    print(f"pyperclip copy failed: {pyperclip_error}", file=sys.stderr)
+
+    return False
 
 
 # Resolve pyperclip at runtime so the module can be imported without the
@@ -342,9 +409,20 @@ def main() -> None:
         # Resolve
         resolved_content = resolve_prompt(content, target_path, Path.cwd())
 
-        # Copy to clipboard
-        pyperclip.copy(resolved_content)
-        print("Successfully resolved prompt and copied to clipboard.")
+        copied = copy_to_clipboard(resolved_content)
+
+        if copied:
+            print("Successfully resolved prompt and copied to clipboard.")
+            return
+
+        # Fall back to printing the prompt so the task still succeeds even when
+        # the container has no clipboard integration.
+        print(
+            "Clipboard copy not available; printing resolved prompt to stdout.",
+            file=sys.stderr,
+        )
+        print(resolved_content)
+        return
 
     except Exception as e:
         print(f"Error processing prompt: {e}", file=sys.stderr)
