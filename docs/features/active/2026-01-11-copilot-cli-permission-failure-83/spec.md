@@ -6,7 +6,9 @@
 - Status: Draft
 
 ## Context
-The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run any shell commands due to an execution-permissions restriction that it cannot prompt the user to approve. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.
+The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run shell commands during the agent session with the message: “Permission denied and could not request permission from user”. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.
+
+Based on repo investigation and local experiments, the most likely root cause is that the atomic executor is **not using Copilot CLI programmatic mode** (GitHub Docs define programmatic mode as `copilot -p/--prompt`). Instead it writes a prompt to a file and feeds it via `stdin` to `copilot` without `-p`, which prevents Copilot from requesting/receiving interactive approvals and appears to interact poorly with the tool permission/approval model.
 
 Environment:
 - OS/version: Linux (Dev Container) — Debian GNU/Linux 12 (bookworm)
@@ -20,7 +22,7 @@ Environment:
 	- The failing step was a scoped QC gate that attempted to run pytest/ruff.
 
 Impact / Severity:
-- [ ] Blocker
+- [x] Blocker
 - [ ] High
 - [ ] Medium
 - [ ] Low
@@ -63,17 +65,37 @@ Logs / Screenshots:
 
 ## Scope & Non-Goals
 - In scope:
+	- Update the atomic executor’s Copilot CLI invocation to use **programmatic mode** (`-p/--prompt`) on all platforms.
+	- Preserve the Windows-safe “large prompt” behavior without OS-conditional branching by using a prompt file and referencing it from the `-p` prompt with an `@path` mention.
+	- Ensure Copilot has the necessary session-level permissions to execute the required QC shell commands and make file edits during atomic tasks.
+	- Update/replace the existing unit tests that currently enforce “no `-p`”.
+	- Document and validate the new behavior via a manual repro run of `execute-all` against a representative feature folder plan.
 - Out of scope / non-goals:
+	- Changing enterprise policy, VS Code org settings, or global Copilot policy outside of what the atomic executor controls.
+	- Adding new third-party dependencies.
+	- Refactoring the atomic executor’s broader architecture, scheduling, or retry/backoff logic beyond what’s needed to fix the Copilot CLI invocation.
 
 ## Root Cause Analysis
-- This appears to be a Copilot CLI / agent execution permission issue (possibly VS Code settings, enterprise policy, or a “require user approval for command execution” mode) where:
-	- Copilot CLI attempts to execute `poetry`/`python3` commands,
-	- the environment denies execution and disallows prompting for permission,
-	- so Copilot cannot proceed with required QC gates.
+Observed behavior:
 
-- The atomic executor then retries and may hit hang detection because Copilot produces no output while waiting.
+- Copilot CLI is started by the atomic executor in a non-interactive context.
+- Within the Copilot session, attempts to run shell commands (even `poetry --version` / `python3 --version`) fail with:
+	- `Permission denied and could not request permission from user`
 
-- Evidence that the underlying shell is not broken: running the same commands manually in the terminal succeeds (e.g., `poetry run pytest ...` completed successfully in the dev container).
+Why this happens:
+
+- The atomic executor currently invokes `copilot` **without** `-p/--prompt` and feeds prompt content via `stdin` from a file.
+	- This was an intentional workaround for Windows argv limits (“WinError 206”) when passing long prompts via `-p`.
+	- The tests explicitly assert `"-p" not in captured_argv`, reinforcing that the current design is “non-`-p` mode”.
+
+- In this mode, Copilot cannot reliably request interactive approvals (stdin is not a TTY and becomes EOF), and the session reports it cannot request permission from the user.
+
+Evidence that `-p` resolves the core limitation:
+
+- Local experiment (Copilot CLI 0.0.377) shows that:
+	- `copilot -p` works headlessly with `--silent`.
+	- `copilot -p` can execute allowed tools with `--allow-tool` (e.g., `shell(python3)` worked).
+	- `copilot -p` expands `@path` references inside the prompt text (validated via a sentinel file), enabling a Windows-safe large-prompt strategy.
 
 - Related file(s):
 	- `scripts/dev_tools/atomic_executor/cli.py`
@@ -82,55 +104,117 @@ Logs / Screenshots:
 
 
 ## Proposed Fix
-- [ ] Unit coverage areas
-- [ ] Integration scenario to retest
-- [ ] Manual verification notes
+Behavior change (core fix):
 
-Ideas (to research/validate after issue creation):
+- Change atomic executor Copilot invocation to always run in **programmatic mode**:
+	- Use `copilot -p <short_prompt>` instead of `copilot` with prompt fed via stdin.
 
-- Determine where Copilot CLI command execution permissions are configured and document the required setting(s).
-- Add a preflight check in atomic executor to detect command-execution restrictions early (e.g., attempt a harmless command through the same pathway Copilot uses), and fail with actionable guidance rather than timing out.
-- Consider allowing the idle timeout to be configured via CLI flag (if not already) and/or emitting the current resolved timeout value in logs.
+- Preserve Windows safety and minimize OS branching:
+	- Continue generating the full prompt body into a prompt file (as today).
+	- Construct a short `-p` prompt that references the file via `@<path>`.
+		- Example: `Follow these instructions exactly: @/abs/path/to/prompt.txt`.
+
+Permissions/approvals (session-level):
+
+- Continue to pass explicit tool permissions required for atomic tasks, at minimum:
+	- `--allow-tool write`
+	- `--allow-tool shell(poetry)`
+	- `--allow-tool shell(python3)` (or `python`, depending on what the repo uses)
+	- `--allow-tool shell(git)`
+
+- Ensure Copilot can read prompt / workspace files without interactive path trust prompts:
+	- Prefer explicitly allowing the workspace paths for the session (for example, via Copilot CLI path permission flags).
+	- If the Copilot session still prompts for path approvals, add `--allow-all-paths` as a targeted workaround for headless operation.
+
+Guardrails and diagnostics:
+
+- If Copilot returns the specific permission error text again, surface an actionable error pointing to:
+	- the exact Copilot CLI argv used,
+	- which permissions were granted,
+	- and recommended remediations (for example, adding path permissions if missing).
+
+Test updates:
+
+- Replace unit test assertions that enforce “no `-p`”. Add assertions that:
+	- `-p/--prompt` is present in the Copilot argv.
+	- The `-p` prompt contains an `@<prompt_file>` reference.
+	- Prompt content is not provided on stdin (stdin should be left as default unless needed for other reasons).
+	- Tool permission flags are still present (write + required shell commands).
 
 Manual validation:
 
-- Once permissions are resolved, re-run the same `execute-all` command against the feature folder and confirm tasks can run scoped QC without permission errors/timeouts.
+- Re-run the original `execute-all` repro command against a representative multi-task plan.
+- Confirm Copilot can execute at least:
+	- `poetry --version`
+	- `python3 --version`
+	- and a scoped QC command (e.g., `poetry run ruff check ...`)
+	without producing “Permission denied and could not request permission from user”.
 
 
 ## Assumptions, Constraints, Dependencies
 - Assumptions (environment, data, access):
+	- Copilot CLI is installed in the devcontainer (currently pinned to `0.0.377`).
+	- Copilot CLI is authenticated/configured such that `copilot -p` can run.
+	- Atomic executor prompts can be written to a file under the workspace.
 - Constraints (budget, performance, compatibility):
+	- The Copilot invocation must be cross-platform and minimize OS-specific branching.
+	- Must avoid Windows command-line length limitations when supplying long prompts.
+	- Security: increasing Copilot permissions (tools/paths/urls) increases risk; the fix should prefer least privilege that still permits required QC.
 - External dependencies (services, libraries, releases):
+	- GitHub Copilot CLI behavior for `-p`, tool permissions, and `@path` expansion (validated locally for `0.0.377`).
 
 ## Data / API / Config Impact
 - User-facing or API changes:
+	- No new public CLI surface is required.
+	- Behavior change is internal to the atomic executor: it invokes Copilot differently.
 - Data or migration considerations:
+	- No data migrations.
+	- Prompt file location may be standardized under a workspace-scoped directory (to support `@path` references reliably).
 - Logging/telemetry updates (if any):
+	- Log the Copilot CLI argv (already effectively captured today) and explicitly log that `-p` mode is being used.
+	- If a permission failure occurs, include the detected failure text and guidance about required flags.
 
 ## Test Strategy
-- [ ] Unit coverage areas
+- [x] Unit coverage areas
+	- Update existing unit tests for `scripts.dev_tools.atomic_executor.cli.run_copilot()` to assert `-p` invocation and `@prompt_file` usage.
+	- Add a regression assertion that the previous behavior (prompt via stdin without `-p`) is not used.
 - [ ] Integration scenario to retest
+	- Run `execute-all` against a multi-task plan that triggers scoped QC.
+	- Confirm Copilot runs at least one shell command successfully within the session.
 - [ ] Manual verification notes
-
-Ideas (to research/validate after issue creation):
-
-- Determine where Copilot CLI command execution permissions are configured and document the required setting(s).
-- Add a preflight check in atomic executor to detect command-execution restrictions early (e.g., attempt a harmless command through the same pathway Copilot uses), and fail with actionable guidance rather than timing out.
-- Consider allowing the idle timeout to be configured via CLI flag (if not already) and/or emitting the current resolved timeout value in logs.
-
-Manual validation:
-
-- Once permissions are resolved, re-run the same `execute-all` command against the feature folder and confirm tasks can run scoped QC without permission errors/timeouts.
+	- Capture and attach a short excerpt of the atomic executor log showing:
+		- Copilot started with `-p`
+		- Copilot successfully executed a tool command (e.g., `python3 --version` or `poetry --version`)
+		- No “Permission denied and could not request permission from user” in the session
 
 
 ## Acceptance Criteria
 - Conditions that must be true for the bug to be considered fixed (map to repro and edge cases).
 
+- [ ] Atomic executor invokes Copilot CLI with `-p/--prompt` (programmatic mode) for all platforms.
+- [ ] Atomic executor passes long prompt content via an on-disk prompt file referenced by `@<path>` in the `-p` prompt, avoiding OS command-line length limits.
+- [ ] During a real `execute-all` run, Copilot can execute required shell commands (at minimum `python3 --version` and one Poetry-based QC command) without producing “Permission denied and could not request permission from user”.
+- [ ] The existing unit tests that previously enforced “no `-p`” are updated to enforce the new invocation contract.
+- [ ] No new interactive prompts are required to complete the run in the devcontainer environment.
+- [ ] If Copilot cannot proceed due to permissions, the atomic executor fails fast with an actionable error message (no 300s silent hang leading to idle-timeout termination).
+
 ## Risks & Mitigations
 - Technical or operational risks:
+	- Risk: Copilot may request additional permissions (paths/tools/urls) beyond the current allowlist depending on the model’s plan.
+	- Risk: Overly broad permissions (e.g., `--allow-all-tools`, `--allow-all-paths`) increase the blast radius of a bad suggestion.
+	- Risk: `@path` expansion could fail if the prompt file is outside Copilot’s allowed/trusted directories.
 - Mitigations and rollbacks:
+	- Prefer least-privilege tool allowlists for known QC commands; expand only if needed and document why.
+	- Ensure prompt files are written under the workspace so `@path` expansion is stable.
+	- Roll back by restoring the prior Copilot invocation strategy (no `-p` + stdin prompt file), but note this reintroduces the original blocker.
 
 ## Rollout & Follow-up
 - Release/rollout steps:
+	- Implement and merge the atomic executor Copilot invocation change.
+	- Re-run the original repro command on the devcontainer to confirm the blocker is resolved.
 - Post-fix monitoring or clean-up tasks:
+	- Monitor `.agent_logs/copilot_sessions/*` for any remaining permission-denied text.
+	- If additional permissions are consistently required, document and tighten the allowlist/available-tools strategy accordingly.
 - Links: issue, PRs, related docs
+	- Issue #83: https://github.com/drmoisan/lexile-corpus-tuner/issues/83
+	- Research notes: `docs/features/active/2026-01-11-copilot-cli-permission-failure-83/20260111-copilot-cli-permission-failure-83-research.md`
