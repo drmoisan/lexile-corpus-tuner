@@ -21,6 +21,7 @@ This directory contains the Docker Dev Container configuration for the Lexile Co
 - **Python 3.13** with Poetry package manager
 - **PowerShell 7.5+** for cross-platform scripting
 - **Git** and **GitHub CLI** (gh)
+- **Graphite CLI** (`gt`) for the Graphite VS Code extension
 - **GitHub Copilot CLI** (`copilot`) for the `atomic_executor` tool
 - **actionlint** for GitHub Actions workflow linting
 - **bashdb** for Bash debugging

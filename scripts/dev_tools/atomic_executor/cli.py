@@ -49,6 +49,23 @@ DEFAULT_COPILOT_CLI_BACKOFF_MAX_SECONDS = 60.0
 DEFAULT_COPILOT_CLI_OUTPUT_TAIL_BYTES = 4096
 DEFAULT_COPILOT_CLI_MAX_RETRIES = 8
 
+# When Copilot CLI cannot request approval (common in headless/non-interactive
+# runs), it emits this exact substring and may then stall until an idle-timeout.
+# We detect it during output streaming and fail fast with actionable guidance.
+COPILOT_PERMISSION_DENIED_SUBSTRING = (
+    "Permission denied and could not request permission from user"
+)
+
+
+class CopilotPermissionDeniedError(RuntimeError):
+    """Raised when Copilot output indicates an approval/permission dead-end.
+
+    Purpose:
+        Provides a typed signal that the Copilot CLI emitted the known
+        permission-denied substring and is unlikely to recover without
+        additional permissions or an interactive approval path.
+    """
+
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """
@@ -549,6 +566,8 @@ def run_copilot(
         [
             "--share",
             str(share_path),
+            "--add-dir",
+            str(workspace),
             "--allow-tool",
             "write",
             "--allow-tool",
@@ -556,7 +575,11 @@ def run_copilot(
             "--allow-tool",
             "shell(python)",
             "--allow-tool",
+            "shell(python3)",
+            "--allow-tool",
             "shell(git)",
+            "-p",
+            f"Follow these instructions exactly: @{prompt_file}",
         ]
     )
 
@@ -574,21 +597,19 @@ def run_copilot(
         f.write("(prompt omitted from log for brevity; use --print-prompt to view)\n")
         f.flush()
 
-        # Pass prompt via stdin to avoid Windows command-line length limits.
         # Use Popen to stream stdout to both console and log file.
         # Use binary mode + incremental decoding to avoid Python
         # TextIOWrapper buffering.
-        with prompt_file.open("rb") as prompt_f:
-            process = subprocess.Popen(  # noqa: S603 - static analysis can't verify runtime validation
-                argv,
-                cwd=workspace,
-                stdin=prompt_f,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
+        process = subprocess.Popen(  # noqa: S603 - static analysis can't verify runtime validation
+            argv,
+            cwd=workspace,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
 
-            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-            idle_timeout = _resolve_idle_timeout_seconds(_idle_timeout_seconds)
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        idle_timeout = _resolve_idle_timeout_seconds(_idle_timeout_seconds)
+        try:
             exit_code, output_tail = _stream_copilot_output(
                 process=process,
                 decoder=decoder,
@@ -597,6 +618,22 @@ def run_copilot(
                 idle_timeout_seconds=idle_timeout,
                 output_tail_bytes=output_tail_bytes,
             )
+        except CopilotPermissionDeniedError as exc:
+            # Fail fast with actionable context instead of waiting for the idle-timeout.
+            argv_summary = " ".join(argv)
+            raise RuntimeError(
+                "Copilot CLI reported a permissions dead-end and cannot request "
+                "approval from the user in this environment. "
+                f"Detected: {COPILOT_PERMISSION_DENIED_SUBSTRING!r}. "
+                f"argv: {argv_summary}. "
+                "Guidance: ensure the executor uses programmatic mode (-p/--prompt) "
+                "and includes explicit tool and directory permissions "
+                "(e.g. --allow-tool write, --allow-tool shell(poetry), "
+                "--allow-tool shell(python3), --allow-tool shell(git), "
+                "and --add-dir <workspace>). "
+                "If policy blocks headless execution, run the command interactively to "
+                "grant approvals."
+            ) from exc
 
     # Post-processing: deduplicate prompt from session file
     _clean_session_file(share_path, prompt_text)
@@ -653,6 +690,36 @@ def _stream_copilot_output(
         actionable error messages.
     """
 
+    def _terminate_process(process_to_kill: subprocess.Popen[bytes]) -> None:
+        """Attempt to terminate the Copilot process without assuming APIs exist.
+
+        Purpose:
+            In production, ``subprocess.Popen`` provides ``kill()`` and
+            ``terminate()`` methods. In unit tests, we often stub ``Popen`` with
+            a minimal mock object. This helper makes termination best-effort so
+            tests can focus on behavior rather than strict process mechanics.
+
+        Args:
+            process_to_kill (subprocess.Popen[bytes]): The process to stop.
+
+        Returns:
+            None
+
+        Side Effects:
+            Attempts to stop the process and waits briefly for it to exit.
+        """
+        kill_fn = getattr(process_to_kill, "kill", None)
+        term_fn = getattr(process_to_kill, "terminate", None)
+
+        # Prefer kill() (hard stop), then terminate() (soft stop).
+        if callable(kill_fn):
+            kill_fn()
+        elif callable(term_fn):
+            term_fn()
+
+        with contextlib.suppress(subprocess.TimeoutExpired, AttributeError):
+            process_to_kill.wait(timeout=5)
+
     # Retain a bounded output tail in bytes so throttling classification can be
     # performed without reading the log file or depending on exception
     # stdout/stderr.
@@ -699,6 +766,11 @@ def _stream_copilot_output(
     last_activity = time.monotonic()
     saw_eof = False
 
+    # Track a small rolling decoded window to detect known fail-fast substrings
+    # even when the bytes arrive split across chunks.
+    permission_scan_window = ""
+    permission_scan_window_max_chars = 2048
+
     # Consume output opportunistically while enforcing idle-timeout termination
     # if Copilot produces no output and remains running.
     while True:
@@ -719,6 +791,15 @@ def _stream_copilot_output(
 
             text_chunk = decoder.decode(item, final=False)
             if text_chunk:
+                # Fail fast if Copilot cannot request permission from the user.
+                permission_scan_window = (permission_scan_window + text_chunk)[
+                    -permission_scan_window_max_chars:
+                ]
+                if COPILOT_PERMISSION_DENIED_SUBSTRING in permission_scan_window:
+                    _terminate_process(process)
+                    raise CopilotPermissionDeniedError(
+                        COPILOT_PERMISSION_DENIED_SUBSTRING
+                    )
                 print(text_chunk, end="", flush=True)
                 log_file.write(text_chunk)
                 log_file.flush()
@@ -732,9 +813,7 @@ def _stream_copilot_output(
         if idle_timeout_seconds is not None and process.poll() is None:
             idle_duration = time.monotonic() - last_activity
             if idle_duration > idle_timeout_seconds:
-                process.kill()
-                with contextlib.suppress(subprocess.TimeoutExpired):
-                    process.wait(timeout=5)
+                _terminate_process(process)
                 raise TimeoutError(
                     "Copilot CLI produced no output for "
                     f"{idle_timeout_seconds} seconds while executing task "

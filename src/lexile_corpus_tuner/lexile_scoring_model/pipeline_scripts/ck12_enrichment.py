@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -60,6 +61,21 @@ REQUEST_HEADERS = {
     "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
+}
+
+# HTTP headers for CK-12 JSON APIs (Browse/Perma/Revision detail).
+PERMA_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.ck12.org/",
+    "Origin": "https://www.ck12.org",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
 }
 
 app = typer.Typer(
@@ -102,6 +118,61 @@ def fetch_flexbook_html(url: str) -> str:
         )
 
     return response.text
+
+
+def fetch_perma_metadata(artifact_type: str, handle: str) -> dict[str, object]:
+    """
+    Retrieve CK-12 Perma API metadata for the specified artifact.
+
+    Purpose:
+        Fetch the Perma endpoint using canonical artifact type and handle while
+        sending the browser-like JSON headers required for anonymous access.
+
+    Args:
+        artifact_type (str): CK-12 artifact type such as "flexbook".
+        handle (str): Canonical CK-12 handle from the catalog entry.
+
+    Returns:
+        dict[str, object]: Parsed JSON payload from the Perma API.
+
+    Raises:
+        RuntimeError: If the request fails, returns a non-success status, or the
+            payload is not a JSON object.
+
+    Side Effects:
+        Issues an HTTP GET request with timeouts and required headers.
+    """
+    perma_url = f"https://www.ck12.org/flx/get/perma/{artifact_type}/{handle}"
+    try:
+        response = requests.get(
+            perma_url,
+            headers=PERMA_REQUEST_HEADERS,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        json_data = response.json()
+        if not isinstance(json_data, dict):
+            raise RuntimeError(
+                "Unexpected CK-12 Perma payload type "
+                f"{type(json_data)} from {perma_url}"
+            )
+        return cast(dict[str, object], json_data)
+    except requests.Timeout as exc:
+        raise RuntimeError(
+            f"Timed out while fetching CK-12 Perma metadata from {perma_url}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Invalid JSON received from CK-12 Perma at {perma_url}"
+        ) from exc
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Invalid JSON received from CK-12 Perma at {perma_url}"
+        ) from exc
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"Failed to fetch CK-12 Perma metadata from {perma_url}"
+        ) from exc
 
 
 def parse_flexbook_metadata(html: str) -> dict[str, str | None]:
@@ -275,6 +346,85 @@ def extract_pdf_url(html: str) -> str | None:
         raise ValueError(f"PDF link does not point to a PDF file: {best_candidate}")
 
     return best_candidate
+
+
+def extract_revision_download_candidates(
+    perma_response: Mapping[str, object],
+) -> list[DownloadCandidate]:
+    """
+    Convert Perma API revision hierarchies into download candidates.
+
+    Purpose:
+        Traverse the nested revisions/children structure returned by the Perma API
+        and emit deterministic download candidates pointing at the CK-12 revision
+        detail endpoint for each discovered revision identifier.
+
+    Args:
+        perma_response (Mapping[str, object]): Parsed JSON payload from the Perma
+            API, expected to include a `response` object containing the artifact
+            with nested `revisions`/`children` nodes.
+
+    Returns:
+        list[DownloadCandidate]: Download candidates targeting revision detail
+            URLs with JSON format metadata. Empty when no revision IDs are found.
+
+    Raises:
+        None. This helper is tolerant of missing fields and returns an empty list
+        when the expected hierarchy is absent.
+
+    Side Effects:
+        None. Pure transformation of the provided response payload.
+    """
+    revision_ids: set[int] = set()
+
+    def _walk_revisions(node: object) -> None:
+        """
+        Walk nested revision nodes to collect all integer revision IDs.
+        """
+        if isinstance(node, Mapping):
+            typed_node = cast(Mapping[str, object], node)
+            revision_value = typed_node.get("revisionID")
+            if isinstance(revision_value, int):
+                revision_ids.add(revision_value)
+
+            children = typed_node.get("children")
+            if isinstance(children, list):
+                # Descend into child nodes that may contain deeper revisions.
+                child_nodes = cast(list[object], children)
+                for child in child_nodes:
+                    _walk_revisions(child)
+
+            nested_revisions = typed_node.get("revisions")
+            if isinstance(nested_revisions, list):
+                # Inspect nested revision collections for additional section IDs.
+                nested_revision_nodes = cast(list[object], nested_revisions)
+                for child in nested_revision_nodes:
+                    _walk_revisions(child)
+
+        elif isinstance(node, list):
+            # Iterate list containers emitted by the API to reach nested dicts.
+            list_nodes = cast(list[object], node)
+            for child in list_nodes:
+                _walk_revisions(child)
+
+    response_payload = perma_response.get("response")
+    if not isinstance(response_payload, Mapping):
+        return []
+
+    # Explore each artifact payload under the response to gather revision IDs.
+    typed_response = cast(Mapping[str, object], response_payload)
+    for artifact_payload in typed_response.values():
+        _walk_revisions(artifact_payload)
+
+    # Emit deterministic candidates so downstream ordering remains stable.
+    return [
+        DownloadCandidate(
+            format="application/json",
+            url=f"https://www.ck12.org/flx/get/detail/revision/{revision_id}?tiny=true",
+            size=None,
+        )
+        for revision_id in sorted(revision_ids)
+    ]
 
 
 def enrich_entry_logic(

@@ -73,14 +73,14 @@
   - Scenario gate: request URL matches spec; headers include `User-Agent`, `Accept: application/json...`, `Referer`, `Origin`, `Sec-Fetch-*`.
 - [x] [P1-T4] Implement Browse API fetch + parse in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py) to make [P1-T1..T3] pass
   - Acceptance: The tests from [P1-T1..T3] pass.
-- [ ] [P1-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [x] [P1-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 2 — CK-12 Enrichment via Perma API (tests first)**
-- [ ] [P2-T1] Add unit test: Perma API response yields section revision IDs as download candidates in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
+- [x] [P2-T1] Add unit test: Perma API response yields section revision IDs as download candidates in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: Nested `revisions[0].children[*].revisions[0].children[*].revisionID` values become candidates.
   - Acceptance: Test fails against current implementation.
-- [ ] [P2-T2] Add unit test: enrichment uses Perma API path `/flx/get/perma/<artifactType>/<handle>` and sends required headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
+- [x] [P2-T2] Add unit test: enrichment uses Perma API path `/flx/get/perma/<artifactType>/<handle>` and sends required headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: request URL uses canonical `artifactType` + `handle` from catalog; headers match spec.
 - [ ] [P2-T3] Add unit test: enrichment records zero candidates (and a skip reason surfaced to caller/CLI) when Perma JSON lacks revisions/children in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: missing hierarchy → no candidates; processing continues.
