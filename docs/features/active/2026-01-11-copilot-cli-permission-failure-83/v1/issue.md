@@ -2,7 +2,7 @@
 
 - Date captured: 2026-01-11
 - Author: Dan Moisan
-- Status: Fixed (implemented in atomic executor)
+- Status: Superceded by v2
 
 > Automation note: Keep the section headings below unchanged; the promotion tooling maps each of them into the GitHub bug issue template.
 

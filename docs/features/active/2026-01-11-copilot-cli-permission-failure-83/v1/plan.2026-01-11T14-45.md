@@ -4,11 +4,11 @@
 - **Issue:** #83
 - **Owner:** drmoisan
 - **Date:** 2026-01-11T14-45
-- **Status:** Planned
-- **Outcome:** Copilot sessions invoked by the atomic executor can run required shell commands (Poetry/Python/Git) and perform file edits without interactive approval prompts; the executor no longer hits “Permission denied and could not request permission from user” during Copilot-driven QC work.
-- **Root Cause:** `scripts/dev_tools/atomic_executor/cli.py::run_copilot()` invokes `copilot` without programmatic mode (`-p/--prompt`) and feeds the prompt via a non-interactive stdin file (`stdin=prompt_f` at `cli.py:585`), preventing Copilot from requesting/receiving approvals. Existing regression test enforces this old contract (`assert "-p" not in captured_argv` at `tests/scripts/dev_tools/atomic_executor/test_cli.py:1150`).
+- **Status:** Superseded by v2 (partial fix implemented; follow-up remediation required)
+- **Outcome:** Atomic executor now invokes Copilot CLI in programmatic mode (`-p`) and can execute QC successfully in-session when Copilot uses `python -m poetry run ...`. Remaining failures persist when prompts lead Copilot to execute the Poetry entrypoint (`poetry ...`), which can trigger Copilot CLI path-permission denial.
+- **Root Cause:** The original root cause (not using programmatic mode) has been remediated. Remaining “permission denied” failures are best explained by Copilot CLI path-permission enforcement (including symlink resolution) interacting with Poetry’s script entrypoint (shebang resolves outside allowed paths), plus stale prompt-generation instructions (e.g., `/model` guidance) and incorrect `<feature>` placeholder substitution that produces invalid “Authoritative Documents” paths.
 
-![Status: Planned](https://img.shields.io/badge/Status-Planned-blue)
+![Status: Superseded](https://img.shields.io/badge/Status-Superseded-lightgrey)
 
 | REQ-ID | Requirement (deterministic) | Source |
 | --- | --- | --- |

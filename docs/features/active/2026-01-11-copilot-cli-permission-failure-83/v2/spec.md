@@ -3,13 +3,15 @@
 - Issue: #83
 - Owner: drmoisan
 - Date: 2026-01-11
-- Status: Implemented
-- Last Updated: 2026-01-12
+- **Status:** Implemented (partial) — remediation required
+- **Outcome:** Atomic executor uses Copilot CLI programmatic mode (-p) and can run QC in-session when using python -m poetry. Remaining failures occur when the prompt leads Copilot to run poetry entrypoints that trigger Copilot CLI path-permission denial.
+- **Root Cause:** Copilot CLI path permission enforcement (including symlink resolution) blocks execution of the Poetry script entrypoint whose shebang resolves outside allowed paths; prompt generation also contains stale “interactive session” instructions (/model) and uses incorrect <feature> placeholder substitution, which increases failure likelihood.
+- Last Updated: 2026-01-14
 
 ## Context
 The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run shell commands during the agent session with the message: “Permission denied and could not request permission from user”. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.
 
-Based on repo investigation and local experiments, the most likely root cause is that the atomic executor is **not using Copilot CLI programmatic mode** (GitHub Docs define programmatic mode as `copilot -p/--prompt`). Instead it writes a prompt to a file and feeds it via `stdin` to `copilot` without `-p`, which prevents Copilot from requesting/receiving interactive approvals and appears to interact poorly with the tool permission/approval model.
+This spec originally focused on a programmatic-mode mismatch; however, follow-up investigation shows the executor **is** using Copilot CLI programmatic mode (`-p`) and the remaining “permission denied” failures are best explained by Copilot CLI’s **path permission** system interacting with Poetry’s script entrypoint and symlink resolution.
 
 Environment:
 - OS/version: Linux (Dev Container) — Debian GNU/Linux 12 (bookworm)
@@ -38,7 +40,7 @@ Steps to Reproduce:
 3. Observe Copilot CLI reporting it cannot run commands due to execution restrictions and cannot request permission from the user; the atomic executor then fails the task and may hang-detect/terminate Copilot.
 
 Expected:
-Copilot CLI should be able to run required local commands (e.g., `poetry run pytest ...`, `poetry run ruff check ...`) during task execution so that atomic executor QC gates can run and the plan can proceed.
+Copilot CLI should be able to run required local commands during task execution so that atomic executor QC gates can run and the plan can proceed. In this devcontainer environment, the reliable command form is `python -m poetry run ...`.
 
 Actual:
 Copilot CLI reports it cannot run required commands due to execution restrictions and cannot request permission from the user, causing the atomic executor to fail the task. In a subsequent retry, the atomic executor terminates Copilot due to 300s of no stdout output.
@@ -101,23 +103,17 @@ Observed behavior:
 
 Why this happens:
 
-- The atomic executor currently invokes `copilot` **without** `-p/--prompt` and feeds prompt content via `stdin` from a file.
-	- This was an intentional workaround for Windows argv limits (“WinError 206”) when passing long prompts via `-p`.
-	- The tests explicitly assert `"-p" not in captured_argv`, reinforcing that the current design is “non-`-p` mode”.
+- The atomic executor does invoke Copilot CLI in **programmatic mode** (`-p`) and supplies the prompt via an on-disk file referenced with an `@/abs/path` mention.
 
-- In this mode, Copilot cannot reliably request interactive approvals (stdin is not a TTY and becomes EOF), and the session reports it cannot request permission from the user.
+- The remaining “Permission denied and could not request permission from user” failures are consistent with Copilot CLI’s **path permission** enforcement:
+	- Copilot CLI heuristically extracts paths from shell commands and enforces an allowlist.
+	- GitHub Docs state that **symlinks are resolved for existing files**.
+	- In this repo’s devcontainer, `poetry` is a script entrypoint with an absolute-path shebang to `.venv/bin/python`, and `.venv/bin/python` resolves (via symlink) to `/usr/local/bin/python3.13`.
+	- The session transcript shows `/usr/local/bin` is blocked, so running `poetry ...` often fails, while `python -m poetry ...` succeeds.
 
-Evidence that `-p` resolves the core limitation:
-
-- Local experiment (Copilot CLI 0.0.377) shows that:
-	- `copilot -p` works headlessly with `--silent`.
-	- `copilot -p` can execute allowed tools with `--allow-tool` (e.g., `shell(python3)` worked).
-	- `copilot -p` expands `@path` references inside the prompt text (validated via a sentinel file), enabling a Windows-safe large-prompt strategy.
-
-- Related file(s):
-	- `scripts/dev_tools/atomic_executor/cli.py`
-		- `_resolve_idle_timeout_seconds` (default 300s)
-		- env override: `ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS`
+- Prompt generation contributes to the observed failures:
+	- The prompt includes stale instructions that imply an “interactive session” and tells the agent to use `/model`, which is not applicable in programmatic mode.
+	- Template placeholder substitution currently sets `<feature>` to the leaf folder name (e.g., `v4`), producing incorrect “Authoritative Documents” paths such as `docs/features/active/v4/plan.md`.
 
 
 ## Proposed Fix
@@ -142,6 +138,19 @@ Concrete invocation contract (as implemented in `scripts/dev_tools/atomic_execut
 	- Adds `--add-dir <workspace>` to reduce headless path trust prompts.
 - Tool allowlist:
 	- Includes `--allow-tool write`, `--allow-tool shell(poetry)`, `--allow-tool shell(python)`, `--allow-tool shell(python3)`, `--allow-tool shell(git)`.
+
+Additional remediation required (based on post-implementation research):
+
+- Update prompt generation to instruct QC commands using the reliable form:
+	- Prefer `python -m poetry run ...` over `poetry run ...`.
+
+- Remove or reword interactive-only instructions in prompts:
+	- Do not instruct `/model` when the executor already passes `--model`.
+
+- Fix prompt template substitution so “Authoritative Documents” paths refer to the actual feature folder under `docs/features/active/<feature>/...` rather than the leaf folder name.
+
+- Consider (only if needed) enabling broader path permissions:
+	- Use `--allow-all-paths` only if prompt fixes are insufficient, because it increases capability surface.
 
 Permissions/approvals (session-level):
 
@@ -236,10 +245,16 @@ Manual verification notes (captured):
 
 - [x] Atomic executor invokes Copilot CLI with `-p/--prompt` (programmatic mode) for all platforms.
 - [x] Atomic executor passes long prompt content via an on-disk prompt file referenced by `@<path>` in the `-p` prompt, avoiding OS command-line length limits.
-- [x] During a real `execute-all` run, Copilot can execute required shell commands (at minimum one Poetry-based QC command) without producing “Permission denied and could not request permission from user”.
+- [ ] During a real `execute-all` run, Copilot can execute required QC commands reliably using `python -m poetry run ...` without producing “Permission denied and could not request permission from user”.
 - [x] The existing unit tests that previously enforced “no `-p`” are updated to enforce the new invocation contract.
 - [x] No new interactive prompts are required to complete the run in the devcontainer environment.
 - [x] If Copilot cannot proceed due to permissions, the atomic executor fails fast with an actionable error message (no 300s silent hang leading to idle-timeout termination).
+
+- [ ] Generated prompts do not contain instructions that require interactive mode (e.g., `/model`).
+- [ ] Generated prompts do not instruct `poetry run ...` for QC in this environment; they instruct `python -m poetry run ...`.
+- [ ] Prompt template placeholder substitution produces correct “Authoritative Documents” paths for the targeted feature folder.
+
+- [ ] If remediation requires expanding Copilot path permissions, the decision is documented in this spec (why required, what flag was added, and the security tradeoff).
 
 ## Risks & Mitigations
 - Technical or operational risks:
