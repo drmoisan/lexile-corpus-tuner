@@ -255,3 +255,45 @@ def test_main_exception_handling(mock_args: MagicMock) -> None:
                     main()
             assert exc.value.code == 1
             assert "Disk error" in err.getvalue()
+
+
+@patch("scripts.dev_tools.resolve_file_prompt.pyperclip.copy")
+@patch("scripts.dev_tools.resolve_file_prompt.shutil.which")
+@patch("pathlib.Path.read_text")
+@patch("pathlib.Path.exists")
+@patch("argparse.ArgumentParser.parse_args")
+def test_main_clipboard_failure_falls_back_to_stdout(
+    mock_args: MagicMock,
+    mock_exists: MagicMock,
+    mock_read: MagicMock,
+    mock_which: MagicMock,
+    mock_copy: MagicMock,
+) -> None:
+    """When clipboard copy fails, main prints the prompt instead of exiting 1.
+
+    This is a regression test for Linux containers where pyperclip may detect a
+    Windows clipboard command (e.g., clip.exe) that is not available.
+    """
+
+    mock_args.return_value = argparse.Namespace(
+        template="prompt.md",
+        target="src/main.py",
+    )
+    mock_exists.return_value = True
+    mock_read.return_value = "Resolved: ${file}"
+
+    # Simulate pyperclip failing due to missing external command (e.g., clip.exe).
+    mock_copy.side_effect = FileNotFoundError("clip.exe")
+
+    # Simulate that no fallback clipboard tools are available.
+    mock_which.return_value = None
+
+    captured_out = StringIO()
+    captured_err = StringIO()
+    with patch.object(sys, "argv", ["prog"]):
+        with patch.object(sys, "stdout", captured_out):
+            with patch.object(sys, "stderr", captured_err):
+                main()
+
+    assert "Resolved: src/main.py" in captured_out.getvalue()
+    assert "Clipboard copy not available" in captured_err.getvalue()

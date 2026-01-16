@@ -1099,6 +1099,7 @@ class TestRunCopilot:
 
         captured_argv: list[str] = []
         captured_stdin: str | None = None
+        captured_stdin_was_provided = False
 
         class MockStdout:
             def read(self, size: int = -1) -> bytes:
@@ -1109,9 +1110,13 @@ class TestRunCopilot:
                 self, argv: list[str], *args: object, **kwargs: object
             ) -> None:
                 nonlocal captured_stdin
+                nonlocal captured_stdin_was_provided
                 captured_argv.extend(argv)
                 # Capture stdin content if provided
                 stdin_arg = kwargs.get("stdin")
+                captured_stdin_was_provided = (
+                    "stdin" in kwargs and stdin_arg is not None
+                )
                 if stdin_arg and hasattr(stdin_arg, "read"):
                     # Type narrowing: we know it has a read method and returns bytes
                     raw_content = stdin_arg.read()  # type: ignore[union-attr]
@@ -1142,18 +1147,109 @@ class TestRunCopilot:
             run_id="2026-01-07_000000",
         )
 
+        expected_prompt_file = (
+            log_file.parent / "prompts" / "prompt_2026-01-07_000000_P1-T1.md"
+        )
+        assert expected_prompt_file.exists()
+        assert expected_prompt_file.read_text(encoding="utf-8") == "test prompt"
+
         assert captured_argv[0] == str(fake_copilot)
         assert "--model" in captured_argv
         assert "gpt-5.1-codex-max" in captured_argv
         assert "--session-path" not in captured_argv
-        # Prompt should be passed via stdin, not command-line
-        assert "-p" not in captured_argv
-        assert "test prompt" not in captured_argv
-        # But stdin should contain the prompt
-        assert captured_stdin == "test prompt"
+        # Prompt must be passed via programmatic mode (-p/--prompt) with an @path
+        # reference to the on-disk prompt file.
+        assert "-p" in captured_argv or "--prompt" in captured_argv
+        prompt_flag = "-p" if "-p" in captured_argv else "--prompt"
+        prompt_idx = captured_argv.index(prompt_flag)
+        prompt_value = captured_argv[prompt_idx + 1]
+        assert f"@{expected_prompt_file}" in prompt_value
+
+        # Prompt must NOT be provided via stdin.
+        assert captured_stdin_was_provided is False
+        assert captured_stdin is None
         assert "--share" in captured_argv
         assert "--allow-tool" in captured_argv
         assert "write" in captured_argv
+
+        # Tool approvals required for headless QC must remain present.
+        assert "shell(poetry)" in captured_argv
+        assert "shell(git)" in captured_argv
+
+    def test_run_copilot_permission_denied_fails_fast_with_actionable_error(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() raises promptly when Copilot reports a permission denial."""
+
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        # Create a fake copilot executable on PATH.
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_copilot = fake_bin / "copilot.exe"
+        fake_copilot.write_text("@echo fake copilot")
+        monkeypatch.setenv("PATH", str(fake_bin))
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
+
+        captured_argv: list[str] = []
+
+        permission_denied = (
+            "Permission denied and could not request permission from user"
+        )
+
+        class MockStdout:
+            def __init__(self) -> None:
+                self._chunks = [permission_denied.encode("utf-8"), b""]
+
+            def read(self, size: int = -1) -> bytes:
+                return self._chunks.pop(0) if self._chunks else b""
+
+            def read1(self, size: int = -1) -> bytes:
+                return self.read(size)
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                captured_argv.extend(argv)
+                self.stdout = MockStdout()
+                self.returncode = 1
+
+            def poll(self) -> int:
+                return 1
+
+            def wait(self, timeout: float | None = None) -> int:
+                return 1
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
+
+        log_file = tmp_path / "test.log"
+
+        with pytest.raises(RuntimeError) as exc_info:
+            run_copilot(
+                workspace=tmp_path,
+                prompt_text="test prompt",
+                log_file=log_file,
+                task_id="P1-T1",
+                preferred_model="gpt-5.1-codex-max",
+                run_id="2026-01-07_000000",
+            )
+
+        error_text = str(exc_info.value)
+        assert permission_denied in error_text
+        assert "copilot" in error_text.lower()
+        assert "-p" in error_text or "--prompt" in error_text
+        assert "--allow-tool" in error_text
+        assert "write" in error_text
+        assert "shell(poetry)" in error_text
+        assert "shell(git)" in error_text
+
+        # Sanity check the argv we actually attempted to run.
+        assert captured_argv
+        assert captured_argv[0] == str(fake_copilot)
 
     def test_run_copilot_reuses_session_when_requested(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"

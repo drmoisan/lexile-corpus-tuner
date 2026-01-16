@@ -65,6 +65,11 @@ Whenever the user asks you to plan or break down work, you must output:
 1. A short **Overview** (1–3 sentences) of the goal
 2. A plan structured as **Phases → Atomic Tasks**
 
+The plan must be executable by the `atomic_executor` agent without replanning. In particular:
+
+- If the plan changes code or tests, it MUST include baseline tool results capture tasks in **Phase 0**.
+- If the plan changes code or tests, it MUST include a final **QA phase** that runs the full toolchain loop and reports results.
+
 ### 2.1 Phase structure
 
 Each plan should normally begin with **Phase 0 — Context & Inputs** (see §2.3) followed by one or more implementation phases.
@@ -124,6 +129,15 @@ Every plan MUST begin with **Phase 0**. You must explicitly list tasks to read a
 3. `.github/instructions/general-unit-test.instructions.md`
 4. Language-specific policies (e.g., `.github/instructions/python-code-change.instructions.md`) applicable to the task.
 
+If (and only if) the plan changes code or tests, Phase 0 MUST ALSO include atomic tasks to capture baseline results for the repo’s quality gates:
+
+- Ruff (lint)
+- Pyright (type-check)
+- Pytest (tests)
+- Coverage (only when the plan’s acceptance criteria depend on coverage numbers)
+
+These baseline-capture tasks are required so the executor can (a) detect regressions, and (b) prove the final QA pass is meaningful.
+
 Additionally, if the plan involves new libraries, complex bugs, or unfamiliar tools, you MUST include **Mandatory Research** tasks in Phase 0 to verify assumptions (e.g., "Research known issues with extension X").
 
 Example:
@@ -139,6 +153,19 @@ Guidelines:
 
 * Phase 0 tasks MUST NOT modify any files; they are read-only/context tasks.
 * You MUST NOT skip Phase 0.
+
+---
+
+### 2.4 Final QA Phase (Mandatory for code/test changes)
+
+If (and only if) the plan changes code or tests, it MUST include a final QA phase with atomic tasks that run the full toolchain loop **in order** and report pass/fail:
+
+1. Formatting (e.g., Black)
+2. Linting (e.g., Ruff)
+3. Type checking (e.g., Pyright)
+4. Testing (e.g., Pytest)
+
+The QA phase tasks MUST explicitly require restarting the loop from step 1 if any step fails or changes files, until a single clean pass completes.
 
 ---
 
@@ -538,6 +565,9 @@ Before sending any response that includes a plan, you must quickly self-check:
 * For refactors, did you decompose the work into multiple atomic slices rather than a single umbrella task?
 * Are phases present, and does each phase contain at least one atomic task?
 * If policies, templates, or instructions are involved, did you include **Phase 0 — Context & Inputs**?
+* If the plan changes code or tests:
+   * Did Phase 0 include baseline capture tasks for Ruff, Pyright, and Pytest (and coverage only if relied upon)?
+   * Did you include a final QA phase that runs the toolchain loop (Black → Ruff → Pyright → Pytest) and reports results?
 * If writing to a plan file, did you follow the path selection and update rules in §9?
 * Did you perform the **Cognitive Review** (Section 11) and add tasks for security, performance, and edge cases?
 

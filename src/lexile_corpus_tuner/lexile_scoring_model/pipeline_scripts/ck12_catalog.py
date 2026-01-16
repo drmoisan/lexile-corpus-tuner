@@ -7,13 +7,12 @@ Purpose:
     breaking contracts.
 
 Usage:
-    Future implementations will call `fetch_catalog_page` to retrieve HTML,
-    pass the result to `parse_catalog_rows`, and persist entries via
-    `write_catalog_jsonl`. The `build_ck12_catalog` CLI will orchestrate those
-    steps for pipeline operators.
+    Call `fetch_catalog_page` to retrieve Browse API JSON, pass the result to
+    `parse_catalog_json`, and persist entries via `write_catalog_jsonl`. The
+    `build_ck12_catalog` CLI orchestrates those steps for pipeline operators.
 
 Flow:
-    1) Fetch CK-12 catalog HTML from the FlexBook browse endpoint.
+    1) Fetch CK-12 catalog JSON from the FlexBook browse endpoint.
     2) Parse book rows into `CatalogEntry` models with stable identifiers.
     3) Write deterministic JSONL output for later enrichment and curation.
 
@@ -23,27 +22,22 @@ Invariants / Constraints:
     - Network requests and filesystem writes must be wrapped for testability.
 
 Side Effects:
-    Implementation will perform HTTP requests and filesystem writes; this stub
-    performs no I/O.
+    Performs HTTP requests and filesystem writes when invoked via CLI.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlparse
+from typing import Any, cast
 
 import requests
 import typer
 
 from .oer_models import CatalogEntry, generate_stable_slug
 
-# CK-12 catalog is a static JSON file hosted on S3/CloudFront
-# Discovered via browser DevTools inspection of bundle.js (Issue #73, January 2026)
-# The endpoint was found by downloading the site's bundle.js, extracting API patterns,
-# and identifying this stable JSON catalog endpoint containing all FlexBook metadata.
-DEFAULT_CK12_CATALOG_URL = "https://static.ck12.org/testimonial/fbbrowse-prod.json"
+# CK-12 Browse API endpoint returns FlexBook metadata (Issue #73 spec)
+DEFAULT_CK12_CATALOG_URL = "https://www.ck12.org/flx/browse/flexbook?limit=200"
 REQUEST_TIMEOUT_SECONDS = 30
 
 # HTTP headers to mimic a real browser and avoid 403 Forbidden (Issue #73)
@@ -53,13 +47,12 @@ REQUEST_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/131.0.0.0 Safari/537.36"
     ),
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9," "image/webp,*/*;q=0.8"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.ck12.org/",
+    "Origin": "https://www.ck12.org",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
 }
 
 app = typer.Typer(
@@ -72,9 +65,8 @@ def fetch_catalog_page(url: str) -> dict[str, Any]:
     Retrieve the CK-12 catalog JSON for subsequent parsing.
 
     Purpose:
-        Fetch the static JSON file containing the complete CK-12 FlexBook catalog.
-        The JSON endpoint was discovered via browser DevTools inspection (Issue #73).
-        Includes browser-like headers to avoid 403 Forbidden responses.
+         Fetch the Browse API JSON containing the CK-12 FlexBook catalog using the
+         required browser-like headers to avoid 403 Forbidden responses.
 
     Args:
         url (str): Fully-qualified catalog JSON URL to fetch.
@@ -94,12 +86,21 @@ def fetch_catalog_page(url: str) -> dict[str, Any]:
             url, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT_SECONDS
         )
         response.raise_for_status()
-        return response.json()
+        json_data = response.json()
+        if not isinstance(json_data, dict):
+            raise RuntimeError(
+                f"Unexpected CK-12 catalog payload type {type(json_data)} from {url}"
+            )
+        return cast(dict[str, Any], json_data)
     except requests.Timeout as exc:
         raise RuntimeError(
             f"Timed out while fetching CK-12 catalog from {url}"
         ) from exc
-    except requests.JSONDecodeError as exc:
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Invalid JSON received from CK-12 catalog at {url}"
+        ) from exc
+    except ValueError as exc:
         raise RuntimeError(
             f"Invalid JSON received from CK-12 catalog at {url}"
         ) from exc
@@ -117,8 +118,10 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
         operate on consistent data.
 
     Args:
-        catalog_data (dict[str, Any]): JSON catalog data from CK-12 endpoint.
-            Expected structure: {"books": [{"Title": "...", "Content_URL": "..."}]}
+        catalog_data (dict[str, Any]): JSON catalog data from CK-12 Browse API.
+            Expected structures include:
+                - {"books": [{...}]}
+                - {"response": {"items": [{...}]}}
 
     Returns:
         list[CatalogEntry]: Parsed catalog entries in JSON order.
@@ -132,8 +135,18 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
     entries: list[CatalogEntry] = []
     seen_ids: set[str] = set()
 
-    # The JSON has a "books" key containing the list of FlexBooks
-    books_raw = catalog_data.get("books", [])
+    # Locate the list of FlexBooks in either the legacy "books" key or the
+    # Browse API "response.items" shape.
+    books_raw: object | None = catalog_data.get("books")
+    if books_raw is None:
+        response_obj = catalog_data.get("response")
+        if isinstance(response_obj, dict):
+            # Treat nested JSON objects as dict[str, Any] so `dict.get()` is typed and
+            # downstream parsing can narrow values safely.
+            response_dict = cast(dict[str, Any], response_obj)
+            books_raw = response_dict.get("items") or response_dict.get("books")
+    if books_raw is None:
+        books_raw = []
 
     if not isinstance(books_raw, list):
         raise ValueError(
@@ -141,34 +154,45 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
         )
 
     # Type cast to help Pyright understand this is a list of dicts
-    books: list[dict[str, object]] = books_raw  # type: ignore[assignment]
+    books = cast(list[dict[str, object]], books_raw)
 
+    # Convert each Browse API item into a CatalogEntry using canonical handles.
+    # Filter out rows that are missing required identifiers to keep output
+    # deterministic.
     for book in books:
-        # Extract book URL from Content_URL field
-        # CK-12 uses both /cbook/ (FlexBooks) and /book/ (older format) patterns
-        book_url_raw = book.get("Content_URL", "")
-        if not isinstance(book_url_raw, str):
+        artifact_id = book.get("artifactID") or book.get("artifactId")
+        artifact_type = book.get("artifactType") or book.get("artifact_type")
+        handle_raw = book.get("handle", "")
+
+        if not isinstance(artifact_id, int | str) or str(artifact_id) == "":
             continue
-        book_url: str = book_url_raw
+        if not isinstance(artifact_type, str) or not artifact_type:
+            continue
+        if not isinstance(handle_raw, str) or not handle_raw:
+            continue
+        handle: str = handle_raw
 
-        if not book_url or ("/cbook/" not in book_url and "/book/" not in book_url):
-            continue  # Skip entries without valid book URLs
-
-        # Generate stable identifier from URL slug
-        slug = _extract_slug_from_url(book_url)
-        identifier = generate_stable_slug(slug)
+        identifier = generate_stable_slug(handle)
         if identifier in seen_ids:
             continue
 
-        # Extract title and metadata from JSON fields
-        title_raw = book.get("Title", slug)
-        title: str = title_raw if isinstance(title_raw, str) else slug
-
-        language_code_raw = book.get("Language_Code", "")
-        language_code: str = (
-            language_code_raw if isinstance(language_code_raw, str) else ""
+        # Extract title and metadata from JSON fields, defaulting to the identifier
+        # so missing titles remain deterministic.
+        title_raw = (
+            book.get("Title") or book.get("title") or book.get("name") or identifier
         )
-        language_list: list[str] = [language_code] if language_code else []
+        title: str = title_raw if isinstance(title_raw, str) else identifier
+
+        language_list: list[str] = []
+        language_field = book.get("Language_Code") or book.get("language")
+        if isinstance(language_field, str) and language_field:
+            language_list = [language_field]
+        elif isinstance(language_field, list):
+            # Preserve language codes provided as a list without altering order.
+            raw_lang_list = cast(list[object], language_field)
+            language_list = [
+                lang for lang in raw_lang_list if isinstance(lang, str) and lang
+            ]
 
         entries.append(
             CatalogEntry(
@@ -184,34 +208,6 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
         seen_ids.add(identifier)
 
     return entries
-
-
-def _extract_slug_from_url(url: str) -> str:
-    """
-    Pull the terminal path segment from a CK-12 FlexBook URL.
-
-    Purpose:
-        Normalize FlexBook URLs into stable slug seeds before passing through
-        `generate_stable_slug`, guaranteeing deterministic identifiers.
-
-    Args:
-        url (str): Absolute or relative FlexBook URL.
-
-    Returns:
-        str: The last non-empty path segment to be slugified.
-
-    Raises:
-        ValueError: When no valid path segment is present.
-    """
-    parsed = urlparse(url)
-    # Extract the last non-empty segment from the path.
-    segments = [segment for segment in parsed.path.split("/") if segment]
-    if not segments:
-        raise ValueError(f"CK-12 URL missing path segment: {url}")
-    slug = segments[-1]
-    if not slug:
-        raise ValueError(f"CK-12 URL missing slug: {url}")
-    return slug
 
 
 def write_catalog_jsonl(rows: list[CatalogEntry], path: Path) -> None:
@@ -236,6 +232,7 @@ def write_catalog_jsonl(rows: list[CatalogEntry], path: Path) -> None:
         Creates parent directories as needed and replaces any existing file via
         a temporary write + rename to avoid partial output.
     """
+    # Keep output deterministic by sorting identifiers and titles before writing.
     ordered_rows = sorted(rows, key=lambda entry: (entry.identifier, entry.title or ""))
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(path.suffix + ".tmp")
@@ -252,6 +249,7 @@ def write_catalog_jsonl(rows: list[CatalogEntry], path: Path) -> None:
                         "year": entry.year,
                         "language": entry.language,
                         "license_url": entry.license_url,
+                        # Serialize download candidates to dictionaries for JSON output.
                         "download_candidates": [
                             candidate.__dict__
                             for candidate in entry.download_candidates

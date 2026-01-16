@@ -776,12 +776,14 @@
         "python",
         "-m",
         "scripts.dev_tools.atomic_executor.cli",
-        "execute",
+        "execute-all",
         "${input:AtomicFeaturePath}",
         "--workspace",
         "${workspaceFolder}",
         "--preferred-model",
-        "${input:AtomicPreferredModel}"
+        "${input:AtomicPreferredModel}",
+        "--max-fix-attempts",
+        "10"
       ],
       "command": "poetry",
       "detail": "Starts the atomic executor with prompts for feature folder and preferred model.",

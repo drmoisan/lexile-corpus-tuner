@@ -45,37 +45,42 @@
 ## Implementation Plan (Atomic Tasks, TDD-Ordered)
 
 **Phase 0 — Context & Inputs**
-- [ ] [P0-T1] Read the repo policies in this order: `.github/copilot-instructions.md`, `.github/instructions/general-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, then `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`
+- [x] [P0-T1] Read the repo policies in this order: `.github/copilot-instructions.md`, `.github/instructions/general-code-change.instructions.md`, `.github/instructions/general-unit-test.instructions.md`, then `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`
   - Acceptance: Notes include a timestamp and any constraints that impact this feature (e.g., no external network in unit tests).
-- [ ] [P0-T2] Re-read [`spec.md`](spec.md) and record the required CK-12 API endpoints + header set to be implemented
+  - Notes: 2026-01-11T05:24:31Z — apply general + Python code/unit-test policies; no external network in unit tests; mandatory robust docstrings and intent comments per repo guidance.
+- [x] [P0-T2] Re-read [`spec.md`](spec.md) and record the required CK-12 API endpoints + header set to be implemented
   - Acceptance: Notes list Browse, Perma, Revision Detail endpoints and the required headers from the spec.
-- [ ] [P0-T3] Inspect current CK-12 modules (`src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py`, `ck12_enrichment.py`) and list each spec mismatch
+  - Notes: Browse `https://www.ck12.org/flx/browse/flexbook?limit=200`; Perma `https://www.ck12.org/flx/get/perma/<artifactType>/<handle>`; Revision Detail `https://www.ck12.org/flx/get/detail/revision/<revisionID>?tiny=true`; Required headers — `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36`, `Accept: application/json, text/plain, */*`, `Referer: https://www.ck12.org/`, `Origin: https://www.ck12.org`, `Sec-Fetch-Dest: empty`, `Sec-Fetch-Mode: cors`, `Sec-Fetch-Site: same-origin`.
+- [x] [P0-T3] Inspect current CK-12 modules (`src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py`, `ck12_enrichment.py`) and list each spec mismatch
   - Acceptance: Notes enumerate mismatches and identify the exact functions to replace or retire.
-- [ ] [P0-T4] Confirm dependency state for XHTML extraction by checking `pyproject.toml` for `beautifulsoup4`, `types-beautifulsoup4`, and `lxml`
+  - Notes: 2026-01-11T05:31:00Z — ck12_catalog currently pulls a static S3 JSON (`DEFAULT_CK12_CATALOG_URL`) instead of the Browse API; headers are HTML-focused and lack the required JSON/CORS set; identifiers come from vanity URL slugs via `_extract_slug_from_url` rather than canonical `handle`; catalog parsing expects `books[*].Content_URL`/`Title` and never includes `artifactID`/`artifactType`/`handle` or `download_candidates`; `build_ck12_catalog`, `fetch_catalog_page`, `parse_catalog_json`, `_extract_slug_from_url` need replacement with Browse API fetch/parse + handle-based slug derivation. ck12_enrichment is HTML/PDF oriented: `fetch_flexbook_html`, `parse_flexbook_metadata`, `extract_pdf_url`, `_build_flexbook_url`, `enrich_entry_logic`, `enrich_ck12_catalog` all assume FlexBook HTML + PDF candidates and ignore Perma/Revision APIs; no browser-like JSON headers, no revision-ID extraction, and download candidates are PDFs instead of revision JSON—these functions need to be retired/replaced with Perma fetch + revision traversal and JSON candidates.
+- [x] [P0-T4] Confirm dependency state for XHTML extraction by checking `pyproject.toml` for `beautifulsoup4`, `types-beautifulsoup4`, and `lxml`
   - Acceptance: Notes confirm whether `lxml` must be added.
-- [ ] [P0-T5] Read the feature template spec (`docs/features/templates/feature/spec.md`) and confirm this plan follows required structure/sections
+- [x] [P0-T5] Read the feature template spec (`docs/features/templates/feature/spec.md`) and confirm this plan follows required structure/sections
   - Acceptance: Notes list any template-required sections that need updates in [`spec.md`](spec.md) or [`user-story.md`](user-story.md).
-- [ ] [P0-T6] Re-read [`user-story.md`](user-story.md) and confirm each acceptance criterion is mapped to a phase in this plan
+  - Notes: 2026-01-11T05:37:45Z — Template requires Overview, Behavior, Inputs/Outputs, API/CLI Surface, Data & State, Constraints & Risks, Definition of Done; `spec.md` includes all of them (no gaps). No template-driven changes needed for `user-story.md`.
+- [x] [P0-T6] Re-read [`user-story.md`](user-story.md) and confirm each acceptance criterion is mapped to a phase in this plan
   - Acceptance: Notes link each acceptance criterion to Phase 1–6 tasks.
+  - Notes: 2026-01-11T05:31:30Z — Catalog builder criterion → Phase 1 (CK-12 Browse API) with OpenStax catalog verified in Phase 8 dry run; Curation filter criterion → Phase 3; Manifest emission/content-type criterion → Phase 4; Download retrieval criterion → Phase 5 header injection validated by Phase 8 download run; CK-12 extract/normalize criterion → Phase 6 extraction plus Phase 8 normalization run.
 
 **Phase 1 — CK-12 Catalog via Browse API (tests first)**
-- [ ] [P1-T1] Add unit test: Browse API JSON is parsed into catalog entries with `identifier` derived from canonical `handle` in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
+- [x] [P1-T1] Add unit test: Browse API JSON is parsed into catalog entries with `identifier` derived from canonical `handle` in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
   - Scenario gate: Given an item with `handle="CK-12-Physics-FlexBook-2.0"`, expect identifier `"ck-12-physics-flexbook-2-0"`.
   - Acceptance: Test fails against current implementation.
-- [ ] [P1-T2] Add unit test: catalog parser ignores/filters entries missing `artifactID`, `artifactType`, or `handle` in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
+- [x] [P1-T2] Add unit test: catalog parser ignores/filters entries missing `artifactID`, `artifactType`, or `handle` in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
   - Scenario gate: Missing required fields → excluded from output deterministically.
-- [ ] [P1-T3] Add unit test: Browse fetch uses the `/flx/browse/flexbook?limit=200` endpoint and sends required browser-like headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
+- [x] [P1-T3] Add unit test: Browse fetch uses the `/flx/browse/flexbook?limit=200` endpoint and sends required browser-like headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py)
   - Scenario gate: request URL matches spec; headers include `User-Agent`, `Accept: application/json...`, `Referer`, `Origin`, `Sec-Fetch-*`.
-- [ ] [P1-T4] Implement Browse API fetch + parse in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py) to make [P1-T1..T3] pass
+- [x] [P1-T4] Implement Browse API fetch + parse in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py) to make [P1-T1..T3] pass
   - Acceptance: The tests from [P1-T1..T3] pass.
-- [ ] [P1-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [x] [P1-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 2 — CK-12 Enrichment via Perma API (tests first)**
-- [ ] [P2-T1] Add unit test: Perma API response yields section revision IDs as download candidates in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
+- [x] [P2-T1] Add unit test: Perma API response yields section revision IDs as download candidates in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: Nested `revisions[0].children[*].revisions[0].children[*].revisionID` values become candidates.
   - Acceptance: Test fails against current implementation.
-- [ ] [P2-T2] Add unit test: enrichment uses Perma API path `/flx/get/perma/<artifactType>/<handle>` and sends required headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
+- [x] [P2-T2] Add unit test: enrichment uses Perma API path `/flx/get/perma/<artifactType>/<handle>` and sends required headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: request URL uses canonical `artifactType` + `handle` from catalog; headers match spec.
 - [ ] [P2-T3] Add unit test: enrichment records zero candidates (and a skip reason surfaced to caller/CLI) when Perma JSON lacks revisions/children in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: missing hierarchy → no candidates; processing continues.

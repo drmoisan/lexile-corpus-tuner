@@ -8,12 +8,79 @@ Builds prompts by combining a template with resolved feature folder context
 from __future__ import annotations
 
 from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
+from scripts.dev_tools.atomic_executor.plan_discovery import (
+    ResolvedPlan,
+    resolve_feature_plan,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
+
+
+class PromptBuilderFileSystem(Protocol):
+    """
+    Protocol for filesystem operations used by PromptBuilder.
+
+    Purpose:
+        Abstracts file system operations to enable in-memory testing without
+        temporary files, satisfying the repo policy that prohibits tmp_path usage.
+
+    Usage:
+        Implement this protocol with RealPromptBuilderFileSystem for production
+        or InMemoryPromptBuilderFileSystem for tests.
+
+    Invariants:
+        - All path arguments are Path objects.
+        - read_text raises FileNotFoundError if the path does not exist.
+    """
+
+    def is_file(self, path: Path) -> bool:
+        """Check if path exists and is a file."""
+        ...
+
+    def is_dir(self, path: Path) -> bool:
+        """Check if path exists and is a directory."""
+        ...
+
+    def read_text(self, path: Path) -> str:
+        """Read text content from path. Raises FileNotFoundError if missing."""
+        ...
+
+    def glob(self, directory: Path, pattern: str) -> list[Path]:
+        """Return sorted list of paths matching pattern under directory."""
+        ...
+
+
+class RealPromptBuilderFileSystem:
+    """
+    Real filesystem implementation of PromptBuilderFileSystem.
+
+    Purpose:
+        Delegates to actual Path methods for production use.
+
+    Usage:
+        Used as the default filesystem in PromptBuilder when no fs is injected.
+    """
+
+    def is_file(self, path: Path) -> bool:
+        """Check if path exists and is a file."""
+        return path.is_file()
+
+    def is_dir(self, path: Path) -> bool:
+        """Check if path exists and is a directory."""
+        return path.is_dir()
+
+    def read_text(self, path: Path) -> str:
+        """Read text content from path. Raises FileNotFoundError if missing."""
+        return path.read_text(encoding="utf-8")
+
+    def glob(self, directory: Path, pattern: str) -> list[Path]:
+        """Return sorted list of paths matching pattern under directory."""
+        return sorted(directory.glob(pattern))
 
 
 class PromptBuilder:
@@ -40,11 +107,23 @@ class PromptBuilder:
         - user-story.md is optional
 
     Side Effects:
-        - Reads from disk (template, plan, spec, story files)
+        - Reads from disk (template, plan, spec, story files) via injected fs.
+
+    Attributes:
+        workspace (Path): Repository root directory.
+        template_path (Path): Path to prompt template file.
+        preferred_model (str | None): Preferred AI model name for execution.
+        _fs (PromptBuilderFileSystem): Filesystem abstraction for I/O operations.
+        _plan_resolver (Callable[[Path], ResolvedPlan]): Function to resolve plan file.
     """
 
     def __init__(
-        self, workspace: Path, template_path: Path, preferred_model: str | None = None
+        self,
+        workspace: Path,
+        template_path: Path,
+        preferred_model: str | None = None,
+        fs: PromptBuilderFileSystem | None = None,
+        plan_resolver: Callable[[Path], ResolvedPlan] | None = None,
     ) -> None:
         """
         Initialize the prompt builder with template path.
@@ -53,11 +132,20 @@ class PromptBuilder:
             workspace (Path): Repository root directory.
             template_path (Path): Path to prompt template file.
             preferred_model (str | None): Preferred AI model name for execution.
+            fs (PromptBuilderFileSystem | None): Filesystem abstraction. Defaults
+                to RealPromptBuilderFileSystem for production use.
+            plan_resolver (Callable[[Path], ResolvedPlan] | None): Function to
+                resolve the plan file from a feature directory. Defaults to
+                resolve_feature_plan.
 
         Raises:
             FileNotFoundError: If template_path does not exist.
         """
-        if not template_path.is_file():
+        self._fs: PromptBuilderFileSystem = fs or RealPromptBuilderFileSystem()
+        self._plan_resolver: Callable[[Path], ResolvedPlan] = (
+            plan_resolver or resolve_feature_plan
+        )
+        if not self._fs.is_file(template_path):
             raise FileNotFoundError(f"Prompt template not found: {template_path}")
         self.workspace = workspace
         self.template_path = template_path
@@ -87,21 +175,21 @@ class PromptBuilder:
             FileNotFoundError: If required files (plan.md, spec.md) missing.
 
         Side Effects:
-            Reads from disk (template, plan, spec, story files).
+            Reads from disk (template, plan, spec, story files) via injected fs.
         """
         template = self._read_text(self.template_path)
 
-        resolved_plan = resolve_feature_plan(feature_dir)
+        resolved_plan = self._plan_resolver(feature_dir)
         plan_path = resolved_plan.path
         spec_path = feature_dir / "spec.md"
         story_path = feature_dir / "user-story.md"
 
-        if not spec_path.is_file():
+        if not self._fs.is_file(spec_path):
             raise FileNotFoundError(f"Missing required spec.md: {spec_path}")
 
         plan_text = self._read_text(plan_path)
         spec_text = self._read_text(spec_path)
-        story_text = self._read_text(story_path) if story_path.is_file() else ""
+        story_text = self._read_text(story_path) if self._fs.is_file(story_path) else ""
 
         retry_section = ""
         if retry_context:
@@ -120,26 +208,27 @@ previous_errors:
         model_section = ""
         if self.preferred_model:
             model_section = f"""
----- IMPORTANT: Model Selection ----
+---- Preferred Model ----
 
-Before executing this task, please use the `/model` command in GitHub Copilot CLI
-to select the preferred model:
+Preferred Model: {self.preferred_model}
 
-  Preferred Model: {self.preferred_model}
+This execution uses model "{self.preferred_model}" for task completion.
 
-To set this model:
-1. Enter `/model` in the Copilot CLI interactive session
-2. Select "{self.preferred_model}" from the list
-3. Press Enter to confirm
-
-Once the model is selected, you may proceed with the task execution.
-
----- END Model Selection ----
+---- END Preferred Model ----
 """  # noqa: S608 - template text for user instructions, not SQL
 
         # Basic token replacement for template variables
         agent_name = "GitHub Copilot"
-        feature_name = feature_dir.name
+
+        # Compute feature name as relative path from workspace/docs/features/active/
+        # (REQ-004 compliance: use full relative path, not just feature_dir.name)
+        active_root = self.workspace / "docs" / "features" / "active"
+        try:
+            feature_name = feature_dir.relative_to(active_root).as_posix()
+        except ValueError:
+            # Fall back to just the directory name if not under active root
+            feature_name = feature_dir.name
+
         template = template.replace("<agent>", agent_name).replace(
             "<feature>", feature_name
         )
@@ -151,15 +240,17 @@ Once the model is selected, you may proceed with the task execution.
         copilot_instructions_path = (
             self.workspace / ".github" / "copilot-instructions.md"
         )
-        if copilot_instructions_path.is_file():
+        if self._fs.is_file(copilot_instructions_path):
             instructions.append(
                 ("copilot-instructions.md", self._read_text(copilot_instructions_path))
             )
 
         # Auto-discover all *.instructions.md files in .github/instructions/
         instructions_dir = self.workspace / ".github" / "instructions"
-        if instructions_dir.is_dir():
-            for instruction_file in sorted(instructions_dir.glob("*.instructions.md")):
+        if self._fs.is_dir(instructions_dir):
+            for instruction_file in self._fs.glob(
+                instructions_dir, "*.instructions.md"
+            ):
                 instructions.append(
                     (instruction_file.name, self._read_text(instruction_file))
                 )
@@ -180,10 +271,13 @@ Constraints:
 - You must run the task-step toolchain for changed files, fix any failures,
   and rerun until all checks pass in this Copilot session before you declare
   the task complete:
-  - poetry run black --check <changed .py files>
-  - poetry run ruff check <changed .py files>
-  - poetry run pyright <changed .py files>
-  - poetry run pytest <changed test files>   (only if tests changed)
+  If any python -m poetry command fails, retry the same command with python3 -m poetry.
+  - python -m poetry run black .
+  - python -m poetry run ruff check
+  - python -m poetry run pyright
+  - python -m poetry run pytest \\
+      --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools \\
+      --cov-report=term-missing
 
 ---- BEGIN repo instructions ----
 {self._format_instructions(instructions)}
@@ -214,8 +308,8 @@ Plan file on disk: {resolved_plan.update_filename}
         return template + appended
 
     def _read_text(self, path: Path) -> str:
-        """Read text file from disk."""
-        return path.read_text(encoding="utf-8")
+        """Read text file via injected filesystem abstraction."""
+        return self._fs.read_text(path)
 
     def _format_instructions(self, instructions: list[tuple[str, str]]) -> str:
         """Render instruction files into labeled sections."""
