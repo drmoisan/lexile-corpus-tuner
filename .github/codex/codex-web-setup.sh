@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# ------------------------------------------------------------------------------
+# codex-web-setup.sh
+#
+# Purpose:
+#   Bootstrap the Codex web environment to match the local devcontainer tooling.
+#   This ensures CI/Codex runs have parity with local development.
+#
+# Parity target: .devcontainer/local/Dockerfile + devcontainer.json
+# ------------------------------------------------------------------------------
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -13,6 +22,17 @@ fi
 # Normalize to an absolute path
 REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
 export REPO_ROOT
+
+# ------------------------------------------------------------------------------
+# Version pins (keep in sync with Dockerfile)
+# ------------------------------------------------------------------------------
+POETRY_VERSION="2.2.1"
+PWSH_MIN_VERSION="7.4.0"
+PWSH_FALLBACK_VERSION="7.4.13"
+GRAPHITE_CLI_VERSION="1.7.14"
+COPILOT_CLI_VERSION="0.0.377"
+PSSA_VERSION="1.22.0"
+PESTER_VERSION="5.6.1"
 
 # Quick connectivity preflight to avoid long retries when PyPI is unreachable.
 check_pypi_connectivity() {
@@ -30,14 +50,90 @@ check_pypi_connectivity() {
   return 1
 }
 
+# ------------------------------------------------------------------------------
+# 0. System packages (match Dockerfile apt-get install)
+# ------------------------------------------------------------------------------
+install_system_packages() {
+  echo "Installing system packages for devcontainer parity..."
+
+  apt-get update -qq
+  apt-get install -y --no-install-recommends \
+    git \
+    wget \
+    curl \
+    apt-transport-https \
+    software-properties-common \
+    ca-certificates \
+    gnupg \
+    shellcheck \
+    shfmt \
+    autoconf \
+    automake \
+    build-essential \
+    texinfo \
+    wl-clipboard \
+    xclip \
+    nodejs \
+    npm
+
+  # Install bats-core for shell testing (developer-tooling.md mentions it)
+  if ! command -v bats >/dev/null 2>&1; then
+    echo "Installing bats-core for shell tests..."
+    npm install -g bats || echo "WARN: bats-core install failed; shell tests may be skipped"
+  fi
+}
+
+# Only run apt installs if we have root/sudo access
+if [ "$(id -u)" -eq 0 ] || command -v sudo >/dev/null 2>&1; then
+  if [ "$(id -u)" -ne 0 ]; then
+    # Re-exec with sudo for apt operations
+    sudo bash -c "$(declare -f install_system_packages); install_system_packages"
+  else
+    install_system_packages
+  fi
+else
+  echo "WARN: No root/sudo access; skipping system package installation"
+fi
+
+# ------------------------------------------------------------------------------
+# 0b. Build bashdb from source (not packaged for all Debian/Ubuntu bases)
+# ------------------------------------------------------------------------------
+install_bashdb() {
+  if command -v bashdb >/dev/null 2>&1; then
+    echo "bashdb already installed"
+    return 0
+  fi
+
+  echo "Building bashdb from source..."
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  git clone --depth 1 https://github.com/Trepan-Debuggers/bashdb "$tmpdir/bashdb"
+  cd "$tmpdir/bashdb"
+  bash ./autogen.sh
+  bash ./configure
+  make
+  make install
+  cd -
+  rm -rf "$tmpdir"
+  echo "bashdb installed successfully"
+}
+
+if [ "$(id -u)" -eq 0 ]; then
+  install_bashdb
+elif command -v sudo >/dev/null 2>&1; then
+  sudo bash -c "$(declare -f install_bashdb); install_bashdb"
+else
+  echo "WARN: No root/sudo access; skipping bashdb installation"
+fi
+
 #
-# 0. Ensure Poetry is available (reuse existing install to avoid extra PyPI traffic); prefer 2.2.1 if absent
+# 1. Ensure Poetry is available (reuse existing install to avoid extra PyPI traffic)
 #
 if command -v poetry >/dev/null 2>&1; then
   echo "Poetry present ($(poetry --version)); reusing existing installation."
 else
-  echo "Poetry not found; installing Poetry 2.2.1 (devcontainer baseline)..."
-  pip install --no-cache-dir "poetry==2.2.1"
+  echo "Poetry not found; installing Poetry ${POETRY_VERSION} (devcontainer baseline)..."
+  pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 fi
 
 #
@@ -93,7 +189,7 @@ fi
 # 2. Install/upgrade PowerShell with distro-aware selection (fall back to GitHub .deb)
 ensure_pwsh() {
   # Keep requirement aligned with devcontainer but allow the known-good 7.4.x fallback
-  local required="7.4.0"
+  local required="${PWSH_MIN_VERSION}"
 
   if command -v pwsh >/dev/null 2>&1; then
     local current
@@ -107,7 +203,7 @@ ensure_pwsh() {
     echo "pwsh not found; installing PowerShell..."
   fi
 
-  local os_id="" os_version="" repo_url="" fallback_version="7.4.13"
+  local os_id="" os_version="" repo_url="" fallback_version="${PWSH_FALLBACK_VERSION}"
   if [ -r /etc/os-release ]; then
     # shellcheck disable=SC1091
     . /etc/os-release
@@ -179,8 +275,8 @@ if command -v pwsh >/dev/null 2>&1; then
     }
 
     $required = @(
-      @{ Name = "PSScriptAnalyzer"; Version = "1.22.0" },
-      @{ Name = "Pester"; Version = "5.6.1" }
+      @{ Name = "PSScriptAnalyzer"; Version = "'"${PSSA_VERSION}"'" },
+      @{ Name = "Pester"; Version = "'"${PESTER_VERSION}"'" }
     )
 
     foreach ($module in $required) {
@@ -224,5 +320,55 @@ if ! command -v actionlint >/dev/null 2>&1; then
 else
   echo "actionlint already installed"
 fi
+
+#
+# 5. Install Graphite CLI (required for Graphite VS Code extension parity)
+#
+install_graphite_cli() {
+  if command -v gt >/dev/null 2>&1; then
+    echo "Graphite CLI already installed"
+    return 0
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "WARN: npm not available; skipping Graphite CLI installation"
+    return 0
+  fi
+
+  echo "Installing Graphite CLI v${GRAPHITE_CLI_VERSION}..."
+  npm install -g "@withgraphite/graphite-cli@${GRAPHITE_CLI_VERSION}" || {
+    echo "WARN: Graphite CLI install failed; non-blocking"
+  }
+}
+
+install_graphite_cli
+
+#
+# 6. Install GitHub Copilot CLI (real agentic CLI, not VS Code extension shim)
+#
+install_copilot_cli() {
+  if command -v github-copilot-cli >/dev/null 2>&1; then
+    echo "GitHub Copilot CLI already installed"
+    return 0
+  fi
+
+  echo "Installing GitHub Copilot CLI v${COPILOT_CLI_VERSION}..."
+  local install_prefix="/usr/local"
+
+  # Use sudo if available and not root
+  if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    wget -qO- https://gh.io/copilot-install | sudo VERSION="${COPILOT_CLI_VERSION}" PREFIX="${install_prefix}" bash || {
+      echo "WARN: GitHub Copilot CLI install failed; non-blocking"
+    }
+  elif [ "$(id -u)" -eq 0 ]; then
+    wget -qO- https://gh.io/copilot-install | VERSION="${COPILOT_CLI_VERSION}" PREFIX="${install_prefix}" bash || {
+      echo "WARN: GitHub Copilot CLI install failed; non-blocking"
+    }
+  else
+    echo "WARN: No root/sudo access; skipping GitHub Copilot CLI installation"
+  fi
+}
+
+install_copilot_cli
 
 echo "=== lexile-corpus-tuner setup: done ==="
