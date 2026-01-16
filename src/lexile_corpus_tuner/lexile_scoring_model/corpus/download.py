@@ -21,6 +21,18 @@ DEFAULT_SIMPLE_WIKI_URL = (
     "https://dumps.wikimedia.org/simplewiki/latest/"
     "simplewiki-latest-pages-articles.xml.bz2"
 )
+CK12_BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.ck12.org/",
+    "Origin": "https://www.ck12.org",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
 
 
 LOGGER = logging.getLogger(__name__)
@@ -103,6 +115,7 @@ def download_oer_sources() -> None:
         LOGGER.info("No sources listed in %s; nothing to download.", OER_MANIFEST)
         return
 
+    # Iterate over each manifest entry to place downloads in source-specific folders.
     for entry in sources:
         url = entry.get("url")
         source_id = (entry.get("source_id") or "oer").lower()
@@ -117,13 +130,18 @@ def download_oer_sources() -> None:
             LOGGER.info("Skipping %s (already downloaded).", dest)
             continue
         LOGGER.info("Downloading %s from %s", item_id, url)
+        headers = None
+        # CK-12 endpoints require browser-like headers for anonymous access;
+        # other sources use default request headers.
+        if source_id == "ck12":
+            headers = CK12_BROWSER_HEADERS
         try:
             if url.startswith("file://"):
                 _copy_local_file(Path(url[7:]), dest)
             elif Path(url).is_absolute():
                 _copy_local_file(Path(url), dest)
             else:
-                _download_file(url, dest)
+                _download_file(url, dest, headers=headers)
         except (requests.RequestException, OSError) as exc:
             LOGGER.error("Failed to download %s: %s", url, exc)
 

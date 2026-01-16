@@ -116,32 +116,32 @@
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 5 — Downloader: CK-12 Headers (tests first)**
-- [ ] [P5-T1] Add unit test: `_download_file` accepts optional headers and forwards them to `requests.get` (no `tmp_path`) in [tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py](../../../../tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py)
+- [x] [P5-T1] Add unit test: `_download_file` accepts optional headers and forwards them to `requests.get` (no `tmp_path`) in [tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py](../../../../tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py)
   - Scenario gate: when headers are provided, `requests.get(..., headers=headers)` is called.
   - Acceptance: Test uses monkeypatch + in-memory file objects; does not create temp files.
-- [ ] [P5-T2] Add unit test: `download_oer_sources` uses CK-12 browser-like headers when `source_id == "ck12"` (no `tmp_path`) in [tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py](../../../../tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py)
+- [x] [P5-T2] Add unit test: `download_oer_sources` uses CK-12 browser-like headers when `source_id == "ck12"` (no `tmp_path`) in [tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py](../../../../tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py)
   - Scenario gate: CK-12 entry triggers header injection; OpenStax does not.
   - Acceptance: Test uses monkeypatch + in-memory file objects; does not create temp files.
-- [ ] [P5-T3] Implement optional-header support in [src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py)
+- [x] [P5-T3] Implement optional-header support in [src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py)
   - Acceptance: [P5-T1] passes.
-- [ ] [P5-T4] Implement CK-12 header injection in `download_oer_sources` in [src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py)
+- [x] [P5-T4] Implement CK-12 header injection in `download_oer_sources` in [src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py)
   - Acceptance: [P5-T2] passes.
-- [ ] [P5-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py`
+- [x] [P5-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 6 — CK-12 JSON/XHTML/Text Extraction (tests first)**
-- [ ] [P6-T1] Add `lxml` dependency to `pyproject.toml` if not already present
+- [x] [P6-T1] Add `lxml` dependency to `pyproject.toml` if not already present
   - Acceptance: `poetry install` succeeds.
-- [ ] [P6-T2] If Pyright reports missing stubs for `lxml`, add the minimal typing support required (e.g., `lxml-stubs`) and re-run Pyright
+- [x] [P6-T2] If Pyright reports missing stubs for `lxml`, add the minimal typing support required (e.g., `lxml-stubs`) and re-run Pyright
   - Acceptance: `poetry run pyright` is green without broad ignores.
-- [ ] [P6-T3] Add a committed fixture CK-12 revision JSON containing `response.lesson.xhtml` in `tests/lexile_scoring_model/pipeline_scripts/fixtures/ck12_revision_with_xhtml.json`
+- [x] [P6-T3] Add a committed fixture CK-12 revision JSON containing `response.lesson.xhtml` in `tests/lexile_scoring_model/pipeline_scripts/fixtures/ck12_revision_with_xhtml.json`
   - Acceptance: Fixture is deterministic and contains enough XHTML to validate extraction order.
-- [ ] [P6-T4] Add unit test: extractor reads JSON, chooses `xhtml` when present, and emits non-empty text in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
+- [x] [P6-T4] Add unit test: extractor reads JSON, chooses `xhtml` when present, and emits non-empty text in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
   - Scenario gate: `xhtml` present → used; output text contains expected words.
   - Acceptance: Test fails against current implementation.
-- [ ] [P6-T5] Add unit test: extractor falls back to `xhtml_prime` when `xhtml` missing in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
+- [x] [P6-T5] Add unit test: extractor falls back to `xhtml_prime` when `xhtml` missing in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
   - Scenario gate: `xhtml` missing, `xhtml_prime` present → used.
-- [ ] [P6-T6] Add unit test: extractor logs and skips when both XHTML fields missing in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
+- [x] [P6-T6] Add unit test: extractor logs and skips when both XHTML fields missing in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
   - Scenario gate: missing fields → logged error; no output produced.
 - [ ] [P6-T7] Implement `extract_ck12_text` CLI in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py)
   - Acceptance: [P6-T4..T6] pass; BeautifulSoup uses `"lxml"` parser per spec.

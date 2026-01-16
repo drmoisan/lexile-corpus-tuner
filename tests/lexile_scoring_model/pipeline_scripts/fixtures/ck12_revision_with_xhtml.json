@@ -1,0 +1,11 @@
+{
+  "response": {
+    "lesson": {
+      "revisionID": 1234567,
+      "title": "Newtonian Motion",
+      "summary": "A brief overview of Newton's three laws of motion with simple examples.",
+      "xhtml": "<div class=\"lesson\"><h1>Newtonian Motion</h1><p>Motion begins with an introduction to forces.</p><ol><li>First law explains inertia.</li><li>Second law relates force, mass, and acceleration.</li><li>Third law covers equal and opposite reactions.</li></ol><p>Conclusion highlights how the laws combine to describe everyday motion.</p></div>",
+      "xhtml_prime": "<div class=\"lesson-prime\"><h1>Newtonian Motion (Prime)</h1><p>Prime version of the lesson content.</p></div>"
+    }
+  }
+}
