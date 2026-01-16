@@ -3,8 +3,10 @@
 - Issue: #83
 - Owner: drmoisan
 - Date: 2026-01-11
-- Status: Implemented
-- Last Updated: 2026-01-12
+- **Status:** Superseded by v2 (partial fix implemented; remediation required)
+- **Outcome:** Atomic executor uses Copilot CLI programmatic mode (`-p`) and can execute QC successfully in-session when Copilot uses `python -m poetry run ...`. Remaining permission-denied failures persist when prompts lead Copilot to execute Poetry entrypoints (`poetry ...`) that trigger Copilot CLI path-permission denial.
+- **Root Cause:** Copilot CLI path permission enforcement (including symlink resolution) blocks execution of the Poetry script entrypoint whose shebang resolves outside allowed paths; prompt generation also contains stale “interactive session” instructions (`/model`) and incorrect `<feature>` placeholder substitution.
+- Last Updated: 2026-01-14
 
 ## Context
 The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run shell commands during the agent session with the message: “Permission denied and could not request permission from user”. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.

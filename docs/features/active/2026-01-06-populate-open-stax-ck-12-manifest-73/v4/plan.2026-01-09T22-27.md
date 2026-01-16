@@ -82,37 +82,37 @@
   - Acceptance: Test fails against current implementation.
 - [x] [P2-T2] Add unit test: enrichment uses Perma API path `/flx/get/perma/<artifactType>/<handle>` and sends required headers in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: request URL uses canonical `artifactType` + `handle` from catalog; headers match spec.
-- [ ] [P2-T3] Add unit test: enrichment records zero candidates (and a skip reason surfaced to caller/CLI) when Perma JSON lacks revisions/children in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
+- [x] [P2-T3] Add unit test: enrichment records zero candidates (and a skip reason surfaced to caller/CLI) when Perma JSON lacks revisions/children in [tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py)
   - Scenario gate: missing hierarchy → no candidates; processing continues.
-- [ ] [P2-T4] Implement Perma fetch + revision-ID extraction in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py) to make [P2-T1..T3] pass
+- [x] [P2-T4] Implement Perma fetch + revision-ID extraction in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py) to make [P2-T1..T3] pass
   - Acceptance: The tests from [P2-T1..T3] pass.
-- [ ] [P2-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
+- [x] [P2-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 3 — Curation: JSON Candidates + Revision Reachability (tests first)**
-- [ ] [P3-T1] Add unit test: `has_text_candidate` remains correct for OpenStax entries in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
+- [x] [P3-T1] Add unit test: `has_text_candidate` remains correct for OpenStax entries in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
   - Scenario gate: one `text/plain` candidate → True; no text candidates → False.
-- [ ] [P3-T2] Add unit test: new `has_json_candidate` (or equivalent) detects CK-12 revision JSON candidates in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
+- [x] [P3-T2] Add unit test: new `has_json_candidate` (or equivalent) detects CK-12 revision JSON candidates in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
   - Scenario gate: candidate format `application/json` OR URL contains `/flx/get/detail/revision/` → True.
-- [ ] [P3-T3] Add unit test: curation with `--require-json` keeps only CK-12 entries with revision JSON candidates in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
+- [x] [P3-T3] Add unit test: curation with `--require-json` keeps only CK-12 entries with revision JSON candidates in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
   - Scenario gate: missing/empty candidates → skipped with reason `"no json candidate"`.
-- [ ] [P3-T4] Add unit test: revision reachability check treats non-200 responses as skip (HTTP mocked) in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
+- [x] [P3-T4] Add unit test: revision reachability check treats non-200 responses as skip (HTTP mocked) in [tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py)
   - Scenario gate: mocked GET/HEAD returns 404 → item skipped with reason `"revision url unreachable"`.
-- [ ] [P3-T5] Implement JSON-candidate detection + `--require-json` plumbing + revision reachability validation in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py)
+- [x] [P3-T5] Implement JSON-candidate detection + `--require-json` plumbing + revision reachability validation in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py)
   - Acceptance: [P3-T1..T4] pass.
-- [ ] [P3-T6] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
+- [x] [P3-T6] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 4 — Manifest: `.json` for CK-12 + Source-Specific Validation (tests first)**
-- [ ] [P4-T1] Add unit test: CK-12 manifest entries use `.json` filename extension and `url` is the revision-detail endpoint in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
+- [x] [P4-T1] Add unit test: CK-12 manifest entries use `.json` filename extension and `url` is the revision-detail endpoint in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
   - Scenario gate: `source_id="ck12"` → `filename.endswith(".json")`.
-- [ ] [P4-T2] Add unit test: OpenStax manifest entries remain `.txt` in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
+- [x] [P4-T2] Add unit test: OpenStax manifest entries remain `.txt` in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
   - Scenario gate: `source_id="openstax"` + `text/plain` → `.txt`.
-- [ ] [P4-T3] Add unit test: CK-12 URL validation allows `application/json` and rejects `text/plain` when CK-12 is expected in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
+- [x] [P4-T3] Add unit test: CK-12 URL validation allows `application/json` and rejects `text/plain` when CK-12 is expected in [tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py)
   - Scenario gate: allowed content-type prefixes are source-specific.
-- [ ] [P4-T4] Implement source-specific manifest building + validation in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py)
+- [x] [P4-T4] Implement source-specific manifest building + validation in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py)
   - Acceptance: [P4-T1..T3] pass.
-- [ ] [P4-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
+- [x] [P4-T5] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
   - Acceptance: The run is green; changed lines are covered; overall repo coverage stays `>= 80%`.
 
 **Phase 5 — Downloader: CK-12 Headers (tests first)**

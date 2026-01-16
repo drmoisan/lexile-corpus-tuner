@@ -24,11 +24,13 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
+import requests
 import typer
 
 from .oer_models import CatalogEntry, DownloadCandidate
 
 ALLOWED_DEFAULT = ["openstax", "ck12"]
+REVISION_HEAD_TIMEOUT_SECONDS = 10.0
 app = typer.Typer(help="Curate OER catalog entries and log skip reasons.")
 
 
@@ -62,6 +64,90 @@ def has_pdf_candidate(entry: CatalogEntry) -> bool:
     return False
 
 
+def has_json_candidate(entry: CatalogEntry) -> bool:
+    """
+    Return True when a candidate looks like a CK-12 revision JSON payload.
+
+    Purpose:
+        Detect CK-12 revision detail downloads for JSON-required curation flows
+        by inspecting both declared MIME types and known CK-12 revision paths.
+
+    Args:
+        entry (CatalogEntry): Catalog entry whose download candidates are checked.
+
+    Returns:
+        bool: True when a revision JSON candidate is present.
+
+    Side Effects:
+        None.
+    """
+    for candidate in entry.download_candidates:
+        # Accept explicit JSON declarations and known CK-12 revision endpoints.
+        format_value = candidate.format.lower()
+        if format_value.startswith("application/json"):
+            return True
+        if "/flx/get/detail/revision/" in candidate.url.lower():
+            return True
+    return False
+
+
+def _is_url_reachable(
+    url: str, *, timeout_seconds: float = REVISION_HEAD_TIMEOUT_SECONDS
+) -> bool:
+    """
+    Return True when the URL responds with HTTP 200 using a HEAD request.
+
+    Purpose:
+        Prevent inclusion of CK-12 revision entries whose URLs are already
+        unreachable during curation, avoiding downstream download failures.
+
+    Args:
+        url (str): Candidate URL to probe.
+        timeout_seconds (float): Timeout in seconds for the HEAD request.
+
+    Returns:
+        bool: True when the URL returns HTTP 200; False on non-200 or exceptions.
+
+    Side Effects:
+        Issues a network HEAD request with a short timeout.
+    """
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=timeout_seconds)
+    except requests.RequestException:
+        return False
+    return response.status_code == 200
+
+
+def _has_reachable_revision_candidate(entry: CatalogEntry) -> bool:
+    """
+    Return True when a CK-12 revision candidate responds with HTTP 200.
+
+    Purpose:
+        Enforce reachability checks for revision JSON URLs so that unreachable
+        CK-12 entries are skipped early in the curation process.
+
+    Args:
+        entry (CatalogEntry): Catalog entry containing download candidates.
+
+    Returns:
+        bool: True when at least one revision-like candidate is reachable.
+
+    Side Effects:
+        Performs HEAD requests for revision-like candidates.
+    """
+    # Probe each revision-like candidate and accept the first reachable one.
+    for candidate in entry.download_candidates:
+        format_value = candidate.format.lower()
+        if not (
+            format_value.startswith("application/json")
+            or "/flx/get/detail/revision/" in candidate.url.lower()
+        ):
+            continue
+        if _is_url_reachable(candidate.url):
+            return True
+    return False
+
+
 def filter_by_collection(entry: CatalogEntry, allowed: list[str]) -> bool:
     """Return True when the entry source_id is in the allowed list."""
     return entry.source_id in allowed
@@ -73,29 +159,46 @@ def curate_entries(
     allowed_sources: list[str],
     *,
     require_pdf: bool = False,
+    require_json: bool = False,
 ) -> tuple[list[CatalogEntry], list[tuple[str, str]]]:
     """
     Split entries into included and skipped sets with reasons.
 
-    Returns:
+    Purpose:
+        Evaluate catalog entries against format and source constraints while
+        returning deterministic skip reasons for downstream diagnostics.
+
+    Args:
         entries (list[CatalogEntry]): Catalog rows to evaluate.
         require_text (bool): When True, keep only entries with text/plain candidates.
         allowed_sources (list[str]): source_id values permitted for inclusion.
         require_pdf (bool): When True, keep only entries with PDF candidates.
+        require_json (bool): When True, keep only entries with revision JSON candidates.
 
     Returns:
         tuple[list[CatalogEntry], list[tuple[str, str]]]: Included entries and skipped
         identifier/reason pairs.
+
+    Side Effects:
+        None.
     """
     included: list[CatalogEntry] = []
     skipped: list[tuple[str, str]] = []
+    effective_require_text = require_text and not require_pdf and not require_json
     # Evaluate each entry sequentially to capture the first failing reason.
     for entry in entries:
         # Enforce requested format requirements before checking source membership.
         if require_pdf and not has_pdf_candidate(entry):
             skipped.append((entry.identifier, "no pdf candidate"))
             continue
-        if require_text and not has_text_candidate(entry):
+        if require_json:
+            if not has_json_candidate(entry):
+                skipped.append((entry.identifier, "no json candidate"))
+                continue
+            if not _has_reachable_revision_candidate(entry):
+                skipped.append((entry.identifier, "revision url unreachable"))
+                continue
+        if effective_require_text and not has_text_candidate(entry):
             skipped.append((entry.identifier, "no text candidate"))
             continue
         if not filter_by_collection(entry, allowed_sources):
@@ -191,6 +294,9 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
     require_pdf: bool = typer.Option(  # noqa: B008
         False, help="Require at least one application/pdf candidate"
     ),
+    require_json: bool = typer.Option(  # noqa: B008
+        False, help="Require at least one CK-12 revision JSON candidate"
+    ),
     sources: str = typer.Option(
         "openstax,ck12", help="Comma-separated allowed sources"
     ),
@@ -209,8 +315,9 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
         )
         # Use enriched version when it exists, otherwise fall back to base catalog.
         catalogs.append(enriched_path if enriched_path.exists() else base_path)
-    # When PDF is explicitly required, skip the text/plain check to support CK-12 flows.
-    effective_require_text = require_text and not require_pdf
+    # When PDF or JSON is explicitly required, skip the text/plain check to support
+    # CK-12 flows.
+    effective_require_text = require_text and not require_pdf and not require_json
     # Curate each catalog independently so outputs remain per-source.
     for catalog_path in catalogs:
         entries = _read_catalog(catalog_path)
@@ -219,6 +326,7 @@ def curate_oer_catalog(  # pragma: no cover - CLI wrapper
             effective_require_text,
             allowed,
             require_pdf=require_pdf,
+            require_json=require_json,
         )
         # Derive curated/skip names from the source prefix
         # (before _catalog or _enriched).
