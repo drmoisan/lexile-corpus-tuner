@@ -3,10 +3,31 @@
 - Issue: #83
 - Owner: drmoisan
 - Date: 2026-01-11
-- **Status:** Implemented (partial) — remediation required
-- **Outcome:** Atomic executor uses Copilot CLI programmatic mode (-p) and can run QC in-session when using python -m poetry. Remaining failures occur when the prompt leads Copilot to run poetry entrypoints that trigger Copilot CLI path-permission denial.
-- **Root Cause:** Copilot CLI path permission enforcement (including symlink resolution) blocks execution of the Poetry script entrypoint whose shebang resolves outside allowed paths; prompt generation also contains stale “interactive session” instructions (/model) and uses incorrect <feature> placeholder substitution, which increases failure likelihood.
-- Last Updated: 2026-01-14
+- **Status:** Completed
+- **Outcome:** Prompt builder now emits `python -m poetry run` forms for QC commands, removes interactive-only `/model` instructions, and correctly substitutes `<feature>` placeholder with relative path from docs/features/active/. End-to-end repro confirms no permission-denied errors.
+- **Root Cause:** Copilot CLI path permission enforcement (including symlink resolution) blocks execution of the Poetry script entrypoint whose shebang resolves outside allowed paths; prompt generation also contained stale "interactive session" instructions (/model) and used incorrect <feature> placeholder substitution, which increased failure likelihood.
+- Last Updated: 2026-01-15
+
+## Post-Fix Evidence
+
+### Prompt contains correct `python -m poetry run` forms
+```
+- python -m poetry run black .
+- python -m poetry run ruff check
+- python -m poetry run pyright
+- python -m poetry run pytest \
+    --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools \
+    --cov-report=term-missing
+```
+
+### Prompt excludes `/model` and `interactive session`
+Verified: `grep -i "/model"` returns 0 matches; `grep -i "interactive session"` returns 0 matches.
+
+### End-to-end repro shows 0 permission-denied errors
+Log: `atomic_executor_2026-01-15_221048.log`
+Result: `grep -c "Permission denied and could not request permission from user"` returns 0.
+
+---
 
 ## Context
 The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run shell commands during the agent session with the message: “Permission denied and could not request permission from user”. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.

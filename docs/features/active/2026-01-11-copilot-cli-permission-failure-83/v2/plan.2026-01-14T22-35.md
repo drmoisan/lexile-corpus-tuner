@@ -3,10 +3,10 @@ plan_id: copilot-cli-permission-failure-83-remediation
 issue_id: 83
 owner: drmoisan
 created_at: 2026-01-14T22-35:00Z
-updated_at: 2026-01-14T22-35:00Z
-status: Planned
-status_color: blue
-status_badge: "![status: Planned](https://img.shields.io/badge/status-Planned-blue)"
+updated_at: 2026-01-15T22-40:00Z
+status: Completed
+status_color: green
+status_badge: "![status: Completed](https://img.shields.io/badge/status-Completed-green)"
 spec_path: docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/spec.md
 plan_path: docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/plan.2026-01-14T22-35.md
 primary_code_paths:
@@ -68,27 +68,27 @@ Notes:
 
 **Phase 0 — Context & Baselines (mandatory, read-only)**
 
-- [ ] [P0-T1] TASK-001 Read repo Copilot instructions (policy precondition) (REQ-005)
+- [x] [P0-T1] TASK-001 Read repo Copilot instructions (policy precondition) (REQ-005)
   - File: `.github/copilot-instructions.md`
   - Acceptance: confirm the “no secrets” and “follow repo policies” constraints are understood.
 
-- [ ] [P0-T2] TASK-002 Read general code-change policy (policy precondition) (REQ-005)
+- [x] [P0-T2] TASK-002 Read general code-change policy (policy precondition) (REQ-005)
   - File: `.github/instructions/general-code-change.instructions.md`
   - Acceptance: confirm the required toolchain loop order (format → lint → type-check → test) and restart rules are understood.
 
-- [ ] [P0-T3] TASK-003 Read general unit-test policy (policy precondition) (REQ-005)
+- [x] [P0-T3] TASK-003 Read general unit-test policy (policy precondition) (REQ-005)
   - File: `.github/instructions/general-unit-test.instructions.md`
   - Acceptance: confirm determinism/isolation requirements and “no temporary files in tests” constraints are understood.
 
-- [ ] [P0-T4] TASK-004 Read Python code-change policy (policy precondition) (REQ-005)
+- [x] [P0-T4] TASK-004 Read Python code-change policy (policy precondition) (REQ-005)
   - File: `.github/instructions/python-code-change.instructions.md`
   - Acceptance: confirm approved commands for Black/Ruff/Pyright and suppression rules are understood.
 
-- [ ] [P0-T5] TASK-005 Read Python unit-test policy (policy precondition) (REQ-005)
+- [x] [P0-T5] TASK-005 Read Python unit-test policy (policy precondition) (REQ-005)
   - File: `.github/instructions/python-unit-test.instructions.md`
   - Acceptance: confirm approved pytest + coverage command and test organization rules are understood.
 
-- [ ] [P0-T6] TASK-006 Capture current line anchors for the prompt literals that must change (REQ-001, REQ-002, REQ-003, REQ-004)
+- [x] [P0-T6] TASK-006 Capture current line anchors for the prompt literals that must change (REQ-001, REQ-002, REQ-003, REQ-004)
   - Target file: `scripts/dev_tools/atomic_executor/prompt_builder.py`
   - Required anchors (current line numbers):
     - Model section `/model` instruction at line 125 and line 131 (string contains `/model` and `interactive session`).
@@ -96,11 +96,11 @@ Notes:
     - QC toolchain lines include `poetry run black --check` at line 183 and `poetry run ruff/pyright/pytest` at lines 184–186.
   - Acceptance: record these line numbers and anchors in the PR description or commit notes.
 
-- [ ] [P0-T7] TASK-007 Capture baseline unit test failures for prompt builder tests (REQ-005)
+- [x] [P0-T7] TASK-007 Capture baseline unit test failures for prompt builder tests (REQ-005)
   - Command (preferred for this environment): `python -m poetry run pytest tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py -q`
   - Acceptance: capture the full output and confirm the file currently uses `tmp_path` (see `test_prompt_builder.py` line 15+).
 
-- [ ] [P0-T8] TASK-008 Capture baseline QC statuses (Black, Ruff, Pyright, Pytest) (REQ-006)
+- [x] [P0-T8] TASK-008 Capture baseline QC statuses (Black, Ruff, Pyright, Pytest) (REQ-006)
   - Commands (use these exact commands in this order):
     - `python -m poetry run black .`
     - `python -m poetry run ruff check`
@@ -112,7 +112,7 @@ Notes:
 
 **Phase 1 — Refactor seams for in-memory tests (no behavior change intended)**
 
-- [ ] [P1-T1] TASK-010 Add `PromptBuilderFileSystem` protocol in `scripts/dev_tools/atomic_executor/prompt_builder.py` (REQ-005)
+- [x] [P1-T1] TASK-010 Add `PromptBuilderFileSystem` protocol in `scripts/dev_tools/atomic_executor/prompt_builder.py` (REQ-005)
   - Target symbol: `class PromptBuilder` (starts at line 19).
   - Add new symbol (top-level): `class PromptBuilderFileSystem(Protocol):`.
   - Required protocol methods (exact signatures):
@@ -122,30 +122,30 @@ Notes:
     - `def glob(self, directory: Path, pattern: str) -> list[Path]: raise NotImplementedError`
   - Acceptance: `python -m poetry run pyright` recognizes the protocol and all methods are fully typed.
 
-- [ ] [P1-T2] TASK-011 Add `RealPromptBuilderFileSystem` implementation in `scripts/dev_tools/atomic_executor/prompt_builder.py` (REQ-005)
+- [x] [P1-T2] TASK-011 Add `RealPromptBuilderFileSystem` implementation in `scripts/dev_tools/atomic_executor/prompt_builder.py` (REQ-005)
   - Required behavior: delegate to `path.is_file()`, `path.is_dir()`, `path.read_text(encoding="utf-8")`, and `sorted(directory.glob(pattern))`.
   - Acceptance: no code outside the new class changes behavior.
 
-- [ ] [P1-T3] TASK-012 Add injectable `fs` parameter to `PromptBuilder.__init__` with default `RealPromptBuilderFileSystem()` (REQ-005)
+- [x] [P1-T3] TASK-012 Add injectable `fs` parameter to `PromptBuilder.__init__` with default `RealPromptBuilderFileSystem()` (REQ-005)
   - Target symbol: `PromptBuilder.__init__`.
   - Exact parameter addition: `fs: PromptBuilderFileSystem | None = None`.
   - Exact defaulting rule: `self._fs = fs or RealPromptBuilderFileSystem()`.
   - Acceptance: existing call sites compile unchanged and unit tests not yet migrated still pass.
 
-- [ ] [P1-T4] TASK-013 Add injectable `plan_resolver` parameter to `PromptBuilder.__init__` with default `resolve_feature_plan` (REQ-005)
+- [x] [P1-T4] TASK-013 Add injectable `plan_resolver` parameter to `PromptBuilder.__init__` with default `resolve_feature_plan` (REQ-005)
   - Target symbol: `PromptBuilder.__init__`.
   - Exact parameter addition: `plan_resolver: Callable[[Path], ResolvedPlan] | None = None`.
   - Exact defaulting rule: `self._plan_resolver = plan_resolver or resolve_feature_plan`.
   - Acceptance: `PromptBuilder.build()` can be refactored to call `self._plan_resolver(feature_dir)` without changing behavior.
 
-- [ ] [P1-T5] TASK-014 Replace all direct filesystem reads/checks in `PromptBuilder` with `self._fs` calls (REQ-005)
+- [x] [P1-T5] TASK-014 Replace all direct filesystem reads/checks in `PromptBuilder` with `self._fs` calls (REQ-005)
   - Target symbols:
     - `PromptBuilder.__init__` template validation MUST use `self._fs.is_file(template_path)`.
     - `PromptBuilder.build` MUST use `self._fs.read_text(path)` and `self._fs.is_file(path)`.
     - Instruction discovery MUST replace `instructions_dir.is_dir()` and `instructions_dir.glob("*.instructions.md")` with `self._fs.is_dir(instructions_dir)` and `self._fs.glob(instructions_dir, "*.instructions.md")`.
   - Acceptance: `python -m poetry run pytest tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py -q` still passes before migrating tests.
 
-- [ ] [P1-T6] TASK-015 Add `InMemoryPromptBuilderFileSystem` test helper in `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py` (REQ-005)
+- [x] [P1-T6] TASK-015 Add `InMemoryPromptBuilderFileSystem` test helper in `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py` (REQ-005)
   - Required API: implement `PromptBuilderFileSystem` and store:
     - `files: dict[str, str]` keyed by `path.as_posix()`.
     - `dirs: set[str]` keyed by `path.as_posix()`.
@@ -160,7 +160,7 @@ Notes:
 
 **Phase 2 — Remove filesystem temp usage from PromptBuilder tests (MUST complete before new regression tests)**
 
-- [ ] [P2-T1] TASK-020 Update `TestPromptBuilderInit.test_init_with_valid_template` to in-memory filesystem + injected `fs` (REQ-005)
+- [x] [P2-T1] TASK-020 Update `TestPromptBuilderInit.test_init_with_valid_template` to in-memory filesystem + injected `fs` (REQ-005)
   - File: `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py` (tmp_path usage starts at line 15+).
   - Replace `tmp_path` fixture usage with:
     - `workspace = Path("/workspace")` (literal test path only; no filesystem).
@@ -169,53 +169,53 @@ Notes:
     - Construct `PromptBuilder(workspace=workspace, template_path=template_path, fs=fs, plan_resolver=lambda feature_dir: ResolvedPlan(path=feature_dir / "plan.md", display_label="plan.md", update_filename="plan.md"))`.
   - Acceptance: test asserts `builder.workspace == workspace` and `builder.template_path == template_path`.
 
-- [ ] [P2-T2] TASK-021 Update `TestPromptBuilderInit.test_init_raises_for_nonexistent_template` to in-memory (REQ-005)
+- [x] [P2-T2] TASK-021 Update `TestPromptBuilderInit.test_init_raises_for_nonexistent_template` to in-memory (REQ-005)
   - Required setup: `fs` has no entry for the template path.
   - Acceptance: `FileNotFoundError` is raised with the same message substring.
 
-- [ ] [P2-T3] TASK-022 Update `TestPromptBuilderInit.test_init_raises_for_directory_template` to in-memory (REQ-005)
+- [x] [P2-T3] TASK-022 Update `TestPromptBuilderInit.test_init_raises_for_directory_template` to in-memory (REQ-005)
   - Required setup: `fs.dirs` contains the template path and `fs.files` does not.
   - Acceptance: `FileNotFoundError` is raised.
 
-- [ ] [P2-T4] TASK-023 Update `TestPromptBuilderBuild.test_build_combines_template_and_context` to in-memory + injected `plan_resolver` (REQ-005)
+- [x] [P2-T4] TASK-023 Update `TestPromptBuilderBuild.test_build_combines_template_and_context` to in-memory + injected `plan_resolver` (REQ-005)
   - Required fake plan resolver: `lambda feature_dir: ResolvedPlan(path=Path("/workspace/docs/features/active/my-feature/plan.md"), display_label="plan.md", update_filename="plan.md")`.
   - Required in-memory contents: template, plan.md, spec.md, user-story.md.
   - Acceptance: existing prompt assertions still pass (no behavior change intended in this phase).
 
-- [ ] [P2-T5] TASK-024 Update `TestPromptBuilderBuild.test_build_handles_missing_user_story` to in-memory (REQ-005)
+- [x] [P2-T5] TASK-024 Update `TestPromptBuilderBuild.test_build_handles_missing_user_story` to in-memory (REQ-005)
   - Required setup: omit `user-story.md` from `fs.files`.
   - Acceptance: prompt includes the user-story section markers with empty content.
 
-- [ ] [P2-T6] TASK-025 Update `TestPromptBuilderBuild.test_build_raises_for_missing_plan` to in-memory (REQ-005)
+- [x] [P2-T6] TASK-025 Update `TestPromptBuilderBuild.test_build_raises_for_missing_plan` to in-memory (REQ-005)
   - Required setup: fake plan resolver returns a plan path that is absent from `fs.files`.
   - Acceptance: `FileNotFoundError` matches "Missing required plan file".
 
-- [ ] [P2-T7] TASK-026 Update `TestPromptBuilderBuild.test_build_raises_for_missing_spec` to in-memory (REQ-005)
+- [x] [P2-T7] TASK-026 Update `TestPromptBuilderBuild.test_build_raises_for_missing_spec` to in-memory (REQ-005)
   - Required setup: omit spec.md path from `fs.files`.
   - Acceptance: `FileNotFoundError` matches "Missing required spec.md".
 
-- [ ] [P2-T8] TASK-027 Update `TestPromptBuilderBuild.test_build_injects_task_details` to in-memory (REQ-005)
+- [x] [P2-T8] TASK-027 Update `TestPromptBuilderBuild.test_build_injects_task_details` to in-memory (REQ-005)
   - Acceptance: prompt contains `- [P2-T5] Important task` and the CURRENT TASK header.
 
-- [ ] [P2-T9] TASK-028 Update `TestPromptBuilderBuild.test_build_includes_toolchain_instructions` to in-memory (REQ-005)
+- [x] [P2-T9] TASK-028 Update `TestPromptBuilderBuild.test_build_includes_toolchain_instructions` to in-memory (REQ-005)
   - Acceptance: keep current assertions unchanged in this phase (still expects `poetry run black --check`, `poetry run ruff check`, `poetry run pyright`, and `poetry run pytest` strings).
 
-- [ ] [P2-T10] TASK-029 Update `TestPromptBuilderBuild.test_build_includes_plan_update_instructions` to in-memory (REQ-005)
+- [x] [P2-T10] TASK-029 Update `TestPromptBuilderBuild.test_build_includes_plan_update_instructions` to in-memory (REQ-005)
   - Acceptance: existing assertions still pass.
 
-- [ ] [P2-T11] TASK-030 Update `TestPromptBuilderEdgeCases.test_build_handles_empty_template` to in-memory (REQ-005)
+- [x] [P2-T11] TASK-030 Update `TestPromptBuilderEdgeCases.test_build_handles_empty_template` to in-memory (REQ-005)
   - Acceptance: existing assertions still pass.
 
-- [ ] [P2-T12] TASK-031 Update `TestPromptBuilderEdgeCases.test_build_handles_empty_plan` to in-memory (REQ-005)
+- [x] [P2-T12] TASK-031 Update `TestPromptBuilderEdgeCases.test_build_handles_empty_plan` to in-memory (REQ-005)
   - Acceptance: existing assertions still pass.
 
-- [ ] [P2-T13] TASK-032 Update `TestPromptBuilderEdgeCases.test_build_uses_posix_paths_in_output` to in-memory (REQ-005)
+- [x] [P2-T13] TASK-032 Update `TestPromptBuilderEdgeCases.test_build_uses_posix_paths_in_output` to in-memory (REQ-005)
   - Acceptance: existing assertions still pass.
 
-- [ ] [P2-T14] TASK-033 Update `TestPromptBuilderEdgeCases.test_read_text_helper_uses_utf8` to in-memory (REQ-005)
+- [x] [P2-T14] TASK-033 Update `TestPromptBuilderEdgeCases.test_read_text_helper_uses_utf8` to in-memory (REQ-005)
   - Acceptance: existing Unicode assertions still pass.
 
-- [ ] [P2-T15] TASK-034 Verify `test_prompt_builder.py` contains no `tmp_path` usage and no `.write_text()` calls (REQ-005)
+- [x] [P2-T15] TASK-034 Verify `test_prompt_builder.py` contains no `tmp_path` usage and no `.write_text()` calls (REQ-005)
   - Verification rule (deterministic): `grep -n "tmp_path" tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py` returns zero matches AND `grep -n "write_text" tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py` returns zero matches.
   - Acceptance: both grep commands return no matches.
 
@@ -225,7 +225,7 @@ Notes:
 
 Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuilder.build()` (function starts at line 66).
 
-- [ ] [P3-T1] TASK-040 Update toolchain assertion test to require `python -m poetry run` forms and forbid `poetry run` forms (REQ-001)
+- [x] [P3-T1] TASK-040 Update toolchain assertion test to require `python -m poetry run` forms and forbid `poetry run` forms (REQ-001)
   - File: `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py`
   - Update existing test: `TestPromptBuilderBuild.test_build_includes_toolchain_instructions`.
   - Replace assertions:
@@ -233,7 +233,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
     - Add `assert "poetry run black" not in prompt`.
   - Acceptance: test fails against current `prompt_builder.py` because it still emits `poetry run black --check` / `poetry run ruff check` / `poetry run pyright` / `poetry run pytest` lines (see `prompt_builder.py` lines 183–186).
 
-- [ ] [P3-T2] TASK-041 Add assertion that built prompt does not contain `/model` (REQ-002)
+- [x] [P3-T2] TASK-041 Add assertion that built prompt does not contain `/model` (REQ-002)
   - File: `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py`
   - Add assertion to `test_build_combines_template_and_context` OR add a new test named
     `test_build_does_not_include_model_command_when_preferred_model_is_set`.
@@ -241,12 +241,12 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
   - Assertion: `assert "/model" not in prompt`.
   - Acceptance: test fails against current `prompt_builder.py` because the model section contains `/model` (line 125+).
 
-- [ ] [P3-T3] TASK-042 Add assertion that built prompt does not contain `"interactive session"` (REQ-003)
+- [x] [P3-T3] TASK-042 Add assertion that built prompt does not contain `"interactive session"` (REQ-003)
   - File: `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py`
   - Assertion: `assert "interactive session" not in prompt`.
   - Acceptance: test fails against current `prompt_builder.py` because the model section contains that phrase (line 131+).
 
-- [ ] [P3-T4] TASK-043 Add failing test for `<feature>` substitution when feature_dir is under `workspace / "docs" / "features" / "active"` (REQ-004)
+- [x] [P3-T4] TASK-043 Add failing test for `<feature>` substitution when feature_dir is under `workspace / "docs" / "features" / "active"` (REQ-004)
   - File: `tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py`
   - Required in-memory paths:
     - `workspace = Path("/workspace")`
@@ -255,7 +255,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
   - Expected replacement string: `"2026-01-06-populate-open-stax-ck-12-manifest-73/v4"`.
   - Acceptance: test fails against current `prompt_builder.py` because `<feature>` is replaced with only `feature_dir.name` (line 142).
 
-- [ ] [P3-T5] TASK-044 Run prompt builder tests and confirm Phase 3 tests fail (REQ-001..REQ-004)
+- [x] [P3-T5] TASK-044 Run prompt builder tests and confirm Phase 3 tests fail (REQ-001..REQ-004)
   - Command: `python -m poetry run pytest tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py -q`
   - Acceptance: failures explicitly reference the mismatched strings.
 
@@ -263,7 +263,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
 
 **Phase 4 — Minimal prompt fixes to satisfy regressions (code changes)**
 
-- [ ] [P4-T1] TASK-050 Replace QC toolchain instruction lines in `PromptBuilder.build()` (REQ-001)
+- [x] [P4-T1] TASK-050 Replace QC toolchain instruction lines in `PromptBuilder.build()` (REQ-001)
   - File: `scripts/dev_tools/atomic_executor/prompt_builder.py`
   - Target block: appended prompt envelope where QC commands are listed (currently lines 180–186).
   - Required exact replacements:
@@ -276,7 +276,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
     - `If any python -m poetry command fails, retry the same command with python3 -m poetry.`
   - Acceptance: `TASK-040` passes and the substring `poetry run black` does not appear anywhere in the prompt.
 
-- [ ] [P4-T2] TASK-051 Remove interactive-only `/model` guidance from `PromptBuilder.build()` (REQ-002, REQ-003)
+- [x] [P4-T2] TASK-051 Remove interactive-only `/model` guidance from `PromptBuilder.build()` (REQ-002, REQ-003)
   - File: `scripts/dev_tools/atomic_executor/prompt_builder.py`
   - Target block: `model_section` construction (currently line 120+).
   - Required new behavior:
@@ -285,7 +285,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
     - MUST NOT include `/model` and MUST NOT include the phrase `interactive session`.
   - Acceptance: `TASK-041` and `TASK-042` pass.
 
-- [ ] [P4-T3] TASK-052 Implement deterministic `<feature>` placeholder substitution for feature folders under docs/features/active (REQ-004)
+- [x] [P4-T3] TASK-052 Implement deterministic `<feature>` placeholder substitution for feature folders under docs/features/active (REQ-004)
   - File: `scripts/dev_tools/atomic_executor/prompt_builder.py`
   - Target lines: feature placeholder replacement uses `feature_dir.name` (currently line 142–144).
   - Required algorithm (exact):
@@ -301,11 +301,11 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
 
 **Phase 5 — Verify regressions + full toolchain loop (mandatory)**
 
-- [ ] [P5-T1] TASK-060 Re-run prompt builder tests and confirm all pass (REQ-001..REQ-005)
+- [x] [P5-T1] TASK-060 Re-run prompt builder tests and confirm all pass (REQ-001..REQ-005)
   - Command: `python -m poetry run pytest tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py -q`
   - Acceptance: all tests pass.
 
-- [ ] [P5-T2] TASK-061 Run the full repo toolchain loop until one clean pass completes (REQ-006)
+- [x] [P5-T2] TASK-061 Run the full repo toolchain loop until one clean pass completes (REQ-006)
   - Toolchain pass commands (must run in this order):
     - `python -m poetry run black .`
     - `python -m poetry run ruff check`
@@ -322,7 +322,7 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
 
 **Phase 6 — End-to-end evidence (must satisfy REQ-006)**
 
-- [ ] [P6-T1] TASK-070 Generate a real prompt via atomic executor `--print-prompt` and assert the fixed strings (REQ-001..REQ-004)
+- [x] [P6-T1] TASK-070 Generate a real prompt via atomic executor `--print-prompt` and assert the fixed strings (REQ-001..REQ-004)
   - Command:
     - `python -m poetry run python -m scripts.dev_tools.atomic_executor.cli execute --print-prompt /workspaces/lexile-corpus-tuner/docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/v4/ --workspace /workspaces/lexile-corpus-tuner --preferred-model gpt-5.1-codex-max`
   - Acceptance criteria (exact string checks):
@@ -330,30 +330,29 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
     - Output contains the fallback sentence about `python3 -m poetry`.
     - Output contains neither `/model` nor `interactive session`.
 
-- [ ] [P6-T2] TASK-071 Re-run a representative `execute-all` repro and assert no permission-denied substring appears (REQ-006)
+- [x] [P6-T2] TASK-071 Re-run a representative `execute-all` repro and assert no permission-denied substring appears (REQ-006)
   - Repro command (use this exact pattern):
     - `python -m poetry run python -m scripts.dev_tools.atomic_executor.cli execute-all /workspaces/lexile-corpus-tuner/docs/features/active/2026-01-06-populate-open-stax-ck-12-manifest-73/v4/ --workspace /workspaces/lexile-corpus-tuner --preferred-model gpt-5.1-codex-max --max-fix-attempts 10`
   - Verification rule (deterministic): grep `.agent_logs/` for `Permission denied and could not request permission from user` and assert zero matches.
 
 **Phase 7 — Conditional fallback: broaden Copilot path permissions only if REQ-006 fails (REQ-007)**
 
-- [ ] [P7-T1] TASK-080 Run the Phase 6 repro once and branch deterministically on the result (REQ-007)
+- [x] [P7-T1] TASK-080 Run the Phase 6 repro once and branch deterministically on the result (REQ-007)
   - If `.agent_logs/` contains `Permission denied and could not request permission from user`, proceed to `TASK-081`.
   - If `.agent_logs/` contains zero matches, mark `TASK-081` and `TASK-082` as skipped with note: `SKIPPED: REQ-006 satisfied without allow-all-paths.`
+  - **RESULT**: Latest log `atomic_executor_2026-01-15_221048.log` contains 0 matches. REQ-006 satisfied.
 
-- [ ] [P7-T2] TASK-081 Add `--allow-all-paths` to Copilot argv in `scripts/dev_tools/atomic_executor/cli.py` (REQ-007)
-  - Target block: the `argv.extend(` call that appends `--share`, `--add-dir`, and `-p` (around line 560–590 at plan-writing time).
-  - Exact insertion: add a new argv element `"--allow-all-paths"` immediately after `"--add-dir", str(workspace)`.
-  - Acceptance: unit tests for CLI invocation still pass, and the Copilot invocation log includes the flag.
+- [x] [P7-T2] TASK-081 Add `--allow-all-paths` to Copilot argv in `scripts/dev_tools/atomic_executor/cli.py` (REQ-007)
+  - SKIPPED: REQ-006 satisfied without allow-all-paths.
 
-- [ ] [P7-T3] TASK-082 Re-run Phase 6 repro and assert substring is absent (REQ-007)
-  - Acceptance: grep `.agent_logs/` returns zero matches for `Permission denied and could not request permission from user`.
+- [x] [P7-T3] TASK-082 Re-run Phase 6 repro and assert substring is absent (REQ-007)
+  - SKIPPED: REQ-006 satisfied without allow-all-paths.
 
 ---
 
 **Phase 8 — Documentation updates (required for closure)**
 
-- [ ] [P8-T1] TASK-090 Update `docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/spec.md` status and acceptance criteria evidence (REQ-001..REQ-007)
+- [x] [P8-T1] TASK-090 Update `docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/spec.md` status and acceptance criteria evidence (REQ-001..REQ-007)
   - Required edits:
     - Change status line from `Implemented (partial) — remediation required` to `Completed`.
     - Add a short post-fix evidence excerpt showing:
@@ -362,5 +361,5 @@ Target under test: `scripts.dev_tools.atomic_executor.prompt_builder.PromptBuild
       - execute-all log contains no `Permission denied and could not request permission from user`
   - Acceptance: spec reflects final behavior and contains evidence excerpts.
 
-- [ ] [P8-T2] TASK-091 Update `docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/issue.md` with post-fix evidence excerpt (REQ-006)
+- [x] [P8-T2] TASK-091 Update `docs/features/active/2026-01-11-copilot-cli-permission-failure-83/v2/issue.md` with post-fix evidence excerpt (REQ-006)
   - Acceptance: issue includes a minimal excerpt from the latest `.agent_logs/atomic_executor_*.log` (use `tail -n 200 "$(ls -1 .agent_logs/atomic_executor_*.log | sort | tail -n 1)"`) showing the repro run completed without the permission-denied substring.

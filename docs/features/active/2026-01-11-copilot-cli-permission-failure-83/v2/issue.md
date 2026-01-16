@@ -2,13 +2,35 @@
 
 - Date captured: 2026-01-11
 - Author: Dan Moisan
-- Status: Implemented (partial) — remediation required
+- Status: Completed
 
 > Automation note: Keep the section headings below unchanged; the promotion tooling maps each of them into the GitHub bug issue template.
 
 - Issue: #83
 - Issue URL: https://github.com/drmoisan/lexile-corpus-tuner/issues/83
-- Last Updated: 2026-01-14
+- Last Updated: 2026-01-15
+
+## Post-Fix Evidence
+
+The latest `execute-all` run (`atomic_executor_2026-01-15_221048.log`) completed without permission-denied errors:
+
+```
+grep -c "Permission denied and could not request permission from user" .agent_logs/atomic_executor_2026-01-15_221048.log
+0
+```
+
+The prompt now uses `python -m poetry run` forms:
+```
+- python -m poetry run black .
+- python -m poetry run ruff check
+- python -m poetry run pyright
+- python -m poetry run pytest ...
+```
+
+The prompt no longer contains `/model` or `interactive session` phrases.
+
+---
+
 ## Summary
 
 The atomic executor can invoke Copilot CLI, but Copilot CLI fails to run any shell commands due to an execution-permissions restriction that it cannot prompt the user to approve. This blocks atomic executor tasks that require running QC gates (e.g., Ruff/Pyright/Pytest), and the executor may subsequently terminate Copilot after an idle timeout.
