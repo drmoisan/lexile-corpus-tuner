@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import oer_curation
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_models import (
     CatalogEntry,
     DownloadCandidate,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _entry(
@@ -32,6 +37,55 @@ def test_has_text_candidate_returns_false_when_only_pdf() -> None:
     """Entries with only non-text formats should fail the text check."""
     entry = _entry([DownloadCandidate(format="application/pdf", url="u")])
     assert oer_curation.has_text_candidate(entry) is False
+
+
+def test_has_text_candidate_accepts_openstax_text_among_other_formats() -> None:
+    """OpenStax entries remain eligible when a text/plain candidate is present."""
+    entry = _entry(
+        [
+            DownloadCandidate(format="application/pdf", url="pdf"),
+            DownloadCandidate(format="text/plain", url="text"),
+        ],
+        source_id="openstax",
+    )
+    assert oer_curation.has_text_candidate(entry) is True
+
+
+def test_has_json_candidate_accepts_application_json() -> None:
+    """CK-12 entries with an application/json candidate should pass."""
+    entry = _entry(
+        [
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/12345?tiny=true",
+            )
+        ],
+        source_id="ck12",
+    )
+    assert oer_curation.has_json_candidate(entry) is True
+
+
+def test_has_json_candidate_accepts_revision_path_without_format() -> None:
+    """CK-12 entries with revision-detail URLs should pass even without format."""
+    entry = _entry(
+        [
+            DownloadCandidate(
+                format="",
+                url="https://www.ck12.org/flx/get/detail/revision/67890?tiny=true",
+            )
+        ],
+        source_id="ck12",
+    )
+    assert oer_curation.has_json_candidate(entry) is True
+
+
+def test_has_json_candidate_returns_false_for_non_json_candidates() -> None:
+    """Non-JSON CK-12 entries should fail the JSON check."""
+    entry = _entry(
+        [DownloadCandidate(format="application/pdf", url="https://example.com/pdf")],
+        source_id="ck12",
+    )
+    assert oer_curation.has_json_candidate(entry) is False
 
 
 def test_filter_by_collection_accepts_openstax() -> None:
@@ -83,3 +137,66 @@ def test_curate_entries_honors_require_pdf_flag() -> None:
     )
     assert included == [pdf_only]
     assert skipped == [(text_only.identifier, "no pdf candidate")]
+
+
+def test_curate_entries_honors_require_json_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    When --require-json is set, only CK-12 entries with revision JSON candidates
+    are kept.
+    """
+
+    def _always_true(url: str, *, timeout_seconds: float = 0.0) -> bool:
+        return True
+
+    with_json = _entry(
+        [
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/12345?tiny=true",
+            )
+        ],
+        source_id="ck12",
+    )
+    without_json = _entry(
+        [DownloadCandidate(format="application/pdf", url="https://example.com/pdf")],
+        source_id="ck12",
+    )
+    monkeypatch.setattr(oer_curation, "_is_url_reachable", _always_true)
+    included, skipped = oer_curation.curate_entries(
+        [with_json, without_json],
+        True,
+        ["ck12"],
+        require_json=True,
+    )
+    assert included == [with_json]
+    assert skipped == [(without_json.identifier, "no json candidate")]
+
+
+def test_curate_entries_skips_unreachable_revision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Revision URLs that return non-200 responses should be skipped."""
+    entry = _entry(
+        [
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/12345?tiny=true",
+            )
+        ],
+        source_id="ck12",
+    )
+
+    def _always_false(url: str, *, timeout_seconds: float = 0.0) -> bool:
+        return False
+
+    monkeypatch.setattr(oer_curation, "_is_url_reachable", _always_false)
+    included, skipped = oer_curation.curate_entries(
+        [entry],
+        True,
+        ["ck12"],
+        require_json=True,
+    )
+    assert included == []
+    assert skipped == [(entry.identifier, "revision url unreachable")]

@@ -111,6 +111,9 @@ class CatalogEntry:
         language: Language code(s) associated with the item.
         license_url: Upstream license reference if provided.
         download_candidates: Possible downloads discovered for the item.
+        artifact_type: CK-12 artifact type such as "flexbook" when available.
+        handle: Canonical CK-12 handle used for Perma/Revision API calls.
+        artifact_id: Numeric artifact identifier from the CK-12 Browse API.
     """
 
     source_id: str | None
@@ -123,6 +126,9 @@ class CatalogEntry:
     download_candidates: list[DownloadCandidate] = field(
         default_factory=_empty_download_candidates
     )
+    artifact_type: str | None = None
+    handle: str | None = None
+    artifact_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -134,8 +140,8 @@ class ManifestEntry:
         source_id: Required source bucket (openstax or ck12).
         id: Stable slug derived from the immutable identifier.
         url: Direct download URL for the text asset.
-        filename: Target filename; must end with .txt (text assets) or .pdf
-            (CK-12 PDF downloads).
+        filename: Target filename; must end with .txt (text assets), .json
+            (CK-12 revision payloads), or .pdf (legacy PDF downloads).
     """
 
     source_id: str
@@ -144,8 +150,10 @@ class ManifestEntry:
     filename: str
 
     def __post_init__(self) -> None:  # type: ignore[override]
-        # Only allow text or PDF derivatives; other extensions are rejected to
+        # Only allow text, JSON (CK-12 revision payloads), or PDF derivatives to
         # keep the downloader/normalizer contracts strict.
-        allowed_suffixes = (".txt", ".pdf")
+        allowed_suffixes = (".txt", ".pdf", ".json")
         if not self.filename.lower().endswith(allowed_suffixes):
-            raise ValueError("ManifestEntry.filename must end with .txt or .pdf")
+            raise ValueError(
+                "ManifestEntry.filename must end with .txt, .pdf, or .json"
+            )

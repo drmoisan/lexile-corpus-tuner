@@ -63,8 +63,9 @@ def build_manifest_entry(
 
     Purpose:
         Produce the manifest row required by downstream download/normalize
-        stages, enforcing stable slug IDs and filename extensions that mirror
-        the candidate content type (.pdf for PDF, .txt otherwise).
+        stages, enforcing stable slug IDs and filename extensions aligned to
+        source expectations (CK-12 revision JSON uses `.json`; PDFs stay `.pdf`;
+        everything else defaults to `.txt`).
 
     Args:
         catalog_entry: Curated entry representing a single IA item.
@@ -74,10 +75,18 @@ def build_manifest_entry(
         ManifestEntry: Immutable manifest row.
     """
     slug = generate_stable_slug(catalog_entry.identifier)
-    # Use .pdf when the candidate advertises a PDF content type; default to .txt
-    # for text-oriented derivatives.
+    source = (catalog_entry.source_id or "").lower()
     format_lower = candidate.format.lower()
-    extension = ".pdf" if format_lower.startswith("application/pdf") else ".txt"
+    # Branch extensions by source + candidate format:
+    # - CK-12 entries are revision JSON responses and must emit `.json`.
+    # - PDF candidates stay `.pdf`.
+    # - All other derivatives default to `.txt`.
+    if source == "ck12":
+        extension = ".json"
+    elif format_lower.startswith("application/pdf"):
+        extension = ".pdf"
+    else:
+        extension = ".txt"
     filename = f"{slug}{extension}"
     return ManifestEntry(
         source_id=catalog_entry.source_id or "oer",
@@ -146,22 +155,23 @@ def generate_manifest(
     """
     manifest_entries: list[ManifestEntry] = []
     # Evaluate each curated entry and pick the format expected for that source
-    # (text for OpenStax, PDF for CK-12).
+    # (JSON for CK-12 revision payloads, text for OpenStax, PDF where explicitly
+    # advertised).
     for entry in curated_entries:
         # Route candidate selection by source expectations:
-        # - CK-12 requires downloadable PDFs validated as application/pdf.
+        # - CK-12 uses revision JSON (`application/json` or revision-detail URLs).
         # - Other sources remain text-first using text/* derivatives.
         if (entry.source_id or "").lower() == "ck12":
             chosen = next(
                 (
                     candidate
                     for candidate in entry.download_candidates
-                    if candidate.format.startswith("application/pdf")
-                    or candidate.url.lower().endswith(".pdf")
+                    if candidate.format.startswith("application/json")
+                    or "/flx/get/detail/revision/" in candidate.url
                 ),
                 None,
             )
-            allowed_content_types = ["application/pdf"]
+            allowed_content_types = ["application/json"]
         else:
             chosen = next(
                 (

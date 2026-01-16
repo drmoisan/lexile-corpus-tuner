@@ -255,10 +255,6 @@ def test_fetch_perma_metadata_targets_perma_api_with_required_headers(
     assert timeout_value == ck12_enrichment.REQUEST_TIMEOUT_SECONDS
 
 
-@pytest.mark.xfail(
-    reason="Perma enrichment skip reason reporting pending implementation (P2-T4)",
-    strict=True,
-)
 def test_collect_revision_candidates_reports_skip_when_missing_children() -> None:
     """
     collect_revision_candidates_with_skip_reason should surface a skip reason when no
@@ -273,19 +269,12 @@ def test_collect_revision_candidates_reports_skip_when_missing_children() -> Non
     perma_response: dict[str, object] = {"response": {"flexbook": {"revisions": []}}}
 
     collector_name = "collect_revision_candidates_with_skip_reason"
-    collector_obj = getattr(ck12_enrichment, collector_name, None)
-
-    # This helper is intentionally pending implementation (test is xfail).
-    # Use getattr() to keep Pyright happy while still exercising the intended
-    # call shape once the function exists.
-    assert collector_obj is not None, f"{collector_name} not implemented"
-
     collector = cast(
         Callable[
             [str, Mapping[str, object]],
             tuple[list[DownloadCandidate], tuple[str, str] | None],
         ],
-        collector_obj,
+        getattr(ck12_enrichment, collector_name),
     )
     candidates, skip_reason = collector("ck-12-physics-flexbook-2-0", perma_response)
 

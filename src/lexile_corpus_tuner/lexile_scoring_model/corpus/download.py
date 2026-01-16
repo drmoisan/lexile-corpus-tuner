@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import requests
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping
 
 RAW_ROOT = Path("data/corpus/raw")
 GUTENBERG_DIR = RAW_ROOT / "gutenberg"
@@ -165,9 +165,36 @@ def _resolve_gutenberg_url(ebook_id: int) -> str | None:
     return None
 
 
-def _download_file(url: str, dest: Path, chunk_size: int = 1 << 14) -> None:
+def _download_file(
+    url: str,
+    dest: Path,
+    chunk_size: int = 1 << 14,
+    headers: Mapping[str, str] | None = None,
+) -> None:
+    """
+    Stream a remote resource to a destination path using optional request headers.
+
+    Purpose:
+        Provide a thin wrapper around `requests.get` that writes streamed content
+        to disk while supporting caller-provided headers (e.g., CK-12 browser headers).
+
+    Args:
+        url (str): The fully qualified URL to download.
+        dest (Path): Final destination file path for the downloaded content.
+        chunk_size (int): Chunk size used when iterating over streamed content.
+        headers (Mapping[str, str] | None): Optional headers forwarded to
+            `requests.get`.
+
+    Raises:
+        requests.RequestException: If the HTTP request fails or response status is
+            not OK.
+
+    Side Effects:
+        Creates parent directories when missing and writes a temporary file before
+        atomically replacing the destination.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=60) as response:
+    with requests.get(url, headers=headers, stream=True, timeout=60) as response:
         response.raise_for_status()
         tmp_path = dest.with_suffix(".tmp")
         with tmp_path.open("wb") as handle:

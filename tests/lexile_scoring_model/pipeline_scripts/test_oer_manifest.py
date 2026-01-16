@@ -43,6 +43,24 @@ def _entry() -> CatalogEntry:
     )
 
 
+def _ck12_entry() -> CatalogEntry:
+    return CatalogEntry(
+        source_id="ck12",
+        identifier="CK-12-Physics-FlexBook-2.0",
+        title="CK-12 Physics",
+        creator="CK-12",
+        year="2024",
+        language=["eng"],
+        license_url="http://license",
+        download_candidates=[
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/12345?tiny=true",
+            )
+        ],
+    )
+
+
 def test_build_manifest_entry_uses_stable_slug_from_identifier() -> None:
     """Manifest entry ID should derive from stable slug."""
     entry = _entry()
@@ -149,3 +167,54 @@ def test_write_manifest_json_creates_valid_json_structure(
     payload = json.loads(captured["payload"])
     assert "sources" in payload
     assert payload["sources"][0]["filename"].endswith(".txt")
+
+
+def test_openstax_manifest_preserves_txt_extension() -> None:
+    """OpenStax entries must continue to emit `.txt` filenames."""
+    manifest_entries = oer_manifest.generate_manifest([_entry()], validate_urls=False)
+    assert manifest_entries
+    assert manifest_entries[0].filename.endswith(".txt")
+
+
+def test_ck12_manifest_uses_json_and_revision_endpoint() -> None:
+    """CK-12 entries must use revision-detail URLs and `.json` filenames."""
+    manifest_entries = oer_manifest.generate_manifest(
+        [_ck12_entry()], validate_urls=False
+    )
+    assert manifest_entries
+    manifest = manifest_entries[0]
+    assert manifest.filename.endswith(".json")
+    assert "/flx/get/detail/revision/" in manifest.url
+
+
+def test_ck12_validation_allows_application_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CK-12 validation should allow `application/json` responses."""
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        del req, timeout
+        return _MockResponse(200, "application/json")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    manifest_entries = oer_manifest.generate_manifest(
+        [_ck12_entry()], validate_urls=True
+    )
+    assert manifest_entries
+    assert manifest_entries[0].filename.endswith(".json")
+
+
+def test_ck12_validation_rejects_text_plain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CK-12 validation should reject `text/plain` responses."""
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        del req, timeout
+        return _MockResponse(200, "text/plain")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    manifest_entries = oer_manifest.generate_manifest(
+        [_ck12_entry()], validate_urls=True
+    )
+    assert manifest_entries == []

@@ -1,22 +1,22 @@
 """
-CK-12 FlexBook enrichment scaffold with typed interfaces for metadata and PDF discovery.
+CK-12 FlexBook enrichment with Perma/Revision traversal.
 
 Purpose:
-    Provide a strongly-typed surface for fetching FlexBook pages, extracting
-    metadata, and merging enrichment details into catalog entries while keeping
-    network and parsing concerns isolated for testability.
+    Provide a typed surface for fetching CK-12 Perma metadata, extracting
+    revision IDs, and attaching revision-detail download candidates to catalog
+    entries while preserving testability and stable identifiers.
 
 Usage:
-    Future implementations will call `fetch_flexbook_html` to retrieve the page,
-    parse enrichment fields via `parse_flexbook_metadata`, locate a PDF link with
-    `extract_pdf_url`, and merge results using `enrich_entry_logic`. The
-    `enrich_ck12_catalog` CLI will orchestrate these steps for pipeline
-    operators.
+    `enrich_ck12_catalog` reads catalog JSONL rows (containing canonical CK-12
+    handles), calls the Perma API for each entry, converts nested revisions to
+    download candidates, and writes an enriched JSONL artifact. Legacy helpers
+    for HTML/PDF parsing remain for backward compatibility and existing tests.
 
 Flow:
-    1) Fetch FlexBook HTML for each catalog row.
-    2) Parse author/grade/language/license fields and locate PDF download link.
-    3) Merge enrichment into `CatalogEntry` and persist to an enriched JSONL file.
+    1) Read catalog entries and canonical handles.
+    2) Fetch Perma metadata with browser-like headers.
+    3) Traverse revisions/children to collect revision IDs.
+    4) Emit revision-detail download candidates into enriched catalog rows.
 
 Invariants / Constraints:
     - Slugs derived from catalog entries must remain stable.
@@ -24,8 +24,7 @@ Invariants / Constraints:
     - Network and filesystem interactions must remain mockable for tests.
 
 Side Effects:
-    Implementation will perform HTTP requests, HTML parsing, and filesystem I/O;
-    this stub performs no I/O.
+    Performs HTTP requests to CK-12 APIs and filesystem writes when invoked via CLI.
 """
 
 from __future__ import annotations
@@ -45,7 +44,6 @@ from .ck12_catalog import write_catalog_jsonl
 from .oer_models import CatalogEntry, DownloadCandidate
 
 REQUEST_TIMEOUT_SECONDS = 30
-FLEXBOOK_BASE_URL = "https://flexbooks.ck12.org/cbook/"
 
 # HTTP headers to mimic a real browser and avoid 403 Forbidden (Issue #73)
 REQUEST_HEADERS = {
@@ -79,7 +77,7 @@ PERMA_REQUEST_HEADERS = {
 }
 
 app = typer.Typer(
-    help="Enrich CK-12 catalog entries with metadata and PDF download links."
+    help="Enrich CK-12 catalog entries with CK-12 Perma revision metadata."
 )
 
 
@@ -427,6 +425,41 @@ def extract_revision_download_candidates(
     ]
 
 
+def collect_revision_candidates_with_skip_reason(
+    identifier: str, perma_response: Mapping[str, object]
+) -> tuple[list[DownloadCandidate], tuple[str, str] | None]:
+    """
+    Collect revision download candidates while surfacing a skip reason when none exist.
+
+    Purpose:
+        Wrap revision candidate extraction so callers (including the CLI) can emit a
+        deterministic skip reason when the Perma payload lacks revisions or children.
+
+    Args:
+        identifier (str): Stable CK-12 slug used for logging and skip reporting.
+        perma_response (Mapping[str, object]): Parsed Perma API payload to inspect.
+
+    Returns:
+        tuple[list[DownloadCandidate], tuple[str, str] | None]: Candidate list plus an
+            optional skip reason tuple of (identifier, reason) when no candidates are
+            discoverable.
+
+    Raises:
+        None. This helper is tolerant of missing fields and reports skip context
+        instead of failing.
+
+    Side Effects:
+        None. Pure function returning extraction results and skip metadata.
+    """
+    candidates = extract_revision_download_candidates(perma_response)
+
+    # Surface a structured skip reason so downstream logging can inform operators.
+    if not candidates:
+        return [], (identifier, "no revisions in perma response")
+
+    return candidates, None
+
+
 def enrich_entry_logic(
     entry: CatalogEntry, metadata: dict[str, str | None], pdf_url: str | None
 ) -> CatalogEntry:
@@ -501,11 +534,12 @@ def enrich_ck12_catalog(
     ),
 ) -> None:
     """
-    CLI entry point for enriching CK-12 catalog entries with metadata and PDFs.
+    CLI entry point for enriching CK-12 catalog entries with Perma revision metadata.
 
     Purpose:
-        Orchestrate fetch, parse, and enrichment steps so operators can generate
-        an enriched CK-12 catalog with a single command.
+        Fetch Perma API payloads for each catalog row, extract revision IDs, and
+        attach revision-detail download candidates so downstream curation can
+        require JSON assets instead of PDFs.
 
     Args:
         catalog_file (Path): Input catalog JSONL produced by the catalog step.
@@ -515,49 +549,54 @@ def enrich_ck12_catalog(
         None
 
     Side Effects:
-        Implementation will perform HTTP requests, parsing, and filesystem writes.
+        Performs HTTP requests to CK-12 APIs and filesystem writes.
     """
     entries = _read_catalog(catalog_file)
     enriched_entries: list[CatalogEntry] = []
+    skip_reasons: list[tuple[str, str]] = []
 
-    # Process entries sequentially so a failure on one row does not corrupt others.
+    # Iterate deterministically so failures on one row do not corrupt others.
     for entry in entries:
+        artifact_type = entry.artifact_type or "flexbook"
+        handle = entry.handle
+
+        # Skip entries missing canonical handles because Perma API cannot resolve them.
+        if handle is None:
+            skip_reasons.append((entry.identifier, "missing handle"))
+            typer.echo(f"Skipping {entry.identifier} due to missing handle", err=True)
+            continue
+
         try:
-            flexbook_url = _build_flexbook_url(entry.identifier)
-            html = fetch_flexbook_html(flexbook_url)
-            metadata = parse_flexbook_metadata(html)
-            pdf_url = extract_pdf_url(html)
-            enriched_entries.append(enrich_entry_logic(entry, metadata, pdf_url))
+            perma_payload = fetch_perma_metadata(artifact_type, handle)
+            candidates, skip_reason = collect_revision_candidates_with_skip_reason(
+                entry.identifier, perma_payload
+            )
+            enriched_entries.append(
+                CatalogEntry(
+                    source_id=entry.source_id,
+                    identifier=entry.identifier,
+                    title=entry.title,
+                    creator=entry.creator,
+                    year=entry.year,
+                    language=entry.language,
+                    license_url=entry.license_url,
+                    download_candidates=candidates,
+                    artifact_type=artifact_type,
+                    handle=handle,
+                    artifact_id=entry.artifact_id,
+                )
+            )
+            if skip_reason:
+                skip_reasons.append(skip_reason)
         except Exception as exc:  # noqa: BLE001 - CLI top-level enrichment loop
             typer.echo(
                 f"Skipping {entry.identifier} due to enrichment error: {exc}", err=True
             )
 
     write_catalog_jsonl(enriched_entries, output)
+    for identifier, reason in skip_reasons:
+        typer.echo(f"{identifier}: {reason}", err=True)
     typer.echo(f"Wrote {len(enriched_entries)} enriched CK-12 entries to {output}")
-
-
-def _build_flexbook_url(identifier: str) -> str:
-    """
-    Construct the FlexBook URL from a catalog identifier slug.
-
-    Purpose:
-        Catalog entries store only the stable slug; this helper rebuilds the
-        absolute FlexBook URL needed to fetch enrichment HTML.
-
-    Args:
-        identifier (str): Stable slug derived from the FlexBook path segment.
-
-    Returns:
-        str: Fully-qualified FlexBook URL ending with a trailing slash.
-
-    Raises:
-        ValueError: If the identifier is empty after normalization.
-    """
-    normalized_slug = _normalize_text(identifier)
-    if normalized_slug is None:
-        raise ValueError("Catalog entry identifier cannot be empty")
-    return f"{FLEXBOOK_BASE_URL}{normalized_slug}/"
 
 
 def _read_catalog(path: Path) -> list[CatalogEntry]:
@@ -576,7 +615,7 @@ def _read_catalog(path: Path) -> list[CatalogEntry]:
     """
     entries: list[CatalogEntry] = []
 
-    # Iterate JSONL lines to reconstruct CatalogEntry objects.
+    # Iterate JSONL lines to reconstruct CatalogEntry objects with CK-12 metadata.
     for line in path.read_text(encoding="utf-8").splitlines():
         raw = cast("dict[str, Any]", json.loads(line))
         raw_candidates = cast(
@@ -595,6 +634,9 @@ def _read_catalog(path: Path) -> list[CatalogEntry]:
                 language=raw.get("language") or [],
                 license_url=raw.get("license_url"),
                 download_candidates=candidates,
+                artifact_type=cast("str | None", raw.get("artifact_type")),
+                handle=cast("str | None", raw.get("handle")),
+                artifact_id=_parse_artifact_id(raw.get("artifact_id")),
             )
         )
 
@@ -623,6 +665,21 @@ def _candidate_from_mapping(candidate: dict[str, object]) -> DownloadCandidate:
         url=str(url_raw) if url_raw is not None else "",
         size=size_raw if isinstance(size_raw, int) else None,
     )
+
+
+def _parse_artifact_id(value: object) -> int | None:
+    """
+    Normalize artifact_id values from JSON to integers when possible.
+
+    Purpose:
+        Preserve CK-12 artifact IDs for downstream debugging or logging while
+        tolerating missing or non-numeric values.
+    """
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
 
 
 def _get_first_str(value: str | list[str] | None) -> str | None:

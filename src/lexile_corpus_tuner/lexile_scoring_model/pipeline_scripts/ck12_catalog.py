@@ -160,9 +160,11 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
     # Filter out rows that are missing required identifiers to keep output
     # deterministic.
     for book in books:
-        artifact_id = book.get("artifactID") or book.get("artifactId")
-        artifact_type = book.get("artifactType") or book.get("artifact_type")
-        handle_raw = book.get("handle", "")
+        artifact_id: object | None = book.get("artifactID") or book.get("artifactId")
+        artifact_type: object | None = book.get("artifactType") or book.get(
+            "artifact_type"
+        )
+        handle_raw: object | None = book.get("handle")
 
         if not isinstance(artifact_id, int | str) or str(artifact_id) == "":
             continue
@@ -171,6 +173,16 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
         if not isinstance(handle_raw, str) or not handle_raw:
             continue
         handle: str = handle_raw
+
+        artifact_id_value: int | None = None
+        if isinstance(artifact_id, int):
+            artifact_id_value = artifact_id
+        else:
+            # Preserve the previous behavior (numeric strings become ints) while
+            # tolerating non-string truthy values by stringifying them first.
+            artifact_id_text = str(artifact_id)
+            if artifact_id_text.isdigit():
+                artifact_id_value = int(artifact_id_text)
 
         identifier = generate_stable_slug(handle)
         if identifier in seen_ids:
@@ -203,6 +215,9 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
                 year=None,  # CK-12 JSON doesn't include publication year
                 language=language_list,
                 license_url=None,  # CK-12 license info not in catalog JSON
+                artifact_type=artifact_type,
+                handle=handle,
+                artifact_id=artifact_id_value,
             )
         )
         seen_ids.add(identifier)
@@ -249,6 +264,9 @@ def write_catalog_jsonl(rows: list[CatalogEntry], path: Path) -> None:
                         "year": entry.year,
                         "language": entry.language,
                         "license_url": entry.license_url,
+                        "artifact_type": entry.artifact_type,
+                        "handle": entry.handle,
+                        "artifact_id": entry.artifact_id,
                         # Serialize download candidates to dictionaries for JSON output.
                         "download_candidates": [
                             candidate.__dict__
