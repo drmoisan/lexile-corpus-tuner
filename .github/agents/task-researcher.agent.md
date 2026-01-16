@@ -154,6 +154,9 @@ You MUST use this exact template for all research notes, preserving all formatti
 
 {{specific_requirements_identified}}
 
+**Mandatory unachievable objective callout**:
+- If research proves any objective is not achievable, you MUST state it explicitly here in bold with rationale.
+
 ## Recommended Approach
 
 {{single_selected_approach_with_complete_details}}
