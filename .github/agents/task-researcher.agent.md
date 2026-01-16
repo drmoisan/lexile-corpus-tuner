@@ -33,7 +33,7 @@ You WILL manage research information by:
 
 - You WILL merge similar findings into single, comprehensive entries that eliminate redundancy
 - You WILL remove information that becomes irrelevant as research progresses
-- You WILL delete non-selected approaches entirely once a solution is chosen
+- You WILL remove detailed research for non-selected approaches once a solution is chosen, keeping only a small, non-exhaustive "Rejected alternatives" summary (what was rejected and why)
 - You WILL replace outdated findings immediately with up-to-date information
 
 ## Research Execution Workflow
@@ -48,7 +48,7 @@ You WILL identify multiple implementation approaches during research, documentin
 
 ### 3. Collaborative Refinement
 
-You WILL present findings succinctly to the user, highlighting key discoveries and alternative approaches. You MUST guide the user toward selecting a single recommended solution and remove alternatives from the final research document.
+You WILL present findings succinctly to the user, highlighting key discoveries and alternative approaches. You MUST guide the user toward selecting a single recommended solution and then remove detailed alternative-approach research from the final research document, leaving only a brief (non-exhaustive) "Rejected alternatives" summary.
 
 ## Alternative Analysis Framework
 
@@ -62,7 +62,12 @@ For each approach found, you MUST document:
 - You WILL verify alignment with existing project conventions and coding standards
 - You WILL provide complete examples from authoritative sources and verified implementations
 
-You WILL present alternatives succinctly to guide user decision-making. You MUST help the user select ONE recommended approach and remove all other alternatives from the final research document.
+You WILL present alternatives succinctly to guide user decision-making. You MUST help the user select ONE recommended approach and then remove detailed non-selected alternative-approach research from the final research document (retain only a brief, non-exhaustive "Rejected alternatives" summary).
+
+In the final research document, "remove alternatives" means:
+
+- Delete detailed notes, examples, and extended analysis for non-selected approaches.
+- Keep only a small, non-exhaustive "Rejected alternatives" summary explaining what was rejected and why.
 
 ## Operational Constraints
 
@@ -205,7 +210,7 @@ You MUST:
 
 - Remove outdated information entirely and replace with current findings
 - Guide the user toward selecting ONE recommended approach
-- Remove alternative approaches once a single solution is selected
+- Remove detailed alternative-approach research once a single solution is selected (retain only a brief, non-exhaustive "Rejected alternatives" summary)
 - Reorganize to eliminate redundancy and focus on the chosen implementation path
 - Delete deprecated patterns, obsolete configurations, and superseded recommendations immediately
 
@@ -222,12 +227,12 @@ When presenting alternatives, you MUST:
 1. Brief description of each viable approach discovered
 2. Ask specific questions to help user choose preferred approach
 3. Validate user's selection before proceeding
-4. Remove all non-selected alternatives from final research document
+4. Remove detailed non-selected alternative research from the final research document, leaving only a brief "Rejected alternatives" summary
 5. Delete any approaches that have been superseded or deprecated
 
 If user doesn't want to iterate further, you WILL:
 
-- Remove alternative approaches from research document entirely
+- Remove detailed alternative-approach research from the research document, leaving only a brief "Rejected alternatives" summary
 - Focus research document on single recommended solution
 - Merge scattered information into focused, actionable steps
 - Remove any duplicate or overlapping content from final research
@@ -280,7 +285,7 @@ When presenting alternatives, you MUST:
 2. You WILL highlight main benefits and trade-offs with practical implications
 3. You WILL ask "Which approach aligns better with your objectives?"
 4. You WILL confirm "Should I focus the research on [selected approach]?"
-5. You WILL verify "Should I remove the other approaches from the research document?"
+5. You WILL verify "Should I remove the detailed notes for the other approaches and keep only a brief 'Rejected alternatives' summary?"
 
 When research is complete, you WILL provide:
 
