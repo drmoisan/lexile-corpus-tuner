@@ -103,10 +103,26 @@
       "type": "pickString"
     },
     {
-      "default": "gpt-5.1-codex-max",
-      "description": "Preferred model passed to --preferred-model (e.g., gpt-5.1-codex-max)",
+      "default": "gpt-5.2",
+      "description": "Preferred model passed to --preferred-model",
       "id": "AtomicPreferredModel",
-      "type": "promptString"
+      "options": [
+        "Claude Sonnet 4.5",
+        "Claude Haiku 4.5",
+        "Claude Opus 4.5",
+        "Claude Sonnet 4",
+        "GPT-5.2-Codex",
+        "GPT-5.1-Codex-Max",
+        "GPT-5.1-Codex",
+        "GPT-5.2",
+        "GPT-5.1",
+        "GPT-5",
+        "GPT-5.1-Codex-Mini",
+        "GPT-5 mini",
+        "GPT-4.1",
+        "Gemini 3 Pro (Preview)"
+      ],
+      "type": "pickString"
     },
     {
       "default": "docs/features/active/",
