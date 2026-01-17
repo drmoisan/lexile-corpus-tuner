@@ -7,6 +7,7 @@ Builds prompts by combining a template with resolved feature folder context
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
 from typing import TYPE_CHECKING, Protocol
 
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PromptBuilderFileSystem(Protocol):
@@ -233,28 +236,6 @@ This execution uses model "{self.preferred_model}" for task completion.
             "<feature>", feature_name
         )
 
-        # Load all repository instruction files to inline in the prompt
-        instructions: list[tuple[str, str]] = []
-
-        # Include copilot-instructions.md
-        copilot_instructions_path = (
-            self.workspace / ".github" / "copilot-instructions.md"
-        )
-        if self._fs.is_file(copilot_instructions_path):
-            instructions.append(
-                ("copilot-instructions.md", self._read_text(copilot_instructions_path))
-            )
-
-        # Auto-discover all *.instructions.md files in .github/instructions/
-        instructions_dir = self.workspace / ".github" / "instructions"
-        if self._fs.is_dir(instructions_dir):
-            for instruction_file in self._fs.glob(
-                instructions_dir, "*.instructions.md"
-            ):
-                instructions.append(
-                    (instruction_file.name, self._read_text(instruction_file))
-                )
-
         # Construct prompt envelope with resolved context
         appended = f"""
 
@@ -265,7 +246,6 @@ Feature folder name: {feature_dir.name}
 - [{current_task.task_id}] {current_task.title}
 {retry_section}
 Constraints:
-- Follow all repository policies under .github/instructions/.
 - Do NOT replan or expand scope. Do not change task order or IDs.
 - Make the smallest change set required to complete ONLY the current task.
 - You must run the task-step toolchain for changed files, fix any failures,
@@ -278,10 +258,6 @@ Constraints:
   - python -m poetry run pytest \\
       --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools \\
       --cov-report=term-missing
-
----- BEGIN repo instructions ----
-{self._format_instructions(instructions)}
----- END repo instructions ----
 
 When you are confident the current task is complete and passes the above
 checks, update plan.md by checking ONLY this task:
@@ -305,18 +281,19 @@ Plan file on disk: {resolved_plan.update_filename}
 {story_text}
 ---- END user-story.md ----
 """
-        return template + appended
+        prompt_text = template + appended
+        LOGGER.info(
+            "Prompt size: %s bytes, %s lines",
+            len(prompt_text),
+            prompt_text.count(chr(10)),
+        )
+        if len(prompt_text) > 15_000:
+            LOGGER.warning(
+                "WARNING: Prompt exceeds target threshold (15KB); "
+                "consider reducing context"
+            )
+        return prompt_text
 
     def _read_text(self, path: Path) -> str:
         """Read text file via injected filesystem abstraction."""
         return self._fs.read_text(path)
-
-    def _format_instructions(self, instructions: list[tuple[str, str]]) -> str:
-        """Render instruction files into labeled sections."""
-        if not instructions:
-            return "(no instruction files found)"
-
-        rendered: list[str] = []
-        for label, content in instructions:
-            rendered.append(f"-- BEGIN {label} --\n{content}\n-- END {label} --")
-        return "\n\n".join(rendered)

@@ -264,12 +264,12 @@ The `atomic_executor` was designed before understanding Copilot CLI's native cap
 
 ## Acceptance Criteria
 - Conditions that must be true for the bug to be considered fixed (map to repro and edge cases).
-- Prompt files no longer inline repository instruction files.
-- Copilot CLI is invoked with `--agent=atomic_executor` for all tasks.
-- `--continue` is used between tasks within a single plan run, with a single-run guard enforced.
-- Prompt payloads are reduced to task-only context and stay within size guardrails.
-- Session rollover behavior is implemented and documented with a permitted heuristic.
-- Manual validation confirms session continuity (e.g., `/usage` or session logs).
+- Prompt files no longer inline repository instruction files. ✅ Verified 2026-01-17
+- Copilot CLI is invoked with `--agent=atomic_executor` for all tasks. ✅ Verified 2026-01-17
+- `--continue` is used between tasks within a single plan run, with a single-run guard enforced. ✅ Verified 2026-01-17
+- Prompt payloads are reduced to task-only context and stay within size guardrails. ✅ Verified 2026-01-17
+- Session rollover behavior is implemented and documented with a permitted heuristic. ✅ Verified 2026-01-17
+- Manual validation confirms session continuity (e.g., `/usage` or session logs). ✅ Verified 2026-01-17
 
 ## Risks & Mitigations
 - Technical or operational risks:

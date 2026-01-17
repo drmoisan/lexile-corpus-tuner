@@ -288,6 +288,12 @@ poetry run python -m scripts.dev_tools.atomic_executor.cli execute-all \
   --max-fix-attempts 3   # 0 for infinite retries
 ```
 
+**Session behavior notes:**
+- The executor invokes Copilot CLI with the `atomic_executor` agent profile (`--agent atomic_executor`).
+- The first task starts a new session; subsequent tasks use `--continue` when supported to preserve context.
+- `execute-all` acquires a single-run lock at `.agent_logs/executor.lock` to prevent concurrent runs from resuming unrelated sessions. Remove the lock file only if a prior run crashed and you have verified no other executor is active.
+- Prompt size and line count are logged; a warning is emitted when prompts exceed 15KB so you can trim context.
+
 **Resume execution (next unchecked task):**
 ```bash
 poetry run python -m scripts.dev_tools.atomic_executor.cli resume \

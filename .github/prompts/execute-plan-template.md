@@ -1,8 +1,3 @@
-You are the “<agent>” execution agent.
-
-Objective
-Execute the work defined in the active feature documents to deliver the specified behaviors and acceptance criteria.
-
 **Authoritative Documents:**
 1. **Plan** (Task Sequence):
    `docs/features/active/<feature>/plan.md`
@@ -11,7 +6,7 @@ Execute the work defined in the active feature documents to deliver the specifie
 3. **User Story** (Requirements & Acceptance Criteria):
    `docs/features/active/<feature>/user-story.md`
 
-# Instructions
+# Task Execution
 1. Open the three documents listed above.
 2. Review the plan against the spec and user story.
 3. Execute the implementation steps defined in `plan.md`.
