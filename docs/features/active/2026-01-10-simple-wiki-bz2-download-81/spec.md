@@ -6,7 +6,7 @@
 - Status: Draft
 
 ## Context
-`lexile-scoring-model-pipeline corpus download --sources "simple_wiki"` saves the dump as a compressed `.xml.bz2` blob and never extracts it to the plain `.xml` file the downstream tooling expects, so the Simple Wiki extractor cannot proceed.
+`lexile-scoring-model-pipeline corpus download --sources "simple_wiki"` currently produces only a `.xml.bz2` archive. The intended workflow and contributor docs assume a plain `.xml` exists after download, so the pipeline appears broken without an undocumented manual decompression step. The extractor can read `.bz2`, but the download step should still materialize `.xml` to align with the documented flow and acceptance criteria.
 
 Environment:
 - OS/version: Windows 10.0.26200.7462 (worktree host)
@@ -55,17 +55,57 @@ Logs / Screenshots:
 
 ## Root Cause Analysis
 - `SimpleWikiDownloader` stops once `simplewiki-latest-pages-articles.xml.bz2` is persisted; there is no post-processing hook to extract the XML.
-- The extractor script assumes the XML already exists, so it fails when pointed at the compressed file produced in this worktree.
-- The main worktree apparently runs a manual `bunzip2` step, but that knowledge never made it into the repo docs, so down-level worktrees silently diverge.
+- The documented workflow implies a plain `.xml` is available for downstream steps, so the missing file looks like a failure even though the extractor can read `.bz2`.
+- A manual `bunzip2` step is required but undocumented, leading to inconsistent behavior across worktrees.
 
 
 ## Proposed Fix
-- Extend `SimpleWikiDownloader` with an extraction phase:
-  - After the HTTP download completes, stream the `.bz2` archive through `bz2.BZ2File` and write `simplewiki-latest-pages-articles.xml` next to it (using a temporary filename + atomic rename).
-  - Skip decompression when both files already exist and the XML size is >0 to keep the command idempotent.
-- If we discover streaming extraction inside the downloader is too invasive, update `extract_simple_wiki_dump` to accept `.bz2` input transparently (still no manual steps).
-- Emit concise log messages indicating whether extraction was executed or skipped.
-- Update `README.md` and `docs/source-curation-guide.md` so contributors know the workflow is fully automated.
+Implement automatic extraction in `download_simple_wiki_dump` so the download step produces both the `.bz2` archive and a plain `.xml` file. The approach must remain stdlib-only and stream data to avoid high memory usage.
+
+### Detailed Technical Design
+
+#### File naming and paths
+- Input archive path: `data/corpus/raw/simple_wiki/<filename>.xml.bz2`.
+- Output XML path: same directory, derived by stripping the final `.bz2` suffix.
+- Fallback filename: if the URL does not include a filename, use `simplewiki_dump.xml.bz2` and `simplewiki_dump.xml`.
+
+#### Extraction helper (new private function)
+- Location: `lexile_scoring_model/corpus/download.py`.
+- Signature: `_extract_simple_wiki_bz2(bz2_path: Path) -> Path`.
+- Responsibilities:
+  - Compute `xml_path` from `bz2_path`.
+  - Build a temp path: `xml_path.with_suffix(".xml.tmp")`.
+  - Stream-decompress using `bz2.open(bz2_path, "rb")` and `tmp_path.open("wb")`.
+  - Use `shutil.copyfileobj` with an explicit chunk size to ensure bounded memory usage.
+  - Atomically replace: `tmp_path.replace(xml_path)`.
+  - On any exception, delete `tmp_path` if it exists, and re-raise.
+
+#### Download + extraction flow (updated behavior)
+- Call `ensure_dirs()`.
+- Resolve `dump_url` using `LEXILE_SIMPLE_WIKI_DUMP_URL` or default.
+- Compute `bz2_path` (destination) and `xml_path`.
+- If `bz2_path` exists:
+  - If `xml_path` exists and has size > 0, log “Skipping extraction” and return.
+  - Otherwise, run `_extract_simple_wiki_bz2(bz2_path)` and return.
+- If `bz2_path` does not exist:
+  - Download using `_download_file(dump_url, bz2_path)`.
+  - Run `_extract_simple_wiki_bz2(bz2_path)`.
+
+#### Idempotency and failure handling
+- Idempotent success state: `.bz2` exists and `.xml` exists with size > 0.
+- Partial output handling: delete temp file on errors; do not delete `.bz2`.
+- Retry behavior: rerunning the command should skip download and extraction when outputs are valid.
+
+#### Logging
+- INFO logs should include:
+  - Download start and destination path.
+  - Extraction start with source `.bz2` and destination `.xml` paths.
+  - Extraction skip reason (existing `.xml` with non-zero size).
+
+#### Optional opt-out (only if needed)
+- Environment variable: `LEXILE_SIMPLE_WIKI_SKIP_EXTRACT=1`.
+- Behavior: skip extraction entirely, leaving only `.bz2`.
+- Must be documented and default must remain auto-extract.
 
 
 ## Assumptions, Constraints, Dependencies
@@ -84,13 +124,19 @@ Logs / Screenshots:
 - Data or migration considerations:
   - The `data/corpus/raw/simple_wiki/` folder will contain an additional large XML file; ensure `.gitignore` keeps ignoring the folder.
   - Re-running the download should not override the XML if nothing changed, preserving determinism.
+- Config additions (if opt-out implemented):
+  - `LEXILE_SIMPLE_WIKI_SKIP_EXTRACT=1` skips XML extraction and leaves only the `.bz2` artifact.
 - Logging/telemetry updates:
   - Add INFO-level messages for "Downloading", "Extracting", and "Skipping extraction" to aid troubleshooting.
+  - Include both source `.bz2` path and destination `.xml` path in logs.
 
 ## Test Strategy
 - Unit coverage:
-  - Mock the HTTP downloader to emit a tiny `.bz2` payload and assert that both files are written and that extraction is skipped on subsequent runs.
-  - If extractor support for `.bz2` is implemented, add a focused unit test ensuring it can read compressed input paths.
+  - Add tests for `_extract_simple_wiki_bz2` using monkeypatched `Path.open`, `Path.exists`, `Path.stat`, and `Path.replace` to avoid filesystem temp files.
+  - Mock `_download_file` to emit a small, valid `.bz2` byte stream and verify both outputs are generated.
+  - Verify idempotency: when `.bz2` and `.xml` exist with non-zero size, extraction is skipped.
+  - Verify recovery: when `.bz2` exists and `.xml` is missing or size 0, extraction runs without re-downloading.
+  - Verify failure cleanup: temp file is removed on extraction errors and `.bz2` remains.
 - Integration:
   - Run `lexile-scoring-model-pipeline corpus download --sources "simple_wiki"` followed by the extractor CLI inside CI (or as part of a nightly smoke test) to guard against regressions.
 - Manual validation:
@@ -103,6 +149,7 @@ Logs / Screenshots:
 - The extractor CLI succeeds without any manual decompression instructions.
 - Automated tests verifying the new behavior run in CI.
 - Documentation clearly states that the workflow is automated and no longer mentions manual extraction.
+- Documentation shows exact commands to run and in what sequence.
 
 ## Risks & Mitigations
 - Risks:
@@ -111,7 +158,7 @@ Logs / Screenshots:
   - Additional processing time may slightly increase pipeline runtime.
 - Mitigations:
   - Write the XML to a temp file and rename atomically; delete temp files on exceptions.
-  - Document an opt-out flag to skip extraction if necessary (at the cost of requiring manual decompression) while keeping automated mode as default.
+  - Document an opt-out mechanism to skip extraction if necessary (at the cost of requiring manual decompression) while keeping automated mode as default.
   - Stream the decompression to avoid extra CPU/RAM overhead and log progress so users know what's happening.
 
 ## Rollout & Follow-up
