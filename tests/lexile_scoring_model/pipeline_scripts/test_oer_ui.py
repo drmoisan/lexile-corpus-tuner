@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
     import pytest
+    from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest import (
+        ManifestEntry,
+    )
 
 
 def _catalog_line(identifier: str) -> str:
@@ -111,3 +114,70 @@ def test_export_manifest_calls_manifest_generation(
     assert called["validate_urls"] is False
     assert called["count"] == 1
     assert called["output"] == "/fake/out.json"
+
+
+def test_export_manifest_produces_json_for_ck12_and_txt_for_openstax(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Mixed-source selection produces correct file extensions.
+
+    Scenario gate: CK-12 entries emit `.json` filenames while OpenStax entries
+    emit `.txt` filenames. This validates that the UI export_manifest function,
+    which delegates to generate_manifest, correctly routes extensions by source.
+    """
+    captured_entries: list[ManifestEntry] = []
+
+    def _capture_write(entries: list[ManifestEntry], output_path: Path) -> None:
+        del output_path
+        captured_entries.extend(entries)
+
+    monkeypatch.setattr(oer_ui, "write_manifest_json", _capture_write)
+
+    # Build mixed-source entries: one CK-12 (JSON candidate) and one OpenStax (text).
+    ck12_entry = CatalogEntry(
+        source_id="ck12",
+        identifier="ck-12-physics-flexbook-2-0",
+        title="CK-12 Physics FlexBook 2.0",
+        creator="CK-12 Foundation",
+        year="2024",
+        language=["eng"],
+        license_url="https://www.ck12.org/terms",
+        download_candidates=[
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/8384007?tiny=true",
+                size=None,
+            )
+        ],
+    )
+    openstax_entry = CatalogEntry(
+        source_id="openstax",
+        identifier="CollegeAlgebraCorequisite2e",
+        title="College Algebra Corequisite Support 2e",
+        creator="OpenStax",
+        year="2023",
+        language=["eng"],
+        license_url="http://creativecommons.org/licenses/by/4.0/",
+        download_candidates=[
+            DownloadCandidate(
+                format="text/plain",
+                url="https://archive.org/download/CollegeAlgebraCorequisite2e/CollegeAlgebraCorequisite2e_djvu.txt",
+                size=None,
+            )
+        ],
+    )
+
+    oer_ui.export_manifest([ck12_entry, openstax_entry], Path("/fake/manifest.json"))
+
+    # Validate extension mapping is correct.
+    assert len(captured_entries) == 2
+    # Find entries by source and validate their extensions.
+    ck12_manifest = next(e for e in captured_entries if e.source_id == "ck12")
+    openstax_manifest = next(e for e in captured_entries if e.source_id == "openstax")
+    assert ck12_manifest.filename.endswith(
+        ".json"
+    ), f"CK-12 should emit .json, got {ck12_manifest.filename}"
+    assert openstax_manifest.filename.endswith(
+        ".txt"
+    ), f"OpenStax should emit .txt, got {openstax_manifest.filename}"

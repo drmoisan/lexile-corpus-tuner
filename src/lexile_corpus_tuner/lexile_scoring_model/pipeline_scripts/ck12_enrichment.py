@@ -378,19 +378,35 @@ def extract_revision_download_candidates(
     def _walk_revisions(node: object) -> None:
         """
         Walk nested revision nodes to collect all integer revision IDs.
+
+        The CK-12 Perma API returns revision IDs in multiple forms:
+        - As `revisionID` or `artifactRevisionID` integer fields in mapping nodes
+        - As plain integers directly in `children` lists (leaf section IDs)
         """
         if isinstance(node, Mapping):
             typed_node = cast(Mapping[str, object], node)
+
+            # Collect revisionID when present (used by some artifact payloads).
             revision_value = typed_node.get("revisionID")
             if isinstance(revision_value, int):
                 revision_ids.add(revision_value)
 
+            # Collect artifactRevisionID (primary form in Perma responses).
+            artifact_revision_value = typed_node.get("artifactRevisionID")
+            if isinstance(artifact_revision_value, int):
+                revision_ids.add(artifact_revision_value)
+
             children = typed_node.get("children")
             if isinstance(children, list):
-                # Descend into child nodes that may contain deeper revisions.
+                # Children may be nested objects or plain integer revision IDs.
                 child_nodes = cast(list[object], children)
                 for child in child_nodes:
-                    _walk_revisions(child)
+                    if isinstance(child, int):
+                        # Leaf section: child is a plain revision ID integer.
+                        revision_ids.add(child)
+                    else:
+                        # Nested object: descend to extract further IDs.
+                        _walk_revisions(child)
 
             nested_revisions = typed_node.get("revisions")
             if isinstance(nested_revisions, list):

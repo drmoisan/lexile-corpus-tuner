@@ -23,7 +23,8 @@ Flow:
 Invariants / Constraints:
     - Only catalogs with JSONL rows containing the expected CatalogEntry fields
       are supported.
-    - Filenames in manifests must remain `.txt` to satisfy the normalizer.
+    - Filenames in manifests use source-specific extensions: `.json` for CK-12
+      revision API responses, `.txt` for OpenStax text derivatives.
 
 Side Effects:
     - CLI performs file reads and manifest writes when the user exports.

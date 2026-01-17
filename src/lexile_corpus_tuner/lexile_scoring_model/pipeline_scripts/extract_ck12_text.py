@@ -12,8 +12,9 @@ Usage:
     traversal in a later task.
 
 Flow:
-    1) Select the primary XHTML fragment from the revision payload, preferring
-       `response.lesson.xhtml` over `response.lesson.xhtml_prime`.
+    1) Select the primary XHTML fragment from the revision payload, checking
+       `response.lesson`, `response.section`, or `response.chapter` depending
+       on artifact type, preferring `xhtml` over `xhtml_prime`.
     2) Parse the XHTML with BeautifulSoup using the `lxml` parser.
     3) Normalize extracted text and ensure it is non-empty before returning.
 
@@ -63,15 +64,23 @@ def _select_lesson_xhtml(payload: dict[str, Any]) -> str:
     Side Effects:
         None.
     """
-    lesson = payload.get("response", {}).get("lesson", {})
+    response = payload.get("response", {})
+
+    # CK-12 revision API returns content under different keys depending on
+    # artifact type: "lesson", "section", or "chapter". Check each in order.
+    content: dict[str, Any] = {}
+    for artifact_type in ("lesson", "section", "chapter"):
+        if artifact_type in response and response[artifact_type]:
+            content = response[artifact_type]
+            break
 
     # Prefer the canonical XHTML content when available to mirror the CK-12
     # reader experience; fall back only when the primary field is absent.
-    primary_xhtml = lesson.get("xhtml")
+    primary_xhtml = content.get("xhtml")
     if primary_xhtml:
         return str(primary_xhtml)
 
-    fallback_xhtml = lesson.get("xhtml_prime")
+    fallback_xhtml = content.get("xhtml_prime")
     if fallback_xhtml:
         return str(fallback_xhtml)
 

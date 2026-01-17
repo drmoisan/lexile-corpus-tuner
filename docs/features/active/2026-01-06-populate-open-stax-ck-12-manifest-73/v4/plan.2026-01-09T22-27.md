@@ -143,49 +143,49 @@
   - Scenario gate: `xhtml` missing, `xhtml_prime` present → used.
 - [x] [P6-T6] Add unit test: extractor logs and skips when both XHTML fields missing in [tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py)
   - Scenario gate: missing fields → logged error; no output produced.
-- [ ] [P6-T7] Implement `extract_ck12_text` CLI in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py)
+- [x] [P6-T7] Implement `extract_ck12_text` CLI in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py)
   - Acceptance: [P6-T4..T6] pass; BeautifulSoup uses `"lxml"` parser per spec.
-- [ ] [P6-T8] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py`
+- [x] [P6-T8] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py`
   - Acceptance: The run is green; new module achieves `>= 90%` coverage.
 
 **Phase 7 — Visual Curation UI Alignment (tests first)**
-- [ ] [P7-T1] Add unit test: UI/export logic chooses `.json` for CK-12 and `.txt` for OpenStax in [tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py)
+- [x] [P7-T1] Add unit test: UI/export logic chooses `.json` for CK-12 and `.txt` for OpenStax in [tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py](../../../../tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py)
   - Scenario gate: mixed-source selection produces mixed extensions correctly.
-- [ ] [P7-T2] Update UI logic in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py) to pass [P7-T1]
+- [x] [P7-T2] Update UI logic in [src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py](../../../../src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py) to pass [P7-T1]
   - Acceptance: [P7-T1] passes.
-- [ ] [P7-T3] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py`
+- [x] [P7-T3] Coverage gate: run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py`
   - Acceptance: The run is green; changed lines are covered.
 
 **Phase 8 — Acceptance-Criteria Dry Run (CLI, manual)**
-- [ ] [P8-T1] Run OpenStax catalog generation (`oer_catalog --sources "openstax"`) and confirm `data/meta/catalogs/openstax_catalog.jsonl` is created
+- [x] [P8-T1] Run OpenStax catalog generation (`oer_catalog --sources "openstax"`) and confirm `data/meta/catalogs/openstax_catalog.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T2] Run OpenStax enrichment (`oer_enrichment --sources "openstax"`) and confirm `data/meta/catalogs/openstax_enriched.jsonl` is created
+- [x] [P8-T2] Run OpenStax enrichment (`oer_enrichment --sources "openstax"`) and confirm `data/meta/catalogs/openstax_enriched.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T3] Run OER curation for OpenStax (`oer_curation --require-text --sources "openstax"`) and confirm `data/meta/catalogs/openstax_curated.jsonl` is created
+- [x] [P8-T3] Run OER curation for OpenStax (`oer_curation --require-text --sources "openstax"`) and confirm `data/meta/catalogs/openstax_curated.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T4] Run manifest generation for OpenStax (`oer_manifest --sources "openstax"` with URL validation off if supported) and confirm `data/meta/oer_sources.json` is created
+- [x] [P8-T4] Run manifest generation for OpenStax (`oer_manifest --sources "openstax"` with URL validation off if supported) and confirm `data/meta/oer_sources.json` is created
   - Acceptance: Manifest contains at least one `source_id: "openstax"` entry.
-- [ ] [P8-T5] Run CK-12 catalog generation (`ck12_catalog`) and confirm `data/meta/catalogs/ck12_catalog.jsonl` is created
+- [x] [P8-T5] Run CK-12 catalog generation (`ck12_catalog`) and confirm `data/meta/catalogs/ck12_catalog.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T6] Run CK-12 enrichment (`ck12_enrichment`) and confirm `data/meta/catalogs/ck12_enriched.jsonl` is created
+- [x] [P8-T6] Run CK-12 enrichment (`ck12_enrichment`) and confirm `data/meta/catalogs/ck12_enriched.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T7] Run OER curation for CK-12 (`oer_curation --require-json --sources "ck12"`) and confirm `data/meta/catalogs/ck12_curated.jsonl` is created
+- [x] [P8-T7] Run OER curation for CK-12 (`oer_curation --require-json --sources "ck12"`) and confirm `data/meta/catalogs/ck12_curated.jsonl` is created
   - Acceptance: File exists and is non-empty.
-- [ ] [P8-T8] Run manifest generation for CK-12 (`oer_manifest --sources "ck12"`) and confirm `data/meta/oer_sources.json` contains CK-12 entries
+- [x] [P8-T8] Run manifest generation for CK-12 (`oer_manifest --sources "ck12"`) and confirm `data/meta/oer_sources.json` contains CK-12 entries
   - Acceptance: Manifest contains at least one `source_id: "ck12"` entry with `filename` ending in `.json`.
-- [ ] [P8-T9] Run corpus download for OpenStax + CK-12 (`lexile-scoring-model-pipeline corpus download --sources "openstax,ck12"`)
+- [x] [P8-T9] Run corpus download for OpenStax + CK-12 (`lexile-scoring-model-pipeline corpus download --sources "openstax,ck12"`)
   - Acceptance: CK-12 `.json` downloads succeed with required headers; OpenStax downloads still succeed.
-- [ ] [P8-T10] Run CK-12 extraction (`extract_ck12_text`) on downloaded CK-12 JSON directory
+- [x] [P8-T10] Run CK-12 extraction (`extract_ck12_text`) on downloaded CK-12 JSON directory
   - Acceptance: Extracted `.txt` outputs are non-empty.
-- [ ] [P8-T11] Run corpus normalize for OpenStax + CK-12 (`lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12"`)
+- [x] [P8-T11] Run corpus normalize for OpenStax + CK-12 (`lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12"`)
   - Acceptance: Normalize completes without format errors.
 
 **Phase 9 — Final QC Gate (all languages, full toolchain)**
-- [ ] [P9-T1] Run JSON formatting: `poetry run python -m scripts.dev_tools.format_json`
+- [x] [P9-T1] Run JSON formatting: `poetry run python -m scripts.dev_tools.format_json`
   - Acceptance: Command exits 0.
-- [ ] [P9-T2] Run JSON validation: `poetry run python -m scripts.dev_tools.validate_json`
+- [x] [P9-T2] Run JSON validation: `poetry run python -m scripts.dev_tools.validate_json`
   - Acceptance: Command exits 0.
-- [ ] [P9-T3] Run shell formatter: `poetry run python -m scripts.dev_tools.shell_qc format`
+- [x] [P9-T3] Run shell formatter: `poetry run python -m scripts.dev_tools.shell_qc format`
   - Acceptance: Command exits 0.
 - [ ] [P9-T4] Run shell lint/check: `poetry run python -m scripts.dev_tools.shell_qc check`
   - Acceptance: Command exits 0.

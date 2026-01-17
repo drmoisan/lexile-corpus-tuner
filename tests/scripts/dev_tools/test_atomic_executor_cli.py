@@ -361,7 +361,7 @@ def test_copilot_argv_includes_agent_flag(monkeypatch: pytest.MonkeyPatch) -> No
         run_id="2026-01-07_000000",
     )
 
-    _assert_argv_contains_sequence(captured_argv, ["--agent", "atomic_executor"])
+    _assert_argv_contains_sequence(captured_argv, ["--agent", "atomic_execution"])
 
 
 def test_first_task_omits_continue_flag(monkeypatch: pytest.MonkeyPatch) -> None:

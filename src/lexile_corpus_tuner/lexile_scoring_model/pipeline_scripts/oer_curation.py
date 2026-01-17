@@ -91,6 +91,22 @@ def has_json_candidate(entry: CatalogEntry) -> bool:
     return False
 
 
+# HTTP headers required for CK-12 API HEAD requests to avoid 403 responses.
+CK12_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.ck12.org/",
+    "Origin": "https://www.ck12.org",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
+
+
 def _is_url_reachable(
     url: str, *, timeout_seconds: float = REVISION_HEAD_TIMEOUT_SECONDS
 ) -> bool:
@@ -111,8 +127,12 @@ def _is_url_reachable(
     Side Effects:
         Issues a network HEAD request with a short timeout.
     """
+    # CK-12 API requires browser-like headers to avoid 403 Forbidden responses.
+    headers = CK12_REQUEST_HEADERS if "ck12.org" in url.lower() else None
     try:
-        response = requests.head(url, allow_redirects=True, timeout=timeout_seconds)
+        response = requests.head(
+            url, allow_redirects=True, timeout=timeout_seconds, headers=headers
+        )
     except requests.RequestException:
         return False
     return response.status_code == 200

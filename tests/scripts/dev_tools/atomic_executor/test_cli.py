@@ -1156,7 +1156,7 @@ class TestRunCopilot:
         assert captured_argv[0] == str(fake_copilot)
         assert "--agent" in captured_argv
         agent_idx = captured_argv.index("--agent")
-        assert captured_argv[agent_idx + 1] == "atomic_executor"
+        assert captured_argv[agent_idx + 1] == "atomic_execution"
         assert "--model" in captured_argv
         assert "gpt-5.1-codex-max" in captured_argv
         assert "--session-path" not in captured_argv

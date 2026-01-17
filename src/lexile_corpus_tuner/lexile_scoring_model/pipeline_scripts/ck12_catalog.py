@@ -136,7 +136,7 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
     seen_ids: set[str] = set()
 
     # Locate the list of FlexBooks in either the legacy "books" key or the
-    # Browse API "response.items" shape.
+    # Browse API "response.flexbook" / "response.items" shape.
     books_raw: object | None = catalog_data.get("books")
     if books_raw is None:
         response_obj = catalog_data.get("response")
@@ -144,7 +144,12 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             # Treat nested JSON objects as dict[str, Any] so `dict.get()` is typed and
             # downstream parsing can narrow values safely.
             response_dict = cast(dict[str, Any], response_obj)
-            books_raw = response_dict.get("items") or response_dict.get("books")
+            # Browse API returns data under "flexbook" key (observed Jan 2026).
+            books_raw = (
+                response_dict.get("flexbook")
+                or response_dict.get("items")
+                or response_dict.get("books")
+            )
     if books_raw is None:
         books_raw = []
 

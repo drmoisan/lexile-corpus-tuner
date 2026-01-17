@@ -49,6 +49,7 @@ DEFAULT_COPILOT_CLI_BACKOFF_BASE_SECONDS = 2.0
 DEFAULT_COPILOT_CLI_BACKOFF_MAX_SECONDS = 60.0
 DEFAULT_COPILOT_CLI_OUTPUT_TAIL_BYTES = 4096
 DEFAULT_COPILOT_CLI_MAX_RETRIES = 8
+DEFAULT_COPILOT_AGENT = "atomic_execution"
 
 # When Copilot CLI cannot request approval (common in headless/non-interactive
 # runs), it emits this exact substring and may then stall until an idle-timeout.
@@ -591,7 +592,7 @@ def run_copilot(
     argv: list[str] = [
         copilot_exe,
         "--agent",
-        "atomic_executor",
+        DEFAULT_COPILOT_AGENT,
     ]
 
     normalized_model: str | None = None
