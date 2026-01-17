@@ -40,6 +40,7 @@ from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
 PROTECTED_BRANCHES = {"main", "master", "development"}
 LOG_DIR = ".agent_logs"
+EXECUTOR_LOCK_FILE = ".agent_logs/executor.lock"
 
 # Safe, bounded defaults for Copilot CLI throttling controls (issue #80).
 DEFAULT_COPILOT_CLI_MAX_CALLS_PER_WINDOW = 6
@@ -197,6 +198,47 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
 
     # Infer: assume this file lives at <repo>/scripts/dev_tools/atomic_executor/
     return Path(__file__).resolve().parents[3]
+
+
+def acquire_executor_lock(workspace: Path) -> Path:
+    """
+    Acquire the single-run lock to prevent concurrent executor sessions.
+
+    Purpose:
+        Ensures only one execute-all run is active at a time so that
+        `--continue` does not resume unrelated Copilot sessions.
+
+    Args:
+        workspace (Path): Repository root used to resolve the lock file path.
+
+    Returns:
+        Path: The resolved lock file path.
+
+    Raises:
+        RuntimeError: If the lock file already exists.
+    """
+    lock_path = workspace / EXECUTOR_LOCK_FILE
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if lock_path.exists():
+        raise RuntimeError(
+            f"Atomic executor lock already exists: {lock_path.as_posix()}"
+        )
+
+    lock_path.write_text("atomic_executor_lock\n", encoding="utf-8")
+    return lock_path
+
+
+def release_executor_lock(lock_path: Path) -> None:
+    """
+    Release the single-run lock file if it exists.
+
+    Args:
+        lock_path (Path): Path to the lock file to remove.
+    """
+    with contextlib.suppress(FileNotFoundError):
+        if lock_path.exists():
+            lock_path.unlink()
 
 
 def ensure_clean_tree(workspace: Path) -> None:
@@ -388,6 +430,7 @@ def run_copilot(
     preferred_model: str | None,
     run_id: str,
     resume_session: bool = False,
+    is_first_task: bool = True,
     _idle_timeout_seconds: float | None = None,
     _output_tail_bytes: int | None = None,
 ) -> CopilotRunResult:
@@ -402,6 +445,7 @@ def run_copilot(
         preferred_model (str | None): Preferred model name or Copilot CLI --model value.
         run_id (str): Run id for grouping per-task artifacts.
         resume_session (bool): Reuse prior Copilot session for this task if True.
+        is_first_task (bool): True for the first task in a plan run.
 
     Returns:
         CopilotRunResult: Exit code and a bounded output tail snippet.
@@ -546,6 +590,8 @@ def run_copilot(
 
     argv: list[str] = [
         copilot_exe,
+        "--agent",
+        "atomic_executor",
     ]
 
     normalized_model: str | None = None
@@ -554,6 +600,7 @@ def run_copilot(
         argv.extend(["--model", normalized_model])
 
     supports_sessions = _copilot_supports_session(copilot_exe)
+    use_continue = False
     if resume_session and supports_sessions:
         argv.extend(["--session-path", str(share_path)])
     elif resume_session and not supports_sessions:
@@ -561,6 +608,9 @@ def run_copilot(
             log_file,
             "INFO: Copilot CLI does not support --session-path; skipping resume.",
         )
+    elif not is_first_task and supports_sessions:
+        argv.append("--continue")
+        use_continue = True
 
     argv.extend(
         [
@@ -592,6 +642,12 @@ def run_copilot(
             f.write(f"normalized_model: {normalized_model}\n")
         if resume_session:
             f.write(f"resume_session: {supports_sessions}\n")
+        session_mode = (
+            "continue"
+            if use_continue
+            else "resume" if resume_session and supports_sessions else "new"
+        )
+        f.write(f"session_mode: {session_mode}\n")
         f.write(f"share_path: {share_path}\n")
         f.write(f"prompt_file: {prompt_file}\n")
         f.write("(prompt omitted from log for brevity; use --print-prompt to view)\n")
@@ -907,6 +963,7 @@ def execute_one_task(
     copilot_output_tail_bytes: int,
     print_prompt: bool = False,
     copy_prompt: bool = False,
+    is_first_task: bool = True,
 ) -> int:
     """
     Execute a single atomic task with retries.
@@ -934,6 +991,7 @@ def execute_one_task(
             retain for failure classification.
         print_prompt (bool): If True, print prompt and return.
         copy_prompt (bool): If True, copy prompt and return.
+        is_first_task (bool): True when this is the first task in a plan run.
 
     Returns:
         int: Exit code (0 = success, 5 = failed).
@@ -1001,6 +1059,7 @@ def execute_one_task(
                 preferred_model=preferred_model,
                 run_id=run_id,
                 resume_session=(attempt > 1 or copilot_invocation > 0),
+                is_first_task=is_first_task,
                 _output_tail_bytes=copilot_output_tail_bytes,
             )
             copilot_invocation += 1
@@ -1144,106 +1203,118 @@ def main(argv: list[str] | None = None) -> int:
     run_id = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     log_file = log_dir / f"atomic_executor_{run_id}.log"
 
-    # Parse plan and preflight validate
-    parser = PlanParser(plan_path)
-    parser.preflight_validate()
+    lock_path: Path | None = None
+    if args.cmd == "execute-all":
+        lock_path = acquire_executor_lock(workspace)
 
-    # Determine current task
-    if args.cmd == "resume":
-        cur = parser.next_unchecked_task()
-        if cur is None:
-            print("Plan already complete: no unchecked tasks found.")
-            return 0
-    elif args.cmd == "execute-all":
-        cur = parser.next_unchecked_task()
-        if cur is None:
-            print("Plan already complete: no unchecked tasks found.")
-            return 0
-    else:
-        if args.start:
-            cur = parser.find_task_by_id(args.start)
-        else:
+    try:
+        # Parse plan and preflight validate
+        parser = PlanParser(plan_path)
+        parser.preflight_validate()
+
+        # Determine current task
+        if args.cmd == "resume":
             cur = parser.next_unchecked_task()
             if cur is None:
                 print("Plan already complete: no unchecked tasks found.")
                 return 0
+        elif args.cmd == "execute-all":
+            cur = parser.next_unchecked_task()
+            if cur is None:
+                print("Plan already complete: no unchecked tasks found.")
+                return 0
+        else:
+            if args.start:
+                cur = parser.find_task_by_id(args.start)
+            else:
+                cur = parser.next_unchecked_task()
+                if cur is None:
+                    print("Plan already complete: no unchecked tasks found.")
+                    return 0
 
-    builder = PromptBuilder(
-        workspace,
-        prompt_template_path,
-        preferred_model=args.preferred_model,
-    )
-    qc_runner = QCRunner(workspace)
-
-    # Per-run throttling controls. The limiter must persist across tasks to
-    # regulate overall call cadence.
-    copilot_rate_limiter = CallRateLimiter(
-        max_calls=args.copilot_cli_max_calls_per_window,
-        window_seconds=args.copilot_cli_window_seconds,
-        clock=SystemClock(),
-        sleeper=TimeSleeper(),
-    )
-
-    while True:
-        # Backoff state is per-task; it resets after successful Copilot invocations.
-        copilot_backoff = ExponentialBackoff(
-            base_seconds=args.copilot_cli_backoff_base_seconds,
-            max_seconds=args.copilot_cli_backoff_max_seconds,
-            random_source=SystemRandom(),
-        )
-
-        # Build prompt and execute
-        result = execute_one_task(
-            workspace=workspace,
-            cur=cur,
-            parser=parser,
-            builder=builder,
-            qc_runner=qc_runner,
-            log_file=log_file,
-            prompt_template_path=prompt_template_path,
-            max_fix_attempts=args.max_fix_attempts,
-            feature_dir=feature_dir,
+        builder = PromptBuilder(
+            workspace,
+            prompt_template_path,
             preferred_model=args.preferred_model,
-            run_id=run_id,
-            copilot_rate_limiter=copilot_rate_limiter,
-            copilot_backoff=copilot_backoff,
-            copilot_max_retries=args.copilot_cli_max_retries,
-            copilot_output_tail_bytes=args.copilot_cli_output_tail_bytes,
-            print_prompt=args.print_prompt,
-            copy_prompt=args.copy_prompt,
+        )
+        qc_runner = QCRunner(workspace)
+
+        # Per-run throttling controls. The limiter must persist across tasks to
+        # regulate overall call cadence.
+        copilot_rate_limiter = CallRateLimiter(
+            max_calls=args.copilot_cli_max_calls_per_window,
+            window_seconds=args.copilot_cli_window_seconds,
+            clock=SystemClock(),
+            sleeper=TimeSleeper(),
         )
 
-        if result != 0:
-            return result
+        is_first_task = True
 
-        # Stop here if interactive command (print/copy)
-        if args.print_prompt or args.copy_prompt:
-            return 0
+        while True:
+            # Backoff state is per-task; it resets after successful Copilot invocations.
+            copilot_backoff = ExponentialBackoff(
+                base_seconds=args.copilot_cli_backoff_base_seconds,
+                max_seconds=args.copilot_cli_backoff_max_seconds,
+                random_source=SystemRandom(),
+            )
 
-        # Check phase completion after task success
-        if parser.phase_complete(cur.phase):
-            print(f"Phase {cur.phase} complete -> running full toolchain...")
-            try:
-                qc_runner.run_full()
-            except subprocess.CalledProcessError as e:
-                print(
-                    f"Full QC failed after completing Phase {cur.phase}: {e}",
-                    file=sys.stderr,
-                )
-                return 5
+            # Build prompt and execute
+            result = execute_one_task(
+                workspace=workspace,
+                cur=cur,
+                parser=parser,
+                builder=builder,
+                qc_runner=qc_runner,
+                log_file=log_file,
+                prompt_template_path=prompt_template_path,
+                max_fix_attempts=args.max_fix_attempts,
+                feature_dir=feature_dir,
+                preferred_model=args.preferred_model,
+                run_id=run_id,
+                copilot_rate_limiter=copilot_rate_limiter,
+                copilot_backoff=copilot_backoff,
+                copilot_max_retries=args.copilot_cli_max_retries,
+                copilot_output_tail_bytes=args.copilot_cli_output_tail_bytes,
+                print_prompt=args.print_prompt,
+                copy_prompt=args.copy_prompt,
+                is_first_task=is_first_task,
+            )
 
-        # If not execute-all, we are done after one task
-        if args.cmd != "execute-all":
-            print("Next: run 'resume' for the next task.")
-            return 0
+            if result != 0:
+                return result
 
-        # If execute-all, find next task
-        next_task = parser.next_unchecked_task()
-        if next_task is None:
-            print("All tasks complete.")
-            return 0
-        cur = next_task
-        print(f"Proceeding to next task: {cur.task_id}...")
+            # Stop here if interactive command (print/copy)
+            if args.print_prompt or args.copy_prompt:
+                return 0
+
+            # Check phase completion after task success
+            if parser.phase_complete(cur.phase):
+                print(f"Phase {cur.phase} complete -> running full toolchain...")
+                try:
+                    qc_runner.run_full()
+                except subprocess.CalledProcessError as e:
+                    print(
+                        f"Full QC failed after completing Phase {cur.phase}: {e}",
+                        file=sys.stderr,
+                    )
+                    return 5
+
+            # If not execute-all, we are done after one task
+            if args.cmd != "execute-all":
+                print("Next: run 'resume' for the next task.")
+                return 0
+
+            # If execute-all, find next task
+            next_task = parser.next_unchecked_task()
+            if next_task is None:
+                print("All tasks complete.")
+                return 0
+            cur = next_task
+            is_first_task = False
+            print(f"Proceeding to next task: {cur.task_id}...")
+    finally:
+        if lock_path is not None:
+            release_executor_lock(lock_path)
 
 
 if __name__ == "__main__":

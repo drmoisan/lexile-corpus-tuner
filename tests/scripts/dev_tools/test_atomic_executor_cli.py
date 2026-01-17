@@ -7,6 +7,8 @@ and logging/prompt enhancements.
 
 # pyright: reportArgumentType=false, reportUnknownLambdaType=false, reportUnknownArgumentType=false
 
+import contextlib
+import io
 import subprocess
 from collections.abc import Generator
 from pathlib import Path
@@ -15,6 +17,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from scripts.dev_tools.atomic_executor import cli
 from scripts.dev_tools.atomic_executor.cli import main
 from scripts.dev_tools.atomic_executor.copilot_runner import CopilotRunResult
 from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
@@ -68,6 +71,115 @@ def mock_dependencies() -> Generator[dict[str, Any], None, None]:
             "run_copilot": MockRunCopilot,
             "task": task,
         }
+
+
+def _setup_run_copilot_capture(
+    monkeypatch: pytest.MonkeyPatch, supports_sessions: bool
+) -> list[str]:
+    """
+    Configure run_copilot dependencies to capture argv without filesystem I/O.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Fixture used to patch dependencies.
+        supports_sessions (bool): Whether to report session support.
+
+    Returns:
+        list[str]: Captured argv list from the mocked Popen call.
+    """
+
+    captured_argv: list[str] = []
+
+    def _fake_exists(path: Path) -> bool:
+        """
+        Pretend the fake copilot executable exists on PATH.
+
+        Args:
+            path (Path): Path to check.
+
+        Returns:
+            bool: True for the fake copilot path, False otherwise.
+        """
+
+        return path.as_posix() == "/fake/bin/copilot"
+
+    def _fake_open(_self: Path, *_args: object, **_kwargs: object):
+        """
+        Return an in-memory file handle for log writes.
+
+        Returns:
+            Context manager wrapping an in-memory StringIO.
+        """
+
+        return contextlib.nullcontext(io.StringIO())
+
+    def _fake_write_text(_self: Path, *_args: object, **_kwargs: object) -> int:
+        """
+        Pretend to write text without touching disk.
+
+        Returns:
+            int: Number of characters written (0 for in-memory no-op).
+        """
+
+        return 0
+
+    def _fake_mkdir(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Pretend to create a directory without touching disk.
+        """
+
+        return None
+
+    def _fake_touch(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Pretend to create a file without touching disk.
+        """
+
+        return None
+
+    def _fake_popen(argv: list[str], *_args: object, **_kwargs: object) -> Mock:
+        """
+        Capture argv passed to subprocess.Popen and return a dummy process.
+
+        Args:
+            argv (list[str]): Copilot CLI argument vector.
+
+        Returns:
+            Mock: Dummy process handle.
+        """
+
+        captured_argv.extend(argv)
+        return Mock()
+
+    monkeypatch.setenv("PATH", "/fake/bin")
+    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(cli.Path, "open", _fake_open)
+    monkeypatch.setattr(cli.Path, "write_text", _fake_write_text)
+    monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
+    monkeypatch.setattr(cli.Path, "touch", _fake_touch)
+    monkeypatch.setattr(cli.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(cli, "_stream_copilot_output", lambda **_kwargs: (0, ""))
+    monkeypatch.setattr(cli, "_clean_session_file", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        cli, "_copilot_supports_session", lambda _exe: supports_sessions
+    )
+
+    return captured_argv
+
+
+def _assert_argv_contains_sequence(argv: list[str], sequence: list[str]) -> None:
+    """
+    Assert that argv contains a contiguous sequence of arguments.
+
+    Args:
+        argv (list[str]): Argument vector to inspect.
+        sequence (list[str]): Sequence that must appear contiguously.
+    """
+
+    # Scan for the contiguous sequence to avoid brittle indexing.
+    for idx in range(len(argv) - len(sequence) + 1):
+        if argv[idx : idx + len(sequence)] == sequence:
+            return
+    raise AssertionError(f"Expected sequence {sequence} not found in argv: {argv}")
 
 
 def test_execute_one_task_retries_until_success(mock_dependencies: dict[str, Any]):
@@ -234,3 +346,190 @@ def test_execute_all_aborts_with_exit_code_5_on_persistent_failure(
 
         _, kwargs2 = mock_exec.call_args_list[1]
         assert kwargs2["cur"] == task2
+
+
+def test_copilot_argv_includes_agent_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """run_copilot() should include the atomic executor agent flag."""
+    captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=False)
+
+    cli.run_copilot(
+        workspace=Path("/workspace"),
+        prompt_text="test prompt",
+        log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
+        task_id="P1-T1",
+        preferred_model=None,
+        run_id="2026-01-07_000000",
+    )
+
+    _assert_argv_contains_sequence(captured_argv, ["--agent", "atomic_executor"])
+
+
+def test_first_task_omits_continue_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """run_copilot() should omit --continue for the first task."""
+    captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=True)
+
+    cli.run_copilot(
+        workspace=Path("/workspace"),
+        prompt_text="test prompt",
+        log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
+        task_id="P1-T1",
+        preferred_model=None,
+        run_id="2026-01-07_000000",
+        is_first_task=True,
+    )
+
+    assert "--continue" not in captured_argv
+
+
+def test_subsequent_task_includes_continue_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_copilot() should add --continue after the first task."""
+    captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=True)
+
+    cli.run_copilot(
+        workspace=Path("/workspace"),
+        prompt_text="test prompt",
+        log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
+        task_id="P1-T2",
+        preferred_model=None,
+        run_id="2026-01-07_000000",
+        is_first_task=False,
+    )
+
+    assert "--continue" in captured_argv
+
+
+def test_single_run_lock_acquired_on_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    """acquire_executor_lock() should create the lock file."""
+    lock_exists = False
+    lock_file_name = ".agent_logs/executor.lock"
+    original_exists = cli.Path.exists
+    original_write_text = cli.Path.write_text
+    original_mkdir = cli.Path.mkdir
+
+    def _fake_exists(path: Path) -> bool:
+        """
+        Check whether the simulated lock file exists.
+
+        Args:
+            path (Path): Path to check.
+
+        Returns:
+            bool: True when the lock flag is set for the lock path.
+        """
+
+        if path.as_posix().endswith(lock_file_name):
+            return lock_exists
+        return original_exists(path)
+
+    def _fake_write_text(_self: Path, *_args: object, **_kwargs: object) -> int:
+        """
+        Simulate writing the lock file and flip the existence flag.
+
+        Returns:
+            int: Number of characters written (0 for simulated write).
+        """
+
+        nonlocal lock_exists
+        if _self.as_posix().endswith(lock_file_name):
+            lock_exists = True
+            return 0
+        return original_write_text(_self, *_args, **_kwargs)
+
+    def _fake_mkdir(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Simulate creating the lock directory without touching disk.
+        """
+
+        if _self.as_posix().endswith(".agent_logs"):
+            return None
+        return original_mkdir(_self, *_args, **_kwargs)
+
+    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(cli.Path, "write_text", _fake_write_text)
+    monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
+
+    lock_path = cli.acquire_executor_lock(Path("/workspace"))
+
+    assert lock_exists is True
+    assert lock_path.as_posix().endswith(lock_file_name)
+
+
+def test_single_run_lock_blocks_concurrent_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """acquire_executor_lock() should raise when the lock already exists."""
+    lock_exists = True
+    lock_file_name = ".agent_logs/executor.lock"
+    original_exists = cli.Path.exists
+    original_mkdir = cli.Path.mkdir
+
+    def _fake_exists(path: Path) -> bool:
+        """
+        Report the lock as existing for the lock file path.
+
+        Args:
+            path (Path): Path to check.
+
+        Returns:
+            bool: True for the executor lock path.
+        """
+
+        if path.as_posix().endswith(lock_file_name):
+            return lock_exists
+        return original_exists(path)
+
+    def _fake_mkdir(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Simulate creating the lock directory without touching disk.
+        """
+
+        if _self.as_posix().endswith(".agent_logs"):
+            return None
+        return original_mkdir(_self, *_args, **_kwargs)
+
+    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
+
+    with pytest.raises(RuntimeError, match="executor lock already exists"):
+        cli.acquire_executor_lock(Path("/workspace"))
+
+
+def test_single_run_lock_released_on_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """release_executor_lock() should remove the lock file."""
+    lock_exists = True
+    lock_file_name = ".agent_logs/executor.lock"
+    original_exists = cli.Path.exists
+
+    def _fake_exists(path: Path) -> bool:
+        """
+        Report the lock as existing for the lock file path.
+
+        Args:
+            path (Path): Path to check.
+
+        Returns:
+            bool: True for the executor lock path.
+        """
+
+        if path.as_posix().endswith(lock_file_name):
+            return lock_exists
+        return original_exists(path)
+
+    def _fake_unlink(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Simulate removing the lock file by clearing the flag.
+        """
+
+        nonlocal lock_exists
+        lock_exists = False
+
+    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(cli.Path, "unlink", _fake_unlink)
+
+    cli.release_executor_lock(Path("/workspace/.agent_logs/executor.lock"))
+
+    assert lock_exists is False

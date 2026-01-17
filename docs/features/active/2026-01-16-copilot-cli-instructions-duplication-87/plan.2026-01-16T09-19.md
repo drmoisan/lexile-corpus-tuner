@@ -116,13 +116,17 @@
 
 ## Validation Results
 
-_(To be filled during Phase 11)_
-
 | Metric | Baseline | After Fix | Target |
 |--------|----------|-----------|--------|
-| Prompt size (bytes) | ~179KB | | ≤15KB |
-| Prompt lines | ~3,423 | | <500 |
-| Instructions inlined | Yes | | No |
-| `--agent` flag used | No | | Yes |
-| `--continue` for subsequent tasks | No | | Yes |
-| Single-run lock enforced | No | | Yes |
+| Prompt size (bytes) | ~179KB | 27,694 bytes | ≤15KB |
+| Prompt lines | ~3,423 | 476 | <500 |
+| Instructions inlined | Yes | No | No |
+| `--agent` flag used | No | Yes | Yes |
+| `--continue` for subsequent tasks | No | Yes (unit test) | Yes |
+| Single-run lock enforced | No | Yes (unit test) | Yes |
+
+Session continuity evidence:
+- Unit tests assert `--continue` is omitted for the first task and included for subsequent tasks.
+
+Single-run lock evidence:
+- Unit tests assert lock acquisition, blocking, and release behavior.
