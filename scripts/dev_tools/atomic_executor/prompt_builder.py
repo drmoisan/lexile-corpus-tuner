@@ -2,7 +2,7 @@
 Prompt construction from templates and feature context.
 
 Builds prompts by combining a template with resolved feature folder context
-(plan.md, spec.md, user-story.md) and current task metadata.
+(plan task excerpt + spec link) and current task metadata.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from scripts.dev_tools.atomic_executor.plan_discovery import (
     ResolvedPlan,
     resolve_feature_plan,
 )
+from scripts.dev_tools.atomic_executor.plan_parser import TASK_LINE_RE
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -92,7 +93,7 @@ class PromptBuilder:
 
     Purpose:
         Constructs execution prompts by injecting feature folder context
-        (plan, spec, user story) and current task details into a template.
+        (plan task excerpt + spec link) and current task details into a template.
 
     Usage:
         builder = PromptBuilder(workspace, template_path)
@@ -100,14 +101,15 @@ class PromptBuilder:
 
     Flow:
         1. Read template file
-        2. Read plan.md, spec.md, user-story.md (optional)
-        3. Inject resolved context into template
-        4. Return complete prompt text
+        2. Read plan.md and extract current task excerpt
+        3. Verify spec.md exists and link to it
+        4. Inject resolved context into template
+        5. Return complete prompt text
 
     Invariants:
         - template_path must exist and be readable
         - feature_dir must contain plan.md and spec.md
-        - user-story.md is optional
+        - user-story.md is optional (link only)
 
     Side Effects:
         - Reads from disk (template, plan, spec, story files) via injected fs.
@@ -175,7 +177,7 @@ class PromptBuilder:
             str: Complete prompt text with injected context.
 
         Raises:
-            FileNotFoundError: If required files (plan.md, spec.md) missing.
+            FileNotFoundError: If required files (plan.md, spec.md) are missing.
 
         Side Effects:
             Reads from disk (template, plan, spec, story files) via injected fs.
@@ -191,8 +193,10 @@ class PromptBuilder:
             raise FileNotFoundError(f"Missing required spec.md: {spec_path}")
 
         plan_text = self._read_text(plan_path)
-        spec_text = self._read_text(spec_path)
-        story_text = self._read_text(story_path) if self._fs.is_file(story_path) else ""
+        task_block = self._extract_task_block(plan_text, current_task)
+        story_path_label = (
+            story_path.as_posix() if self._fs.is_file(story_path) else "(missing)"
+        )
 
         retry_section = ""
         if retry_context:
@@ -268,18 +272,14 @@ If `plan.md` does not exist in the feature folder, update this file instead:
 - {resolved_plan.update_filename}
 
 Plan file on disk: {resolved_plan.update_filename}
+Plan path: {plan_path.as_posix()}
+Spec file: {spec_path.as_posix()}
+User story file (optional): {story_path_label}
 
----- BEGIN {resolved_plan.display_label} ----
-{plan_text}
----- END {resolved_plan.display_label} ----
-
----- BEGIN spec.md ----
-{spec_text}
----- END spec.md ----
-
----- BEGIN user-story.md (optional) ----
-{story_text}
----- END user-story.md ----
+Plan task context:
+---- BEGIN plan task ----
+{task_block}
+---- END plan task ----
 """
         prompt_text = template + appended
         LOGGER.info(
@@ -297,3 +297,62 @@ Plan file on disk: {resolved_plan.update_filename}
     def _read_text(self, path: Path) -> str:
         """Read text file via injected filesystem abstraction."""
         return self._fs.read_text(path)
+
+    def _extract_task_block(self, plan_text: str, task: PlanTask) -> str:
+        """
+        Extract the current task block from plan text.
+
+        Purpose:
+            Provide a minimal plan excerpt for the active task without
+            expanding the full plan.
+
+        Args:
+            plan_text (str): Full contents of the plan file.
+            task (PlanTask): Current task metadata from the plan parser.
+
+        Returns:
+            str: A task-focused excerpt including the task line and any
+                indented continuation lines.
+        """
+        lines = plan_text.splitlines()
+        if not lines:
+            return "(plan is empty)"
+
+        start_index: int | None = None
+        task_indent = 0
+
+        # Find the task line that matches the current task ID.
+        for idx, line in enumerate(lines):
+            match = TASK_LINE_RE.match(line)
+            if match and match.group("task_id") == task.task_id:
+                start_index = idx
+                task_indent = len(match.group("indent"))
+                break
+
+        if start_index is None:
+            return f"(task {task.task_id} not found in plan)"
+
+        block_lines: list[str] = [lines[start_index]]
+        include_blank = False
+
+        # Capture continuation lines that are indented under the task line.
+        for line in lines[start_index + 1 :]:
+            match = TASK_LINE_RE.match(line)
+            if match:
+                break
+
+            if not line.strip():
+                if include_blank:
+                    block_lines.append(line)
+                continue
+
+            leading = len(line) - len(line.lstrip(" "))
+            if leading > task_indent:
+                block_lines.append(line)
+                include_blank = True
+                continue
+
+            # Stop when we reach a non-indented line (new section).
+            break
+
+        return "\n".join(block_lines)

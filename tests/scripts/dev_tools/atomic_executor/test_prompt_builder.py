@@ -2,7 +2,7 @@
 Tests for atomic_executor.prompt_builder module.
 
 Tests cover PromptBuilder class methods for constructing prompts from templates
-and feature context (plan.md, spec.md, user-story.md).
+and feature context (plan task excerpts + spec link).
 
 All tests use in-memory filesystem to avoid tmp_path per repo policy.
 """
@@ -101,6 +101,7 @@ class InMemoryPromptBuilderFileSystem:
 
         base = directory.as_posix()
         matches: list[Path] = []
+        # Collect matching in-memory files under the requested directory.
         for file_path in self.files:
             if file_path.startswith(base + "/"):
                 relative = file_path[len(base) + 1 :]
@@ -187,12 +188,13 @@ class TestPromptBuilderBuild:
         assert "my-feature" in prompt
         assert "CURRENT TASK" in prompt
         assert "[P0-T2] Task 2" in prompt
-        assert "BEGIN plan.md" in prompt
-        assert "# Plan" in prompt
-        assert "BEGIN spec.md" in prompt
-        assert "# Specification" in prompt
-        assert "BEGIN user-story.md" in prompt
-        assert "# User Story" in prompt
+        assert "Plan task context:" in prompt
+        assert "BEGIN plan task" in prompt
+        assert "- [ ] [P0-T2] Task 2" in prompt
+        assert f"Spec file: {spec_path.as_posix()}" in prompt
+        assert f"User story file (optional): {story_path.as_posix()}" in prompt
+        assert "# Specification" not in prompt
+        assert "# User Story" not in prompt
 
     def test_build_handles_missing_user_story(self) -> None:
         """build() handles optional user-story.md gracefully."""
@@ -226,9 +228,8 @@ class TestPromptBuilderBuild:
         prompt = builder.build(feature_dir, task)
 
         assert "BASE TEMPLATE" in prompt
-        assert "BEGIN user-story.md" in prompt
-        # Should have empty content for user-story section
-        assert "---- END user-story.md ----" in prompt
+        assert "User story file (optional): (missing)" in prompt
+        assert "BEGIN user-story.md" not in prompt
 
     def test_build_raises_for_missing_plan(self) -> None:
         """build() raises FileNotFoundError when plan.md missing."""
@@ -369,6 +370,7 @@ class TestPromptBuilderBuild:
             "poetry run black" not in prompt or "python -m poetry run black" in prompt
         )
         # More precise check: ensure no bare "poetry run" that isn't preceded by "-m "
+        # Scan for any bare "poetry run" lines that violate the command rule.
         lines = prompt.splitlines()
         for line in lines:
             if "poetry run" in line and "python -m poetry run" not in line:
@@ -618,8 +620,8 @@ class TestPromptBuilderEdgeCases:
         prompt = builder.build(feature_dir, task)
 
         assert "BASE TEMPLATE" in prompt
-        assert "BEGIN plan.md" in prompt
-        assert "END plan.md" in prompt
+        assert "Plan task context:" in prompt
+        assert "(plan is empty)" in prompt
 
     def test_build_uses_posix_paths_in_output(self) -> None:
         """build() uses POSIX-style paths in prompt (cross-platform)."""
@@ -668,7 +670,7 @@ class TestPromptBuilderEdgeCases:
         fs = InMemoryPromptBuilderFileSystem(
             files={
                 template_path.as_posix(): "Template with émojis 🎉",
-                plan_path.as_posix(): "# Plan with émoji 📝",
+                plan_path.as_posix(): "# Plan\n- [ ] [P0-T1] Task with émoji 📝",
                 spec_path.as_posix(): "# Spec with émoji ✅",
             },
             dirs={feature_dir.as_posix()},
@@ -690,4 +692,4 @@ class TestPromptBuilderEdgeCases:
 
         assert "émojis 🎉" in prompt
         assert "émoji 📝" in prompt
-        assert "émoji ✅" in prompt
+        assert "émoji ✅" not in prompt
