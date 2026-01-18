@@ -195,6 +195,10 @@ def test_executor_terminates_after_max_throttle_retries(
         copilot_backoff=backoff,
         copilot_max_retries=max_retries,
         copilot_output_tail_bytes=256,
+        copilot_allow_shell=True,
+        copilot_allow_all_paths=True,
+        copilot_allow_all_urls=False,
+        copilot_trust_workspace=True,
         print_prompt=False,
         copy_prompt=False,
     )

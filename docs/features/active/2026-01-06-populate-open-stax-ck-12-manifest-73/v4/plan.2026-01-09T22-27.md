@@ -187,9 +187,9 @@
   - Acceptance: Command exits 0.
 - [x] [P9-T3] Run shell formatter: `poetry run python -m scripts.dev_tools.shell_qc format`
   - Acceptance: Command exits 0.
-- [ ] [P9-T4] Run shell lint/check: `poetry run python -m scripts.dev_tools.shell_qc check`
+- [x] [P9-T4] Run shell lint/check: `poetry run python -m scripts.dev_tools.shell_qc check`
   - Acceptance: Command exits 0.
-- [ ] [P9-T5] Run shell tests: `poetry run python -m scripts.dev_tools.shell_qc test`
+- [x] [P9-T5] Run shell tests: `poetry run python -m scripts.dev_tools.shell_qc test`
   - Acceptance: Command exits 0.
 - [ ] [P9-T6] Run Black: `poetry run black .`
   - Acceptance: Command exits 0 and produces no diffs.

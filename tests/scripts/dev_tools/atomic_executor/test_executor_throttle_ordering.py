@@ -221,6 +221,10 @@ def test_executor_does_not_flip_checkbox_until_throttle_resolves(
         copilot_backoff=backoff,
         copilot_max_retries=3,
         copilot_output_tail_bytes=256,
+        copilot_allow_shell=True,
+        copilot_allow_all_paths=True,
+        copilot_allow_all_urls=False,
+        copilot_trust_workspace=True,
         print_prompt=False,
         copy_prompt=False,
     )

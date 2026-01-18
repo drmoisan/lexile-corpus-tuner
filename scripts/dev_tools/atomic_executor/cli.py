@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import codecs
 import contextlib
+import json
 import os
 import queue
 import shutil
@@ -50,6 +51,10 @@ DEFAULT_COPILOT_CLI_BACKOFF_MAX_SECONDS = 60.0
 DEFAULT_COPILOT_CLI_OUTPUT_TAIL_BYTES = 4096
 DEFAULT_COPILOT_CLI_MAX_RETRIES = 8
 DEFAULT_COPILOT_AGENT = "atomic_execution"
+DEFAULT_COPILOT_ALLOW_SHELL = True
+DEFAULT_COPILOT_ALLOW_ALL_PATHS = True
+DEFAULT_COPILOT_ALLOW_ALL_URLS = False
+DEFAULT_COPILOT_TRUST_WORKSPACE = True
 
 # When Copilot CLI cannot request approval (common in headless/non-interactive
 # runs), it emits this exact substring and may then stall until an idle-timeout.
@@ -170,6 +175,33 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             type=int,
             default=DEFAULT_COPILOT_CLI_MAX_RETRIES,
             help="Max throttle-triggered retries per atomic task (bounded by default).",
+        )
+
+        sp.add_argument(
+            "--copilot-allow-shell",
+            action=argparse.BooleanOptionalAction,
+            default=DEFAULT_COPILOT_ALLOW_SHELL,
+            help=(
+                "Allow all shell commands without approval (adds --allow-tool shell)."
+            ),
+        )
+        sp.add_argument(
+            "--copilot-allow-all-paths",
+            action=argparse.BooleanOptionalAction,
+            default=DEFAULT_COPILOT_ALLOW_ALL_PATHS,
+            help=("Allow Copilot CLI to access any path without per-path approvals."),
+        )
+        sp.add_argument(
+            "--copilot-allow-all-urls",
+            action=argparse.BooleanOptionalAction,
+            default=DEFAULT_COPILOT_ALLOW_ALL_URLS,
+            help=("Allow Copilot CLI to access any URL without per-URL approvals."),
+        )
+        sp.add_argument(
+            "--copilot-trust-workspace",
+            action=argparse.BooleanOptionalAction,
+            default=DEFAULT_COPILOT_TRUST_WORKSPACE,
+            help=("Ensure the workspace is listed in Copilot CLI trusted_folders."),
         )
 
     sp_exec = sub.add_parser("execute", help="Execute from first unchecked or --start.")
@@ -432,6 +464,10 @@ def run_copilot(
     run_id: str,
     resume_session: bool = False,
     is_first_task: bool = True,
+    allow_all_paths: bool = DEFAULT_COPILOT_ALLOW_ALL_PATHS,
+    allow_all_urls: bool = DEFAULT_COPILOT_ALLOW_ALL_URLS,
+    allow_shell: bool = DEFAULT_COPILOT_ALLOW_SHELL,
+    trust_workspace: bool = DEFAULT_COPILOT_TRUST_WORKSPACE,
     _idle_timeout_seconds: float | None = None,
     _output_tail_bytes: int | None = None,
 ) -> CopilotRunResult:
@@ -447,6 +483,10 @@ def run_copilot(
         run_id (str): Run id for grouping per-task artifacts.
         resume_session (bool): Reuse prior Copilot session for this task if True.
         is_first_task (bool): True for the first task in a plan run.
+        allow_all_paths (bool): Allow all path access without per-path approvals.
+        allow_all_urls (bool): Allow all URL access without per-URL approvals.
+        allow_shell (bool): Allow all shell commands without per-command approvals.
+        trust_workspace (bool): Persist workspace path in Copilot trusted_folders.
 
     Returns:
         CopilotRunResult: Exit code and a bounded output tail snippet.
@@ -576,6 +616,12 @@ def run_copilot(
 
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
+    # Trust the workspace up front when requested so headless runs avoid the
+    # interactive trust prompt.
+    # Gate workspace trust update explicitly so callers can opt out.
+    if trust_workspace:
+        _ensure_trusted_workspace(workspace=workspace)
+
     share_dir = log_file.parent / "copilot_sessions"
     share_dir.mkdir(parents=True, exist_ok=True)
     share_path = share_dir / f"copilot_session_{run_id}_{task_id}.md"
@@ -629,6 +675,19 @@ def run_copilot(
             "shell(python3)",
             "--allow-tool",
             "shell(git)",
+        ]
+    )
+
+    # Expand permissions for headless sessions when explicitly enabled.
+    if allow_shell:
+        argv.extend(["--allow-tool", "shell"])
+    if allow_all_paths:
+        argv.append("--allow-all-paths")
+    if allow_all_urls:
+        argv.append("--allow-all-urls")
+
+    argv.extend(
+        [
             "-p",
             f"Follow these instructions exactly: @{prompt_file}",
         ]
@@ -687,6 +746,7 @@ def run_copilot(
                 "and includes explicit tool and directory permissions "
                 "(e.g. --allow-tool write, --allow-tool shell(poetry), "
                 "--allow-tool shell(python3), --allow-tool shell(git), "
+                "--allow-tool shell, --allow-all-paths, "
                 "and --add-dir <workspace>). "
                 "If policy blocks headless execution, run the command interactively to "
                 "grant approvals."
@@ -724,6 +784,91 @@ def _resolve_idle_timeout_seconds(configured: float | None) -> float | None:
         return 300.0
 
     return parsed if parsed > 0 else None
+
+
+def _copilot_config_dir() -> Path:
+    """Resolve the Copilot CLI configuration directory.
+
+    Purpose:
+        Locate the Copilot CLI configuration directory using XDG conventions
+        when available, and the default ~/.copilot path otherwise.
+
+    Returns:
+        Path: Directory that should contain Copilot CLI config.json.
+
+    Raises:
+        None.
+
+    Side Effects:
+        None.
+    """
+    xdg_home = os.environ.get("XDG_CONFIG_HOME")
+    # Prefer XDG config location when explicitly configured.
+    if xdg_home and xdg_home.strip():
+        return Path(xdg_home).expanduser().resolve() / "copilot"
+
+    return Path.home() / ".copilot"
+
+
+def _ensure_trusted_workspace(*, workspace: Path) -> None:
+    """Ensure the workspace appears in Copilot CLI trusted_folders.
+
+    Purpose:
+        Headless runs cannot accept the interactive trust prompt. This helper
+        records the workspace path in Copilot's config so programmatic mode can
+        access files without blocking.
+
+    Args:
+        workspace (Path): Repository root to trust.
+
+    Returns:
+        None.
+
+    Raises:
+        RuntimeError: When the Copilot CLI config.json is malformed.
+
+    Side Effects:
+        Creates or updates ~/.copilot/config.json (or XDG_CONFIG_HOME) to
+        include the workspace path in trusted_folders.
+    """
+    config_dir = _copilot_config_dir()
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file = config_dir / "config.json"
+
+    config_data: dict[str, object] = {}
+    # Load the existing config if present; otherwise start from defaults.
+    if config_file.exists():
+        try:
+            config_data = json.loads(config_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "Copilot CLI config.json is invalid JSON. "
+                f"Fix or remove: {config_file}"
+            ) from exc
+
+    trusted_folders = config_data.get("trusted_folders")
+    # Normalize trusted_folders into a list for safe updates.
+    if trusted_folders is None:
+        trusted_folders_list: list[str] = []
+    elif isinstance(trusted_folders, list):
+        # Normalize trusted folder entries to strings for stable comparisons.
+        trusted_folders_list = [
+            str(item) for item in cast(list[object], trusted_folders)
+        ]
+    else:
+        raise RuntimeError(
+            "Copilot CLI config.json has non-list trusted_folders. "
+            f"Fix: {config_file}"
+        )
+
+    workspace_path = str(workspace.resolve())
+    # Only append when the workspace is not already trusted.
+    if workspace_path not in trusted_folders_list:
+        trusted_folders_list.append(workspace_path)
+        config_data["trusted_folders"] = trusted_folders_list
+        config_file.write_text(
+            json.dumps(config_data, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
 
 def _stream_copilot_output(
@@ -962,6 +1107,10 @@ def execute_one_task(
     copilot_backoff: ExponentialBackoff,
     copilot_max_retries: int,
     copilot_output_tail_bytes: int,
+    copilot_allow_shell: bool,
+    copilot_allow_all_paths: bool,
+    copilot_allow_all_urls: bool,
+    copilot_trust_workspace: bool,
     print_prompt: bool = False,
     copy_prompt: bool = False,
     is_first_task: bool = True,
@@ -990,6 +1139,10 @@ def execute_one_task(
             atomic task.
         copilot_output_tail_bytes (int): Number of bytes of Copilot output tail to
             retain for failure classification.
+        copilot_allow_shell (bool): Allow all shell commands without approval.
+        copilot_allow_all_paths (bool): Allow all file paths without approval.
+        copilot_allow_all_urls (bool): Allow all URLs without approval.
+        copilot_trust_workspace (bool): Persist workspace in Copilot trusted list.
         print_prompt (bool): If True, print prompt and return.
         copy_prompt (bool): If True, copy prompt and return.
         is_first_task (bool): True when this is the first task in a plan run.
@@ -1061,6 +1214,10 @@ def execute_one_task(
                 run_id=run_id,
                 resume_session=(attempt > 1 or copilot_invocation > 0),
                 is_first_task=is_first_task,
+                allow_all_paths=copilot_allow_all_paths,
+                allow_all_urls=copilot_allow_all_urls,
+                allow_shell=copilot_allow_shell,
+                trust_workspace=copilot_trust_workspace,
                 _output_tail_bytes=copilot_output_tail_bytes,
             )
             copilot_invocation += 1
@@ -1276,6 +1433,10 @@ def main(argv: list[str] | None = None) -> int:
                 copilot_backoff=copilot_backoff,
                 copilot_max_retries=args.copilot_cli_max_retries,
                 copilot_output_tail_bytes=args.copilot_cli_output_tail_bytes,
+                copilot_allow_shell=args.copilot_allow_shell,
+                copilot_allow_all_paths=args.copilot_allow_all_paths,
+                copilot_allow_all_urls=args.copilot_allow_all_urls,
+                copilot_trust_workspace=args.copilot_trust_workspace,
                 print_prompt=args.print_prompt,
                 copy_prompt=args.copy_prompt,
                 is_first_task=is_first_task,

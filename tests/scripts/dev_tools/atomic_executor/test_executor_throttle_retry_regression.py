@@ -238,6 +238,10 @@ def test_execute_one_task_retries_on_throttle_then_succeeds(
         copilot_backoff=copilot_backoff,
         copilot_max_retries=2,
         copilot_output_tail_bytes=4096,
+        copilot_allow_shell=True,
+        copilot_allow_all_paths=True,
+        copilot_allow_all_urls=False,
+        copilot_trust_workspace=True,
     )
 
     # Assert: success and expected sequencing.

@@ -43,6 +43,10 @@ class TestParseArgs:
         assert args.max_fix_attempts == 2
         assert args.print_prompt is False
         assert args.copy_prompt is False
+        assert args.copilot_allow_shell is True
+        assert args.copilot_allow_all_paths is True
+        assert args.copilot_allow_all_urls is False
+        assert args.copilot_trust_workspace is True
 
     def test_parse_resume_subcommand(self) -> None:
         """parse_args() parses resume subcommand."""
@@ -67,6 +71,10 @@ class TestParseArgs:
                 "--max-fix-attempts",
                 "5",
                 "--print-prompt",
+                "--no-copilot-allow-shell",
+                "--no-copilot-allow-all-paths",
+                "--copilot-allow-all-urls",
+                "--no-copilot-trust-workspace",
             ]
         )
         assert args.workspace == "/tmp/repo"  # noqa: S108
@@ -75,6 +83,10 @@ class TestParseArgs:
         assert args.start == "P2-T5"
         assert args.max_fix_attempts == 5
         assert args.print_prompt is True
+        assert args.copilot_allow_shell is False
+        assert args.copilot_allow_all_paths is False
+        assert args.copilot_allow_all_urls is True
+        assert args.copilot_trust_workspace is False
 
     def test_parse_copy_prompt_flag(self) -> None:
         """parse_args() parses --copy-prompt flag."""
@@ -810,6 +822,8 @@ class TestMainEdgeCases:
         """main() successfully executes task with scoped QC."""
         from scripts.dev_tools.atomic_executor.cli import main
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
+
         # Setup feature folder
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
         feature_dir.mkdir(parents=True)
@@ -910,6 +924,7 @@ class TestRunCopilot:
         """run_copilot() raises FileNotFoundError when copilot not found."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Set PATH to empty so no copilot executable can be found
         monkeypatch.setenv("PATH", "")
 
@@ -934,6 +949,7 @@ class TestRunCopilot:
         """run_copilot() skips VS Code shim and finds no other copilot."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create shim directory structure that matches the detection pattern
         # Pattern: .../Code/User/globalStorage/github.copilot-chat/copilotCli/
         # Use nested dirs to ensure we hit the pattern matching logic
@@ -977,6 +993,7 @@ class TestRunCopilot:
         """run_copilot() rejects the VS Code Remote/Devcontainer shim path."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # VS Code Remote (including devcontainers) stores its shim under a Linux
         # path, e.g. ~/.vscode-server/data/User/globalStorage/github.copilot-chat/
         # copilotCli/. If we accidentally execute this shim, it can block waiting
@@ -1026,6 +1043,7 @@ class TestRunCopilot:
         """run_copilot() creates log directory if missing."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Setup fake copilot on PATH
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
@@ -1086,6 +1104,7 @@ class TestRunCopilot:
         """run_copilot() invokes copilot with correct arguments."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create a fake copilot executable on PATH
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
@@ -1175,6 +1194,11 @@ class TestRunCopilot:
         assert "--allow-tool" in captured_argv
         assert "write" in captured_argv
 
+        # Headless-friendly defaults must include broad shell and path permissions.
+        assert "--allow-tool" in captured_argv
+        assert "shell" in captured_argv
+        assert "--allow-all-paths" in captured_argv
+
         # Tool approvals required for headless QC must remain present.
         assert "shell(poetry)" in captured_argv
         assert "shell(git)" in captured_argv
@@ -1186,6 +1210,7 @@ class TestRunCopilot:
 
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create a fake copilot executable on PATH.
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
@@ -1249,6 +1274,7 @@ class TestRunCopilot:
         assert "write" in error_text
         assert "shell(poetry)" in error_text
         assert "shell(git)" in error_text
+        assert "--allow-all-paths" in error_text
 
         # Sanity check the argv we actually attempted to run.
         assert captured_argv
@@ -1260,6 +1286,7 @@ class TestRunCopilot:
         """run_copilot() adds --session-path when resume_session=True and supported."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
         fake_copilot = fake_bin / "copilot"
@@ -1311,12 +1338,72 @@ class TestRunCopilot:
             "copilot_session_2026-01-07_000000_P1-T1.md"
         )
 
+    def test_run_copilot_trusts_workspace_in_config(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_copilot() writes workspace to trusted_folders when enabled."""
+        from scripts.dev_tools.atomic_executor.cli import run_copilot
+
+        # Route Copilot config to a temp directory for isolation.
+        config_root = tmp_path / "config-root"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(config_root))
+
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_copilot = fake_bin / "copilot"
+        fake_copilot.write_text("#!/bin/sh\necho copilot")
+        monkeypatch.setenv("PATH", str(fake_bin))
+        monkeypatch.setattr(
+            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
+            lambda exe: False,
+        )
+
+        class MockStdout:
+            def read(self, size: int = -1) -> bytes:
+                return b""
+
+        class MockPopen:
+            def __init__(
+                self, argv: list[str], *args: object, **kwargs: object
+            ) -> None:
+                self.stdout = MockStdout()
+                self.returncode = 0
+
+            def poll(self) -> int:
+                return 0
+
+            def wait(self) -> int:
+                return 0
+
+        monkeypatch.setattr("subprocess.Popen", MockPopen)
+
+        log_file = tmp_path / "log" / "test.log"
+
+        run_copilot(
+            workspace=tmp_path,
+            prompt_text="trust prompt",
+            log_file=log_file,
+            task_id="P1-T1",
+            preferred_model=None,
+            run_id="2026-01-07_000000",
+            allow_all_paths=True,
+            allow_all_urls=False,
+            allow_shell=True,
+            trust_workspace=True,
+        )
+
+        config_file = config_root / "copilot" / "config.json"
+        assert config_file.exists()
+        config_text = config_file.read_text(encoding="utf-8")
+        assert str(tmp_path.resolve()) in config_text
+
     def test_run_copilot_skips_session_when_not_supported(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() omits --session-path if CLI lacks support."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
         fake_copilot = fake_bin / "copilot"
@@ -1369,6 +1456,7 @@ class TestRunCopilot:
         """run_copilot() terminates when Copilot CLI produces no output."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         copilot_exe = bin_dir / "copilot"
