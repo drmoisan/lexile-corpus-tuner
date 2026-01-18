@@ -148,7 +148,7 @@ poetry run lexile-scoring-model-pipeline corpus download --sources "simple_wiki"
 
 ## 3. Open Educational Resources (OER)
 
-OpenStax remains Internet Archive–based (text derivatives), while CK-12 is scraped natively and works through PDF download + extraction.
+OpenStax remains Internet Archive–based (text derivatives), while CK-12 uses CK-12 APIs and JSON/XHTML extraction (no PDFs).
 
 ### OpenStax (text via Internet Archive)
 
@@ -176,11 +176,11 @@ OpenStax remains Internet Archive–based (text derivatives), while CK-12 is scr
     --validate-urls
   ```
 
-### CK-12 (static FlexBook catalog + PDF extraction)
+### CK-12 (Browse API + JSON/XHTML extraction)
 
 Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\`.
 
-1. **Catalog (static JSON endpoint):**  
+1. **Catalog (Browse API discovery):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog \
     --out-dir data/meta/catalogs
@@ -189,8 +189,8 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog `
     --out-dir data/meta/catalogs
   ```
-  *Uses the default CK-12 FlexBook catalog JSON (`fbbrowse-prod.json`) discovered via Issue #73; override with `--catalog-url` if needed.*
-2. **Enrich (per-book metadata + PDF link discovery):**  
+  *Uses the CK-12 Browse API (`/flx/browse/flexbook?limit=200`) and derives stable IDs from canonical `handle` values.*
+2. **Enrich (Perma API + revision IDs):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment \
     --catalog-file data/meta/catalogs/ck12_catalog.jsonl \
@@ -201,18 +201,18 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --catalog-file data/meta/catalogs/ck12_catalog.jsonl `
     --output data/meta/catalogs/ck12_enriched.jsonl
   ```
-3. **Curate (require PDF):**  
+3. **Curate (require revision JSON candidates):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
-    --catalog-dir data/meta/catalogs --require-pdf --sources "ck12" \
+    --catalog-dir data/meta/catalogs --require-json --sources "ck12" \
     --out-dir data/meta/catalogs
   ```
   ```powershell
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation `
-    --catalog-dir data/meta/catalogs --require-pdf --sources "ck12" `
+    --catalog-dir data/meta/catalogs --require-json --sources "ck12" `
     --out-dir data/meta/catalogs
   ```
-4. **Generate manifest (PDF-aware, optional HEAD checks):**  
+4. **Generate manifest (revision JSON entries):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest \
     --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json \
@@ -223,18 +223,19 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json `
     --validate-urls
   ```
-  Notes: The manifest builder auto-selects PDFs for CK-12 and `text/*` for other sources (no `--allow-pdf` flag). After curating multiple sources, rerun the manifest generator once so `data/meta/oer_sources.json` includes every curated source in `data/meta/catalogs`.
-5. **Download PDFs (from the manifest):**  
+  Notes: CK-12 entries use `.json` filenames and revision-detail URLs (`/flx/get/detail/revision/<id>?tiny=true`). After curating multiple sources, rerun the manifest generator once so `data/meta/oer_sources.json` includes every curated source in `data/meta/catalogs`.
+5. **Download revision JSON (from the manifest):**  
   ```bash
   poetry run lexile-scoring-model-pipeline corpus download --sources "ck12"
   ```
-6. **Extract PDF text:**  
+  *Downloader injects the required browser-like headers for CK-12 automatically.*
+6. **Extract CK-12 JSON → XHTML → text:**  
   ```bash
-  poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text \
+  poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_ck12_text \
     --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12
   ```
   ```powershell
-  poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_pdf_text `
+  poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_ck12_text `
     --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12
   ```
 7. **Normalize extracted text:**  
