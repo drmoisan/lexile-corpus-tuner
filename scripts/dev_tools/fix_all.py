@@ -187,11 +187,11 @@ def format_ansi_redraw(board: str, *, line_count: int) -> str:
         raise ValueError("line_count cannot be negative.")
 
     output_parts: list[str] = []
+    if line_count:
+        output_parts.append("\x1b[1A" * line_count)
     # Clear each line before writing to avoid leftover characters from prior redraws.
     for line in board.splitlines():
         output_parts.append(f"\x1b[2K\r{line}\n")
-    if line_count:
-        output_parts.append("\x1b[1A" * line_count)
     return "".join(output_parts)
 
 
