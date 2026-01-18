@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from io import StringIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TextIO, cast
+
+import pytest
 
 from scripts.dev_tools import fix_all
 
@@ -346,3 +348,208 @@ def test_pipeline_stops_on_pytest_failure() -> None:
         -1
     ] == "Pytest: test with coverage"
     assert "Pytest failed" in read_log(logger)
+
+
+def test_help_includes_complete_all_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure --complete-all appears in the CLI help output."""
+    with pytest.raises(SystemExit):
+        fix_all.parse_args(["--help"])
+    captured = capsys.readouterr()
+    assert "--complete-all" in captured.out
+
+
+def test_parse_args_complete_all_sets_true() -> None:
+    """Confirm --complete-all sets the parsed flag to True."""
+    args = fix_all.parse_args(["--complete-all"])
+    assert args.complete_all is True
+
+
+def test_fail_fast_cancels_json_before_validate() -> None:
+    """Ensure JSON validation does not start after another branch fails."""
+    responses = base_success_responses()
+    responses["python"]["Pyright: type-check"] = [make_result(1, "type errors")]
+    responses["json"] = {
+        "JSON: format": [make_result(0)],
+    }
+    factory = FakeRunnerFactory(responses)
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+    )
+    assert exit_code == 1
+    json_calls = [call[0] for call in factory.runners["json"].calls]
+    assert "JSON: validate" not in json_calls
+
+
+def test_complete_all_allows_json_validate_after_python_failure() -> None:
+    """Verify complete-all keeps JSON validation running after Python fails."""
+    responses = base_success_responses()
+    responses["python"]["Pyright: type-check"] = [make_result(1, "type errors")]
+    responses["json"] = {
+        "JSON: format": [make_result(0)],
+        "JSON: validate": [make_result(0)],
+    }
+    factory = FakeRunnerFactory(responses)
+    logger = build_logger()
+    fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+        complete_all=True,
+    )
+    json_calls = [call[0] for call in factory.runners["json"].calls]
+    assert "JSON: validate" in json_calls
+
+
+def test_run_fix_all_accepts_complete_all_parameter() -> None:
+    """Confirm run_fix_all accepts the complete_all parameter."""
+    factory = FakeRunnerFactory(base_success_responses())
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+        complete_all=True,
+    )
+    assert exit_code == 0
+
+
+def test_format_status_transition_line_exact_format() -> None:
+    """Ensure status transition formatting matches the required template."""
+    assert (
+        fix_all.format_status_transition_line("python", "Pyright: type-check")
+        == "STATUS|branch=python|status=Pyright: type-check"
+    )
+
+
+def test_render_status_board_line_count_and_trailing_newline() -> None:
+    """Ensure rendered boards have one newline per line and a trailing newline."""
+    lines = ["json: format", "python: lint"]
+    board = fix_all.render_status_board(lines, width=40)
+    assert board.count("\n") == len(lines)
+    assert board.endswith("\n")
+
+
+def test_should_use_interactive_board_requires_isatty_and_vt() -> None:
+    """Verify interactive mode requires both TTY and VT support."""
+    assert fix_all.should_use_interactive_board(isatty=True, vt_enabled=True) is True
+    assert fix_all.should_use_interactive_board(isatty=True, vt_enabled=False) is False
+    assert fix_all.should_use_interactive_board(isatty=False, vt_enabled=True) is False
+    assert fix_all.should_use_interactive_board(isatty=False, vt_enabled=False) is False
+
+
+def test_non_interactive_emits_status_transitions_without_ansi() -> None:
+    """Confirm non-interactive mode emits status lines without ANSI control codes."""
+    factory = FakeRunnerFactory(base_success_responses())
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+    )
+    assert exit_code == 0
+    output = read_log(logger)
+    assert "STATUS|branch=" in output
+    assert "\x1b[" not in output
+
+
+def test_format_ansi_redraw_contains_only_erase_and_cursor_up() -> None:
+    """Ensure ANSI redraw uses only erase-line and cursor-up sequences."""
+    board = "json\npython\n"
+    rendered = fix_all.format_ansi_redraw(board, line_count=2)
+    assert "\x1b[2K" in rendered
+    assert "\x1b[1A" in rendered
+    assert "\x1b[" in rendered
+    assert rendered.replace("\x1b[2K", "").replace("\x1b[1A", "").find("\x1b[") == -1
+
+
+def test_is_vt_enabled_for_stream_true_on_non_windows(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Ensure non-Windows platforms default to VT-enabled."""
+    monkeypatch.setattr(fix_all.sys, "platform", "linux")
+    logger = build_logger()
+    assert fix_all.is_vt_enabled_for_stream(logger.stream) is True
+
+
+def test_interactive_mode_emits_ansi_redraw_not_status_lines(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Verify interactive mode emits ANSI redraws instead of STATUS lines."""
+
+    class FakeTty(StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    def always_vt_enabled(stream: TextIO) -> bool:
+        """Return True to force interactive mode in tests."""
+        return True
+
+    monkeypatch.setattr(fix_all, "is_vt_enabled_for_stream", always_vt_enabled)
+    factory = FakeRunnerFactory(base_success_responses())
+    logger = fix_all.StepLogger(stream=FakeTty())
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+    )
+    assert exit_code == 0
+    output = read_log(logger)
+    assert "\x1b[2K" in output
+    assert "STATUS|branch=" not in output
+
+
+def test_shell_test_was_skipped_no_test_dirs_message() -> None:
+    """Ensure skip detection handles missing shell test directories."""
+    output = "No shell test directories found; skipping."
+    assert fix_all.shell_test_was_skipped(output) is True
+
+
+def test_shell_test_was_skipped_bats_missing_message() -> None:
+    """Ensure skip detection handles missing bats installations."""
+    output = "bats not installed; skipping shell tests."
+    assert fix_all.shell_test_was_skipped(output) is True
+
+
+def test_shell_branch_emits_skip_tests_status_on_skip_output() -> None:
+    """Ensure skipped shell tests emit a SKIP tests status transition."""
+    responses = base_success_responses()
+    responses["shell"]["Shell: test"] = [
+        make_result(0, "No shell test directories found; skipping.")
+    ]
+    factory = FakeRunnerFactory(responses)
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+    )
+    assert exit_code == 0
+    output = read_log(logger)
+    assert "STATUS|branch=shell|status=SKIP tests" in output
+
+
+def test_final_summary_framing_lines_present() -> None:
+    """Ensure final summary framing lines remain present."""
+    factory = FakeRunnerFactory(base_success_responses())
+    logger = build_logger()
+    exit_code = fix_all.run_fix_all(
+        max_ruff_retries=1,
+        include_coverage=True,
+        runner_factory=factory,
+        logger=logger,
+    )
+    assert exit_code == 0
+    output = read_log(logger)
+    assert "========== Branch Results ==========" in output
+    assert "====================================" in output
