@@ -191,19 +191,19 @@
   - Acceptance: Command exits 0.
 - [x] [P9-T5] Run shell tests: `poetry run python -m scripts.dev_tools.shell_qc test`
   - Acceptance: Command exits 0.
-- [ ] [P9-T6] Run Black: `poetry run black .`
+- [x] [P9-T6] Run Black: `poetry run black .`
   - Acceptance: Command exits 0 and produces no diffs.
-- [ ] [P9-T7] Run Ruff: `poetry run ruff check`
+- [x] [P9-T7] Run Ruff: `poetry run ruff check`
   - Acceptance: Command exits 0.
-- [ ] [P9-T8] Run Pyright: `poetry run pyright`
+- [x] [P9-T8] Run Pyright: `poetry run pyright`
   - Acceptance: Command exits 0.
-- [ ] [P9-T9] Run Pytest + coverage: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+- [x] [P9-T9] Run Pytest + coverage: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
   - Acceptance: Command exits 0 and repo coverage remains `>= 80%`.
-- [ ] [P9-T10] Run PowerShell formatting: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
+- [x] [P9-T10] Run PowerShell formatting: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/format-powershell.ps1`
   - Acceptance: Command exits 0.
-- [ ] [P9-T11] Run PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
+- [x] [P9-T11] Run PowerShell lint: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`
   - Acceptance: Command exits 0.
-- [ ] [P9-T12] Run PowerShell tests: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
+- [x] [P9-T12] Run PowerShell tests: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
   - Acceptance: Command exits 0.
 
 ## Notes / Risks
