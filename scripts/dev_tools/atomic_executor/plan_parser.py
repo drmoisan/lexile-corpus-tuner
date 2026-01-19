@@ -9,10 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
 TASK_LINE_RE = re.compile(
     r"""
@@ -24,6 +21,17 @@ TASK_LINE_RE = re.compile(
 )
 
 PHASE_HEADING_RE = re.compile(r"^\s*#+\s*Phase\s+(?P<phase>\d+)\b", re.IGNORECASE)
+
+QC_STEP_PATTERNS: dict[str, re.Pattern[str]] = {
+    "black": re.compile(r"poetry\s+run\s+black\b", re.IGNORECASE),
+    "ruff": re.compile(r"poetry\s+run\s+ruff\s+check\b", re.IGNORECASE),
+    "pyright": re.compile(r"poetry\s+run\s+pyright\b", re.IGNORECASE),
+    "pytest": re.compile(r"poetry\s+run\s+pytest\b", re.IGNORECASE),
+}
+QC_LOOP_PATTERN = re.compile(
+    r"toolchain\s+loop|restart\s+the\s+toolchain", re.IGNORECASE
+)
+QC_ARTIFACT_PATTERN = re.compile(r"(artifacts/[^\s`]+\.txt)")
 
 
 @dataclass(frozen=True)
@@ -68,6 +76,28 @@ class PlanModel:
     phases: list[int]
 
 
+@dataclass(frozen=True)
+class AutoQCPhase:
+    """
+    Auto-detected QC phase metadata.
+
+    Purpose:
+        Captures the tasks and artifact outputs required for executor-driven
+        quality-control loops (Black, Ruff, Pyright, Pytest) without LLM calls.
+
+    Attributes:
+        phase (int): Phase number containing the QC tasks.
+        task_ids (list[str]): Task identifiers that should be auto-completed.
+        step_task_ids (dict[str, str]): Map from QC step name to task id.
+        artifact_paths (dict[str, Path]): Output artifact path for each step.
+    """
+
+    phase: int
+    task_ids: list[str]
+    step_task_ids: dict[str, str]
+    artifact_paths: dict[str, Path]
+
+
 class PlanParser:
     """
     Parse and manipulate atomic execution plans.
@@ -110,6 +140,7 @@ class PlanParser:
         if not plan_path.is_file():
             raise FileNotFoundError(f"Plan file not found: {plan_path}")
         self.plan_path = plan_path
+        self._auto_qc_phases: dict[int, AutoQCPhase] | None = None
 
     def parse(self) -> PlanModel:
         """
@@ -130,6 +161,7 @@ class PlanParser:
         plan_text = self._read_text()
         lines = plan_text.splitlines()
 
+        # Walk the plan line-by-line to collect tasks and phase headings.
         for idx, line in enumerate(lines):
             m = TASK_LINE_RE.match(line)
             if m:
@@ -166,6 +198,8 @@ class PlanParser:
             PlanTask | None: The first unchecked task, or None if all complete.
         """
         plan = self.parse()
+        # Select the first unchecked task in phase/task order for deterministic
+        # execution sequencing.
         for t in sorted(plan.tasks, key=lambda x: (x.phase, x.task_num)):
             if not t.checked:
                 return t
@@ -188,6 +222,7 @@ class PlanParser:
             RuntimeError: If task_id is not found in the plan.
         """
         plan = self.parse()
+        # Scan all tasks to find the exact id requested by the CLI.
         for t in plan.tasks:
             if t.task_id == task_id:
                 return t
@@ -207,8 +242,54 @@ class PlanParser:
             bool: True if all tasks in phase are checked, False otherwise.
         """
         plan = self.parse()
+        # Limit to tasks in the requested phase so other phases do not affect
+        # completion checks.
         phase_tasks = [t for t in plan.tasks if t.phase == phase]
         return bool(phase_tasks) and all(t.checked for t in phase_tasks)
+
+    def auto_qc_phase_for_task(self, task: PlanTask) -> AutoQCPhase | None:
+        """
+        Return the auto-QC phase metadata if the task belongs to it.
+
+        Purpose:
+            Allows the executor to bypass LLM calls when a task is identified
+            as part of an auto-executed QC phase.
+
+        Args:
+            task (PlanTask): Task to evaluate.
+
+        Returns:
+            AutoQCPhase | None: Phase metadata if task is part of auto QC.
+        """
+        phases = self._ensure_auto_qc_phases()
+        phase = phases.get(task.phase)
+        if not phase:
+            return None
+        return phase if task.task_id in phase.task_ids else None
+
+    def is_auto_qc_phase(self, phase: int) -> bool:
+        """
+        Check if the given phase was auto-detected as a QC phase.
+
+        Args:
+            phase (int): Phase number to check.
+
+        Returns:
+            bool: True if this phase is auto-QC, otherwise False.
+        """
+        return phase in self._ensure_auto_qc_phases()
+
+    def auto_qc_phase_by_number(self, phase: int) -> AutoQCPhase | None:
+        """
+        Retrieve auto-QC phase metadata by phase number.
+
+        Args:
+            phase (int): Phase number to resolve.
+
+        Returns:
+            AutoQCPhase | None: Phase metadata if present.
+        """
+        return self._ensure_auto_qc_phases().get(phase)
 
     def flip_checkbox(self, task_to_check: PlanTask) -> None:
         """
@@ -293,6 +374,171 @@ class PlanParser:
                 "BLOCKED at preflight (before [P0-T1]): no final QA/toolchain "
                 "phase detected (heuristic)."
             )
+
+        # Auto-detect QC phases from task contents so executor can run them.
+        self._ensure_auto_qc_phases()
+
+    def _ensure_auto_qc_phases(self) -> dict[int, AutoQCPhase]:
+        """
+        Resolve and cache auto-QC phase metadata.
+
+        Purpose:
+            Detect tasks that correspond to quality-control commands and capture
+            their artifact outputs to support executor-side toolchain loops.
+
+        Returns:
+            dict[int, AutoQCPhase]: Mapping of phase number to metadata.
+        """
+        if self._auto_qc_phases is None:
+            self._auto_qc_phases = self._detect_auto_qc_phases()
+        return self._auto_qc_phases
+
+    def _detect_auto_qc_phases(self) -> dict[int, AutoQCPhase]:
+        """
+        Detect QC phases by scanning task text for toolchain commands.
+
+        Purpose:
+            Identify tasks that reference Black/Ruff/Pyright/Pytest commands and
+            capture their declared artifact outputs. This is used by the executor
+            to auto-run the QC phase without LLM calls.
+
+        Returns:
+            dict[int, AutoQCPhase]: Mapping of phase number to metadata.
+
+        Raises:
+            RuntimeError: If a detected QC phase is missing required steps or
+                artifact outputs.
+        """
+        plan = self.parse()
+        lines = self._read_text().splitlines()
+        phases: dict[int, AutoQCPhase] = {}
+
+        # Index tasks by phase and scan their blocks for QC-related cues.
+        for task in plan.tasks:
+            block_lines = self._task_block_lines(lines, task.line_index)
+            block_text = "\n".join(block_lines)
+
+            # Determine which QC steps are referenced in this task block.
+            matched_steps: list[str] = []
+            # Map explicit toolchain commands to step identifiers for the phase.
+            for step, pattern in QC_STEP_PATTERNS.items():
+                if pattern.search(block_text):
+                    matched_steps.append(step)
+
+            # Identify explicit loop tasks without a concrete command.
+            is_loop_task = QC_LOOP_PATTERN.search(block_text) is not None
+
+            # Skip tasks that do not reference QC commands or the loop control.
+            if not matched_steps and not is_loop_task:
+                continue
+
+            phase_meta = phases.get(task.phase)
+            # Initialize the phase metadata on first QC-related task.
+            if not phase_meta:
+                phase_meta = AutoQCPhase(
+                    phase=task.phase,
+                    task_ids=[],
+                    step_task_ids={},
+                    artifact_paths={},
+                )
+
+            task_ids = [*phase_meta.task_ids, task.task_id]
+            step_task_ids = dict(phase_meta.step_task_ids)
+            artifact_paths = dict(phase_meta.artifact_paths)
+
+            # Capture artifact path from the task block if present.
+            artifact_match = QC_ARTIFACT_PATTERN.search(block_text)
+            artifact_path = Path(artifact_match.group(1)) if artifact_match else None
+
+            # Record each matched step, ensuring uniqueness within the phase.
+            # Record each matched step, ensuring uniqueness within the phase.
+            for step in matched_steps:
+                if step in step_task_ids:
+                    raise RuntimeError(
+                        "Auto-QC detection found duplicate step "
+                        f"'{step}' in phase {task.phase}."
+                    )
+                step_task_ids[step] = task.task_id
+                # Artifact output is required for each QC step.
+                if artifact_path is None:
+                    raise RuntimeError(
+                        "Auto-QC detection requires an artifact output path "
+                        f"for step '{step}' in task {task.task_id}."
+                    )
+                artifact_paths[step] = artifact_path
+
+            phases[task.phase] = AutoQCPhase(
+                phase=task.phase,
+                task_ids=task_ids,
+                step_task_ids=step_task_ids,
+                artifact_paths=artifact_paths,
+            )
+
+        # Validate required steps for any detected QC phase.
+        for phase_num, phase_meta in phases.items():
+            # Ensure all four core toolchain steps are present.
+            required_steps = {"black", "ruff", "pyright", "pytest"}
+            missing_steps = sorted(required_steps - set(phase_meta.step_task_ids))
+            if missing_steps:
+                raise RuntimeError(
+                    "Auto-QC detection missing required steps "
+                    f"{missing_steps} for phase {phase_num}."
+                )
+
+            # Ensure artifacts are captured for each required step.
+            missing_artifacts = sorted(required_steps - set(phase_meta.artifact_paths))
+            if missing_artifacts:
+                raise RuntimeError(
+                    "Auto-QC detection missing artifact outputs "
+                    f"{missing_artifacts} for phase {phase_num}."
+                )
+
+        return phases
+
+    def _task_block_lines(self, lines: list[str], start_index: int) -> list[str]:
+        """
+        Extract the task line and indented continuation lines from the plan.
+
+        Purpose:
+            Provide the full task text block so QC detection can search for
+            commands and artifact paths across wrapped/indented lines.
+
+        Args:
+            lines (list[str]): Plan file lines.
+            start_index (int): Index of the task line to expand.
+
+        Returns:
+            list[str]: Task line plus any indented continuation lines.
+        """
+        if start_index < 0 or start_index >= len(lines):
+            return []
+
+        task_line = lines[start_index]
+        match = TASK_LINE_RE.match(task_line)
+        if not match:
+            return [task_line]
+
+        task_indent = len(match.group("indent"))
+        block_lines = [task_line]
+
+        # Capture indented continuation lines until the next task or section.
+        for line in lines[start_index + 1 :]:
+            next_match = TASK_LINE_RE.match(line)
+            if next_match:
+                break
+
+            if not line.strip():
+                block_lines.append(line)
+                continue
+
+            indent = len(line) - len(line.lstrip(" "))
+            if indent > task_indent:
+                block_lines.append(line)
+                continue
+
+            break
+
+        return block_lines
 
     def _read_text(self) -> str:
         """Read plan.md text from disk."""

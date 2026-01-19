@@ -34,9 +34,13 @@ from scripts.dev_tools.atomic_executor.copilot_throttling import (
 )
 from scripts.dev_tools.atomic_executor.feature_resolver import FeatureResolver
 from scripts.dev_tools.atomic_executor.plan_discovery import resolve_feature_plan
-from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
+from scripts.dev_tools.atomic_executor.plan_parser import (
+    AutoQCPhase,
+    PlanParser,
+    PlanTask,
+)
 from scripts.dev_tools.atomic_executor.prompt_builder import PromptBuilder
-from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
+from scripts.dev_tools.atomic_executor.qc_runner import QCLoopResult, QCRunner
 
 DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
 PROTECTED_BRANCHES = {"main", "master", "development"}
@@ -1091,6 +1095,228 @@ def _log_msg(log_file: Path, msg: str) -> None:
         f.write(f"{msg}\n")
 
 
+def _build_qc_fix_prompt(
+    *,
+    feature_dir: Path,
+    phase: AutoQCPhase,
+    failure: QCLoopResult,
+) -> str:
+    """
+    Build a focused prompt for fixing QC failures in an auto-QC phase.
+
+    Purpose:
+        Provide a concise, fix-only prompt that directs the LLM to resolve
+        QC failures without running the toolchain itself.
+
+    Args:
+        feature_dir (Path): Feature directory for context.
+        phase (AutoQCPhase): Auto-detected QC phase metadata.
+        failure (QCLoopResult): Failure result with output details.
+
+    Returns:
+        str: Prompt text for Copilot CLI execution.
+    """
+    failure_detail = failure.failure
+    # Guard against missing failure detail to keep prompt construction safe.
+    if failure_detail is None:
+        return "Auto-QC failure: unknown failure detail."
+
+    # Build a readable list of artifact outputs for the fixer.
+    artifact_lines: list[str] = []
+    for step, path in phase.artifact_paths.items():
+        artifact_lines.append(f"- {step}: {path.as_posix()}")
+    artifact_list = "\n".join(artifact_lines)
+
+    return (
+        "You are fixing an auto-executed QC phase in the atomic executor.\n\n"
+        "Context:\n"
+        f"- Feature folder: {feature_dir.as_posix()}\n"
+        f"- QC phase: {phase.phase}\n\n"
+        "Failure:\n"
+        f"- Step: {failure_detail.step}\n"
+        f"- Exit code: {failure_detail.returncode}\n\n"
+        "Captured output:\n"
+        f"{failure_detail.output}\n\n"
+        "Artifacts (already written):\n"
+        f"{artifact_list}\n\n"
+        "Instructions:\n"
+        "- Fix the reported issues in the codebase.\n"
+        "- Do NOT run the toolchain yourself; the executor will rerun it.\n"
+        "- Keep changes minimal and scoped to the failure.\n"
+        "- When done, reply with a brief summary of what you changed.\n"
+    )
+
+
+def _execute_auto_qc_phase(
+    *,
+    workspace: Path,
+    phase: AutoQCPhase,
+    parser: PlanParser,
+    qc_runner: QCRunner,
+    log_file: Path,
+    feature_dir: Path,
+    preferred_model: str | None,
+    run_id: str,
+    copilot_rate_limiter: CallRateLimiter,
+    copilot_backoff: ExponentialBackoff,
+    copilot_max_retries: int,
+    copilot_output_tail_bytes: int,
+    copilot_allow_shell: bool,
+    copilot_allow_all_paths: bool,
+    copilot_allow_all_urls: bool,
+    copilot_trust_workspace: bool,
+    max_fix_attempts: int,
+    print_prompt: bool = False,
+    copy_prompt: bool = False,
+    is_first_task: bool = True,
+) -> int:
+    """
+    Execute an auto-detected QC phase without per-task LLM calls.
+
+    Purpose:
+        Run the toolchain loop in Python, capture artifacts, and invoke Copilot
+        only when a QC step fails.
+
+    Returns:
+        int: Exit code (0 = success, 5 = failure).
+    """
+    if print_prompt or copy_prompt:
+        print(
+            "Auto-QC phase detected; no prompt is generated for this task.",
+            file=sys.stderr,
+        )
+        return 0
+
+    attempt = 1
+
+    # Retry the QC loop until it passes or the max attempt limit is reached.
+    while True:
+        if max_fix_attempts > 0 and attempt > max_fix_attempts:
+            msg = (
+                f"Failed to complete auto-QC phase {phase.phase} after "
+                f"{max_fix_attempts} attempts."
+            )
+            print(msg, file=sys.stderr)
+            _log_msg(log_file, f"ERROR: {msg}")
+            print(f"See log: {log_file}", file=sys.stderr)
+            return 5
+
+        try:
+            result = qc_runner.run_full_loop_with_artifacts(
+                artifact_paths=phase.artifact_paths,
+            )
+        except RuntimeError as exc:
+            err_msg = f"Auto-QC phase {phase.phase} failed: {exc}"
+            print(err_msg, file=sys.stderr)
+            _log_msg(log_file, f"ERROR: {err_msg}")
+            return 5
+
+        # Successful toolchain loop => mark the QC tasks complete.
+        if result.success:
+            # Mark all auto-QC tasks as complete after the loop passes.
+            # Flip each QC task checkbox so the plan reflects completion.
+            for task_id in phase.task_ids:
+                current_task = parser.find_task_by_id(task_id)
+                if not current_task.checked:
+                    parser.flip_checkbox(current_task)
+
+            success_msg = f"Auto-QC phase {phase.phase} complete and gated."
+            print(success_msg)
+            _log_msg(log_file, f"SUCCESS: {success_msg}")
+            return 0
+
+        # If the loop failed but we lack detail, stop with actionable logs.
+        if result.failure is None:
+            err_msg = f"Auto-QC phase {phase.phase} failed without error details."
+            print(err_msg, file=sys.stderr)
+            _log_msg(log_file, f"ERROR: {err_msg}")
+            return 5
+
+        # Build fix-only prompt and invoke Copilot when QC fails.
+        prompt_text = _build_qc_fix_prompt(
+            feature_dir=feature_dir,
+            phase=phase,
+            failure=result,
+        )
+
+        copilot_invocation = 0
+        throttle_retries = 0
+
+        # Retry Copilot invocation on throttling without rerunning the loop yet.
+        while True:
+            copilot_rate_limiter.acquire()
+
+            copilot_result = run_copilot(
+                workspace=workspace,
+                prompt_text=prompt_text,
+                log_file=log_file,
+                task_id=f"AUTO-QC-P{phase.phase}",
+                preferred_model=preferred_model,
+                run_id=run_id,
+                resume_session=(attempt > 1 or copilot_invocation > 0),
+                is_first_task=is_first_task,
+                allow_all_paths=copilot_allow_all_paths,
+                allow_all_urls=copilot_allow_all_urls,
+                allow_shell=copilot_allow_shell,
+                trust_workspace=copilot_trust_workspace,
+                _output_tail_bytes=copilot_output_tail_bytes,
+            )
+            copilot_invocation += 1
+
+            # Successful Copilot run clears throttle backoff state.
+            if copilot_result.exit_code == 0:
+                copilot_backoff.on_success()
+                break
+
+            failure_kind = classify_copilot_failure(
+                exit_code=copilot_result.exit_code,
+                output_tail=copilot_result.output_tail,
+            )
+            # Fail fast on non-throttle Copilot failures.
+            if failure_kind is FailureKind.NON_THROTTLE:
+                err_msg = (
+                    "Copilot CLI failed (non-throttle) while fixing auto-QC. "
+                    f"exit_code={copilot_result.exit_code}. "
+                    f"output_tail={copilot_result.output_tail!r}"
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                print(f"See log: {log_file}", file=sys.stderr)
+                return 5
+
+            # Normalize retry ceiling so throttling does not loop forever.
+            if copilot_max_retries < 0:
+                copilot_max_retries = 0
+
+            # Stop once we exhaust throttle retries.
+            if throttle_retries >= copilot_max_retries:
+                err_msg = (
+                    f"Copilot CLI appears throttled during auto-QC fixes, "
+                    f"max retries ({copilot_max_retries}) exhausted."
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                print(f"See log: {log_file}", file=sys.stderr)
+                return 5
+
+            delay_seconds = copilot_backoff.on_throttle()
+            throttle_retries += 1
+
+            retry_msg = (
+                "Copilot throttled during auto-QC fixes; retry "
+                f"{throttle_retries}/{copilot_max_retries} after "
+                f"{delay_seconds:.2f}s backoff."
+            )
+            print(retry_msg)
+            _log_msg(log_file, f"WARN: {retry_msg}")
+
+            # Apply backoff delay via injected sleeper for deterministic tests.
+            if delay_seconds > 0:
+                copilot_rate_limiter.sleeper.sleep(delay_seconds)
+
+        attempt += 1
+
+
 def execute_one_task(
     workspace: Path,
     cur: PlanTask,
@@ -1172,6 +1398,38 @@ def execute_one_task(
                     file=sys.stderr,
                 )
             return 0
+
+    # Auto-QC phase detection: run toolchain loop without per-task LLM calls.
+    auto_qc_phase: AutoQCPhase | None = None
+    # Use a safe attribute lookup to support test doubles without methods.
+    auto_qc_lookup = getattr(parser, "auto_qc_phase_for_task", None)
+    if callable(auto_qc_lookup):
+        candidate = auto_qc_lookup(cur)
+        if isinstance(candidate, AutoQCPhase):
+            auto_qc_phase = candidate
+    if auto_qc_phase:
+        return _execute_auto_qc_phase(
+            workspace=workspace,
+            phase=auto_qc_phase,
+            parser=parser,
+            qc_runner=qc_runner,
+            log_file=log_file,
+            feature_dir=feature_dir,
+            preferred_model=preferred_model,
+            run_id=run_id,
+            copilot_rate_limiter=copilot_rate_limiter,
+            copilot_backoff=copilot_backoff,
+            copilot_max_retries=copilot_max_retries,
+            copilot_output_tail_bytes=copilot_output_tail_bytes,
+            copilot_allow_shell=copilot_allow_shell,
+            copilot_allow_all_paths=copilot_allow_all_paths,
+            copilot_allow_all_urls=copilot_allow_all_urls,
+            copilot_trust_workspace=copilot_trust_workspace,
+            max_fix_attempts=max_fix_attempts,
+            print_prompt=print_prompt,
+            copy_prompt=copy_prompt,
+            is_first_task=is_first_task,
+        )
 
     attempt = 1
     retry_ctx = None
@@ -1451,15 +1709,26 @@ def main(argv: list[str] | None = None) -> int:
 
             # Check phase completion after task success
             if parser.phase_complete(cur.phase):
-                print(f"Phase {cur.phase} complete -> running full toolchain...")
-                try:
-                    qc_runner.run_full()
-                except subprocess.CalledProcessError as e:
-                    print(
-                        f"Full QC failed after completing Phase {cur.phase}: {e}",
-                        file=sys.stderr,
-                    )
-                    return 5
+                is_auto_qc = False
+                # Avoid MagicMock truthiness by explicitly calling the checker.
+                auto_qc_phase_check = getattr(parser, "is_auto_qc_phase", None)
+                if callable(auto_qc_phase_check):
+                    phase_candidate = auto_qc_phase_check(cur.phase)
+                    if isinstance(phase_candidate, bool):
+                        is_auto_qc = phase_candidate
+
+                if is_auto_qc:
+                    print(f"Phase {cur.phase} complete (auto-QC handled by executor).")
+                else:
+                    print(f"Phase {cur.phase} complete -> running full toolchain...")
+                    try:
+                        qc_runner.run_full()
+                    except subprocess.CalledProcessError as e:
+                        print(
+                            f"Full QC failed after completing Phase {cur.phase}: {e}",
+                            file=sys.stderr,
+                        )
+                        return 5
 
             # If not execute-all, we are done after one task
             if args.cmd != "execute-all":
