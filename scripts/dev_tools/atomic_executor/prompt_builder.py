@@ -8,6 +8,7 @@ Builds prompts by combining a template with resolved feature folder context
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
 from typing import TYPE_CHECKING, Protocol
 
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
 
 LOGGER = logging.getLogger(__name__)
+READ_TASK_PATTERN = re.compile(r"^read\b", re.IGNORECASE)
 
 
 class PromptBuilderFileSystem(Protocol):
@@ -161,6 +163,7 @@ class PromptBuilder:
         feature_dir: Path,
         current_task: PlanTask,
         retry_context: str | None = None,
+        include_phase0_reads: bool = False,
     ) -> str:
         """
         Build prompt text from template and feature context.
@@ -172,6 +175,8 @@ class PromptBuilder:
             feature_dir (Path): Feature folder containing plan/spec/story files.
             current_task (PlanTask): The task to execute.
             retry_context (str | None): Optional context if this is a retry attempt.
+            include_phase0_reads (bool): Whether to prepend Phase 0 read tasks
+                before the current task.
 
         Returns:
             str: Complete prompt text with injected context.
@@ -194,6 +199,10 @@ class PromptBuilder:
 
         plan_text = self._read_text(plan_path)
         task_block = self._extract_task_block(plan_text, current_task)
+        phase0_reads: list[str] = []
+        # Optionally include Phase 0 read tasks on the first prompt.
+        if include_phase0_reads:
+            phase0_reads = self._extract_phase0_read_tasks(plan_text)
         story_path_label = (
             story_path.as_posix() if self._fs.is_file(story_path) else "(missing)"
         )
@@ -241,6 +250,36 @@ This execution uses model "{self.preferred_model}" for task completion.
         )
 
         # Construct prompt envelope with resolved context
+        phase0_section = ""
+        # Inject Phase 0 read tasks ahead of the current task when requested.
+        if phase0_reads:
+            phase0_lines = "\n".join(phase0_reads)
+            phase0_section = f"""
+PHASE 0 READ TASKS (complete before the current task):
+{phase0_lines}
+
+Before starting the current task, open the referenced files and check each
+Phase 0 read task in plan.md.
+"""
+
+        task_id = current_task.task_id
+        check_instructions = (
+            "When you are confident the current task is complete and passes the above\n"
+            "checks, update plan.md by checking ONLY this task:\n"
+            f"- Change '- [ ] [{task_id}]' to '- [x] [{task_id}]'\n"
+            "- Do not modify other lines."
+        )
+
+        # Allow Phase 0 read tasks to be checked in the first prompt.
+        if phase0_reads:
+            check_instructions = (
+                "When you are confident the Phase 0 read tasks and the current task\n"
+                "are complete and the checks pass, update plan.md by checking the\n"
+                "Phase 0 read tasks above and the current task:\n"
+                f"- Change '- [ ] [{task_id}]' to '- [x] [{task_id}]'\n"
+                "- Do not modify other lines outside these tasks."
+            )
+
         appended = f"""
 
 Resolved feature folder: {feature_dir.as_posix()}
@@ -249,6 +288,7 @@ Feature folder name: {feature_dir.name}
 {model_section}CURRENT TASK (execute only this task, do not advance to other tasks):
 - [{current_task.task_id}] {current_task.title}
 {retry_section}
+{phase0_section}
 Constraints:
 - Do NOT replan or expand scope. Do not change task order or IDs.
 - Make the smallest change set required to complete ONLY the current task.
@@ -263,10 +303,7 @@ Constraints:
       --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools \\
       --cov-report=term-missing
 
-When you are confident the current task is complete and passes the above
-checks, update plan.md by checking ONLY this task:
-- Change '- [ ] [{current_task.task_id}]' to '- [x] [{current_task.task_id}]'
-- Do not modify other lines.
+{check_instructions}
 
 If `plan.md` does not exist in the feature folder, update this file instead:
 - {resolved_plan.update_filename}
@@ -356,3 +393,42 @@ Plan task context:
             break
 
         return "\n".join(block_lines)
+
+    def _extract_phase0_read_tasks(self, plan_text: str) -> list[str]:
+        """
+        Extract unchecked Phase 0 read tasks from a plan.
+
+        Purpose:
+            Provide a deterministic list of Phase 0 read tasks to prepend to
+            the first execution prompt.
+
+        Args:
+            plan_text (str): Full contents of the plan file.
+
+        Returns:
+            list[str]: Rendered task lines for Phase 0 read tasks.
+        """
+        lines = plan_text.splitlines()
+        read_tasks: list[str] = []
+
+        # Scan plan task lines and capture unchecked Phase 0 reads.
+        for line in lines:
+            match = TASK_LINE_RE.match(line)
+            if not match:
+                continue
+
+            phase = int(match.group("phase"))
+            if phase != 0:
+                continue
+
+            if match.group("state").strip().lower() == "x":
+                continue
+
+            title = match.group("title").strip()
+            if not READ_TASK_PATTERN.match(title):
+                continue
+
+            task_id = match.group("task_id")
+            read_tasks.append(f"- [{task_id}] {title}")
+
+        return read_tasks

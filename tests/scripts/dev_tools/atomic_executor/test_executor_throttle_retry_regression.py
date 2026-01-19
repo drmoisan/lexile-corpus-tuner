@@ -38,7 +38,11 @@ class _FakePromptBuilder:
     """
 
     def build(
-        self, _feature_dir: Path, _task: PlanTask, retry_context: str | None = None
+        self,
+        _feature_dir: Path,
+        _task: PlanTask,
+        retry_context: str | None = None,
+        include_phase0_reads: bool = False,
     ) -> str:
         """Return a stable prompt string.
 
@@ -46,11 +50,13 @@ class _FakePromptBuilder:
             _feature_dir (Path): Unused.
             _task (PlanTask): Unused.
             retry_context (str | None): Unused.
+            include_phase0_reads (bool): Unused flag for phase 0 read bundling.
 
         Returns:
             str: Constant prompt text.
         """
 
+        _ = include_phase0_reads
         return "PROMPT"
 
 
@@ -242,6 +248,7 @@ def test_execute_one_task_retries_on_throttle_then_succeeds(
         copilot_allow_all_paths=True,
         copilot_allow_all_urls=False,
         copilot_trust_workspace=True,
+        include_phase0_reads=False,
     )
 
     # Assert: success and expected sequencing.

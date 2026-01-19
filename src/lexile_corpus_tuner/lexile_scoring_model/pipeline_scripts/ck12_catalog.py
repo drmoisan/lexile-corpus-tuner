@@ -30,14 +30,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import requests
 import typer
 
 from .oer_models import CatalogEntry, generate_stable_slug
 
-# CK-12 Browse API endpoint returns FlexBook metadata (Issue #73 spec)
-DEFAULT_CK12_CATALOG_URL = "https://www.ck12.org/flx/browse/flexbook?limit=200"
+# CK-12 static FlexBook browse feed (Issue #73 spec)
+DEFAULT_CK12_CATALOG_URL = "https://static.ck12.org/testimonial/fbbrowse-prod.json"
 REQUEST_TIMEOUT_SECONDS = 30
 
 # HTTP headers to mimic a real browser and avoid 403 Forbidden (Issue #73)
@@ -58,6 +59,48 @@ REQUEST_HEADERS = {
 app = typer.Typer(
     help="Build CK-12 catalog entries from the CK-12 FlexBook browse page."
 )
+
+
+def extract_slug_from_content_url(url: str) -> str | None:
+    """
+    Derive the CK-12 content slug from known Content_URL patterns.
+
+    Purpose:
+        Extract a stable slug from CK-12 Content_URL values so identifier derivation
+        remains deterministic across static feed and Browse API inputs.
+
+    Args:
+        url (str): Fully-qualified CK-12 Content_URL string to parse.
+
+    Returns:
+        str | None: Slug when the URL matches /cbook/, /user:<handle>/cbook/, or
+            /book/ patterns; None when the URL cannot be parsed.
+
+    Raises:
+        None.
+
+    Side Effects:
+        None.
+    """
+    parsed = urlparse(url)
+    # Normalize path segments to enable consistent positional matching.
+    path_parts = [segment for segment in parsed.path.split("/") if segment]
+
+    if parsed.netloc == "flexbooks.ck12.org":
+        if "cbook" in path_parts:
+            cbook_index = path_parts.index("cbook")
+            if cbook_index + 1 < len(path_parts):
+                return path_parts[cbook_index + 1]
+        return None
+
+    if parsed.netloc == "www.ck12.org":
+        if "book" in path_parts:
+            book_index = path_parts.index("book")
+            if book_index + 1 < len(path_parts):
+                return path_parts[book_index + 1]
+        return None
+
+    return None
 
 
 def fetch_catalog_page(url: str) -> dict[str, Any]:
@@ -137,61 +180,159 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
 
     # Locate the list of FlexBooks in either the legacy "books" key or the
     # Browse API "response.flexbook" / "response.items" shape.
-    books_raw: object | None = catalog_data.get("books")
-    if books_raw is None:
+    books_raw_obj: list[dict[str, object]] | dict[str, object] | None
+    books_from_root: object | None = catalog_data.get("books")
+    if isinstance(books_from_root, list):
+        root_books_list = cast(list[object], books_from_root)
+        validated_list: list[dict[str, object]] = []
+        for item in root_books_list:
+            if not isinstance(item, dict):
+                raise ValueError(
+                    "Expected each catalog entry to be a dict when parsing CK-12 "
+                    "catalog"
+                )
+            validated_list.append(cast(dict[str, object], item))
+        books_raw_obj = validated_list
+    elif isinstance(books_from_root, dict):
+        books_raw_obj = cast(dict[str, object], books_from_root)
+    elif books_from_root is None:
         response_obj = catalog_data.get("response")
         if isinstance(response_obj, dict):
             # Treat nested JSON objects as dict[str, Any] so `dict.get()` is typed and
             # downstream parsing can narrow values safely.
             response_dict = cast(dict[str, Any], response_obj)
             # Browse API returns data under "flexbook" key (observed Jan 2026).
-            books_raw = (
+            nested_books: object | None = (
                 response_dict.get("flexbook")
                 or response_dict.get("items")
                 or response_dict.get("books")
             )
-    if books_raw is None:
-        books_raw = []
-
-    if not isinstance(books_raw, list):
+            if isinstance(nested_books, list):
+                nested_books_list = cast(list[object], nested_books)
+                validated_list: list[dict[str, object]] = []
+                for item in nested_books_list:
+                    if not isinstance(item, dict):
+                        raise ValueError(
+                            "Expected each catalog entry to be a dict when parsing"
+                            " CK-12 catalog"
+                        )
+                    validated_list.append(cast(dict[str, object], item))
+                books_raw_obj = validated_list
+            elif isinstance(nested_books, dict):
+                books_raw_obj = cast(dict[str, object], nested_books)
+            else:
+                books_raw_obj = None
+        else:
+            books_raw_obj = None
+    else:
         raise ValueError(
-            f"Expected catalog data to contain 'books' list, got {type(books_raw)}"
+            "Expected catalog data to contain 'books' list or dict in the root payload"
+        )
+    if isinstance(books_raw_obj, dict) and "items" in books_raw_obj:
+        # Preserve Browse API responses where the payload nests items inside
+        # response.flexbook.items rather than a top-level list.
+        response_flexbook_dict = books_raw_obj
+        candidate_items = response_flexbook_dict.get("items")
+        if isinstance(candidate_items, list):
+            nested_items_list = cast(list[object], candidate_items)
+            validated_items: list[dict[str, object]] = []
+            for item in nested_items_list:
+                if not isinstance(item, dict):
+                    raise ValueError(
+                        "Expected each catalog entry to be a dict when parsing CK-12 "
+                        "catalog"
+                    )
+                validated_items.append(cast(dict[str, object], item))
+            books_raw_obj = validated_items
+    books_raw_list: list[dict[str, object]]
+    if books_raw_obj is None:
+        books_raw_list = []
+    elif isinstance(books_raw_obj, list):
+        books_raw_list = books_raw_obj
+    else:
+        raise ValueError(
+            "Expected catalog data to contain 'books' list, got "
+            f"{type(books_raw_obj).__name__}"
         )
 
-    # Type cast to help Pyright understand this is a list of dicts
-    books = cast(list[dict[str, object]], books_raw)
+    books: list[dict[str, object]] = books_raw_list
 
     # Convert each Browse API item into a CatalogEntry using canonical handles.
     # Filter out rows that are missing required identifiers to keep output
     # deterministic.
     for book in books:
+        is_static_feed_entry = "Language" in book
         artifact_id: object | None = book.get("artifactID") or book.get("artifactId")
         artifact_type: object | None = book.get("artifactType") or book.get(
             "artifact_type"
         )
+        content_url_raw: object | None = book.get("Content_URL")
+        content_url_host: str | None = (
+            urlparse(content_url_raw).netloc
+            if isinstance(content_url_raw, str) and content_url_raw
+            else None
+        )
+        content_url_slug: str | None = (
+            extract_slug_from_content_url(content_url_raw)
+            if isinstance(content_url_raw, str) and content_url_raw
+            else None
+        )
         handle_raw: object | None = book.get("handle")
+        handle: str | None = None
 
-        if not isinstance(artifact_id, int | str) or str(artifact_id) == "":
-            continue
-        if not isinstance(artifact_type, str) or not artifact_type:
-            continue
-        if not isinstance(handle_raw, str) or not handle_raw:
-            continue
-        handle: str = handle_raw
+        if is_static_feed_entry:
+            # Static feed identifiers prefer Content_URL slug, then handle, then Title.
+            identifier_source_raw: object | None = (
+                content_url_slug or handle_raw or book.get("Title")
+            )
+            if not isinstance(identifier_source_raw, str) or not identifier_source_raw:
+                continue
+            identifier = generate_stable_slug(identifier_source_raw)
+            if identifier in seen_ids:
+                continue
 
-        artifact_id_value: int | None = None
-        if isinstance(artifact_id, int):
-            artifact_id_value = artifact_id
+            artifact_id_value: int | None = None
+            if isinstance(artifact_id, int):
+                artifact_id_value = artifact_id
+            elif isinstance(artifact_id, str) and artifact_id.isdigit():
+                artifact_id_value = int(artifact_id)
+
+            if content_url_host == "flexbooks.ck12.org":
+                artifact_type_value = "flexbook"
+            elif content_url_host == "www.ck12.org":
+                artifact_type_value = "book"
+            else:
+                artifact_type_value = artifact_type
         else:
-            # Preserve the previous behavior (numeric strings become ints) while
-            # tolerating non-string truthy values by stringifying them first.
-            artifact_id_text = str(artifact_id)
-            if artifact_id_text.isdigit():
-                artifact_id_value = int(artifact_id_text)
+            if artifact_id is None or not isinstance(artifact_id, int | str):
+                continue
+            if not isinstance(artifact_type, str) or not artifact_type:
+                continue
+            if not isinstance(handle_raw, str) or not handle_raw:
+                continue
+            handle = handle_raw
 
-        identifier = generate_stable_slug(handle)
-        if identifier in seen_ids:
-            continue
+            identifier = generate_stable_slug(handle)
+            if identifier in seen_ids:
+                continue
+
+            artifact_id_value: int | None = None
+            if isinstance(artifact_id, int):
+                artifact_id_value = artifact_id
+            else:
+                # Preserve the previous behavior (numeric strings become ints) while
+                # tolerating non-string truthy values by stringifying them first.
+                artifact_id_text = str(artifact_id)
+                if artifact_id_text.isdigit():
+                    artifact_id_value = int(artifact_id_text)
+
+            artifact_type_text = str(artifact_type)
+            if content_url_host == "flexbooks.ck12.org":
+                artifact_type_value = "flexbook"
+            elif content_url_host == "www.ck12.org":
+                artifact_type_value = "book"
+            else:
+                artifact_type_value = artifact_type_text if artifact_type_text else None
 
         # Extract title and metadata from JSON fields, defaulting to the identifier
         # so missing titles remain deterministic.
@@ -201,7 +342,11 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
         title: str = title_raw if isinstance(title_raw, str) else identifier
 
         language_list: list[str] = []
-        language_field = book.get("Language_Code") or book.get("language")
+        language_field = (
+            book.get("Language")
+            if is_static_feed_entry
+            else book.get("Language_Code") or book.get("language")
+        )
         if isinstance(language_field, str) and language_field:
             language_list = [language_field]
         elif isinstance(language_field, list):
@@ -210,6 +355,19 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             language_list = [
                 lang for lang in raw_lang_list if isinstance(lang, str) and lang
             ]
+
+        entry_handle: str | None
+        if not is_static_feed_entry:
+            entry_handle = handle
+        elif isinstance(handle_raw, str):
+            entry_handle = handle_raw
+        else:
+            entry_handle = None
+
+        if isinstance(artifact_type_value, str) or artifact_type_value is None:
+            safe_artifact_type: str | None = artifact_type_value
+        else:
+            safe_artifact_type = None
 
         entries.append(
             CatalogEntry(
@@ -220,8 +378,8 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
                 year=None,  # CK-12 JSON doesn't include publication year
                 language=language_list,
                 license_url=None,  # CK-12 license info not in catalog JSON
-                artifact_type=artifact_type,
-                handle=handle,
+                artifact_type=safe_artifact_type,
+                handle=entry_handle,
                 artifact_id=artifact_id_value,
             )
         )

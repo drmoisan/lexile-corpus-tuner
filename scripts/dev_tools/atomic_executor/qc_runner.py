@@ -7,6 +7,7 @@ Supports both scoped QC (changed files only, fast task gate) and full QC
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -62,6 +63,7 @@ class QCRunner:
     ]
 
     AUTO_QC_STEP_ORDER = ["black", "ruff", "pyright", "pytest"]
+    EXECUTOR_LOCK_BYPASS_ENV = "ATOMIC_EXECUTOR_SKIP_LOCK"
 
     def __init__(self, workspace: Path) -> None:
         """
@@ -101,7 +103,10 @@ class QCRunner:
 
         # Run tests only for changed test files (fast path)
         if test_files:
-            self._run(["poetry", "run", "pytest", *test_files])
+            self._run(
+                ["poetry", "run", "pytest", *test_files],
+                env=self._merge_env(self._lock_bypass_env()),
+            )
 
     def run_full(self) -> None:
         """
@@ -119,7 +124,10 @@ class QCRunner:
         self._run(self.FULL_FMT)
         self._run(self.FULL_LINT)
         self._run(self.FULL_TYPE)
-        self._run(self.FULL_TEST)
+        self._run(
+            self.FULL_TEST,
+            env=self._merge_env(self._lock_bypass_env()),
+        )
 
     def run_full_loop_with_artifacts(
         self,
@@ -158,6 +166,10 @@ class QCRunner:
                     "QC loop exceeded maximum iterations " f"({max_loops})."
                 )
 
+            # Capture the current diff signature so we can detect Black changes
+            # even when the working tree already has edits.
+            before_black = self._diff_signature(exclude_paths=artifact_paths.values())
+
             # Run Black in write mode and restart the loop if files changed.
             black_result = self._run_and_record(
                 argv=["poetry", "run", "black", "."],
@@ -175,9 +187,9 @@ class QCRunner:
                     loop_count=loop_count,
                 )
 
-            # Detect formatting changes and restart from Black if needed.
-            # Restart the loop when Black modifies files.
-            if self._git_has_changes():
+            # Detect formatting changes by comparing diffs before/after Black.
+            after_black = self._diff_signature(exclude_paths=artifact_paths.values())
+            if after_black != before_black:
                 continue
 
             # Run Ruff, Pyright, and Pytest in order.
@@ -223,6 +235,7 @@ class QCRunner:
                     "--cov-report=term-missing",
                 ],
                 output_path=artifact_paths["pytest"],
+                env=self._merge_env(self._lock_bypass_env()),
             )
             # Test failures must be fixed before the loop can complete.
             if pytest_result.returncode != 0:
@@ -263,7 +276,7 @@ class QCRunner:
                 files.append(parts[1])
         return files
 
-    def _git_has_changes(self) -> bool:
+    def _git_has_changes(self, *, exclude_paths: Iterable[Path] | None = None) -> bool:
         """
         Check if the git working tree has uncommitted changes.
 
@@ -271,13 +284,134 @@ class QCRunner:
             Detect formatter modifications so the QC loop can restart from the
             beginning after Black rewrites files.
 
+        Args:
+            exclude_paths (Iterable[Path] | None): Paths to ignore when
+                determining whether changes occurred. Useful when QC writes
+                artifacts that should not trigger a retry loop.
+
         Returns:
-            bool: True if there are uncommitted changes, False otherwise.
+            bool: True if there are uncommitted changes beyond exclusions,
+                False otherwise.
         """
         result = self._run(
             ["git", "status", "--porcelain"], capture_output=True, text=True
         )
-        return bool(result.stdout.strip())
+
+        excluded = self._normalize_excluded_paths(exclude_paths)
+
+        # Scan git status output and ignore excluded paths when requested.
+        for line in result.stdout.splitlines():
+            parts = line.strip().split(maxsplit=1)
+            if len(parts) != 2:
+                continue
+            changed_path = parts[1]
+            if changed_path in excluded:
+                continue
+            return True
+
+        return False
+
+    def _diff_signature(
+        self, *, exclude_paths: Iterable[Path] | None = None
+    ) -> tuple[tuple[str, str, str], ...]:
+        """
+        Build a diff signature for the working tree.
+
+        Purpose:
+            Capture a stable fingerprint of current diffs so the QC loop can
+            determine whether Black introduced changes even when files were
+            already modified.
+
+        Args:
+            exclude_paths (Iterable[Path] | None): Paths to ignore when building
+                the signature.
+
+        Returns:
+            tuple[tuple[str, str, str], ...]: Sorted tuples of
+                (path, additions, deletions) for each changed file.
+        """
+        result = self._run(["git", "diff", "--numstat"], capture_output=True, text=True)
+        excluded = self._normalize_excluded_paths(exclude_paths)
+
+        signature: list[tuple[str, str, str]] = []
+        # Capture line-level change counts per file for a stable diff fingerprint.
+        for line in result.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) < 3:
+                continue
+            additions, deletions, path = parts[0], parts[1], parts[2]
+            if " => " in path:
+                path = path.split(" => ")[-1].strip()
+            if path in excluded:
+                continue
+            signature.append((path, additions, deletions))
+
+        return tuple(sorted(signature))
+
+    def _normalize_excluded_paths(
+        self, exclude_paths: Iterable[Path] | None
+    ) -> set[str]:
+        """
+        Normalize excluded paths to repo-relative POSIX strings.
+
+        Purpose:
+            Ensure consistent comparisons between path objects and git output.
+
+        Args:
+            exclude_paths (Iterable[Path] | None): Paths to normalize.
+
+        Returns:
+            set[str]: Normalized paths in POSIX form.
+        """
+        excluded: set[str] = set()
+        if exclude_paths is None:
+            return excluded
+
+        # Normalize paths to repo-relative strings for comparison.
+        for path in exclude_paths:
+            try:
+                rel_path = path.relative_to(self.workspace)
+            except ValueError:
+                rel_path = path
+            excluded.add(rel_path.as_posix())
+
+        return excluded
+
+    def _lock_bypass_env(self) -> dict[str, str]:
+        """
+        Provide an env flag that bypasses the executor lock in tests.
+
+        Purpose:
+            The executor holds a lock file during execute-all runs. When QC
+            runs pytest in-process, tests that call the executor should not
+            fail due to the existing lock, so we set a bypass env var for
+            the pytest subprocess only.
+
+        Returns:
+            dict[str, str]: Environment overrides enabling lock bypass.
+        """
+        return {self.EXECUTOR_LOCK_BYPASS_ENV: "1"}
+
+    def _merge_env(self, extra_env: dict[str, str] | None) -> dict[str, str] | None:
+        """
+        Merge extra environment variables into the current process env.
+
+        Purpose:
+            Ensure subprocesses inherit the current environment plus any
+            explicit overrides.
+
+        Args:
+            extra_env (dict[str, str] | None): Environment overrides to apply.
+
+        Returns:
+            dict[str, str] | None: Merged environment or None if no overrides.
+        """
+        if not extra_env:
+            return None
+
+        env = dict(os.environ)
+        env.update(extra_env)
+        return env
 
     def _filter_python_files(self, paths: Iterable[str]) -> list[str]:
         """Filter to .py files only."""
@@ -297,6 +431,7 @@ class QCRunner:
         *,
         capture_output: bool = False,
         text: bool = True,
+        env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
         """
         Execute a subprocess command with consistent settings.
@@ -305,6 +440,7 @@ class QCRunner:
             argv (list[str]): Command and arguments to execute.
             capture_output (bool): Whether to capture stdout/stderr.
             text (bool): Whether to decode output as text.
+            env (dict[str, str] | None): Environment overrides for the command.
 
         Returns:
             CompletedProcess: Result of subprocess execution.
@@ -318,6 +454,7 @@ class QCRunner:
             check=True,
             capture_output=capture_output,
             text=text,
+            env=env,
         )
 
     def _run_and_record(
@@ -325,6 +462,7 @@ class QCRunner:
         *,
         argv: list[str],
         output_path: Path,
+        env: dict[str, str] | None = None,
     ) -> QCToolResult:
         """
         Execute a command, capture output, and write it to a file.
@@ -335,6 +473,7 @@ class QCRunner:
         Args:
             argv (list[str]): Command and arguments to execute.
             output_path (Path): File path for captured output.
+            env (dict[str, str] | None): Environment overrides for the command.
 
         Returns:
             QCToolResult: Captured output and exit status.
@@ -350,6 +489,7 @@ class QCRunner:
             check=False,
             capture_output=True,
             text=True,
+            env=env,
         )
 
         output = (result.stdout or "") + (result.stderr or "")

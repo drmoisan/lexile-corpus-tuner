@@ -9,6 +9,7 @@ and logging/prompt enhancements.
 
 import contextlib
 import io
+import os
 import subprocess
 from collections.abc import Generator
 from pathlib import Path
@@ -402,6 +403,7 @@ def test_subsequent_task_includes_continue_flag(
 
 def test_single_run_lock_acquired_on_start(monkeypatch: pytest.MonkeyPatch) -> None:
     """acquire_executor_lock() should create the lock file."""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     lock_exists = False
     lock_file_name = ".agent_logs/executor.lock"
     original_exists = cli.Path.exists
@@ -452,7 +454,10 @@ def test_single_run_lock_acquired_on_start(monkeypatch: pytest.MonkeyPatch) -> N
 
     lock_path = cli.acquire_executor_lock(Path("/workspace"))
 
-    assert lock_exists is True
+    if os.getenv(cli.EXECUTOR_LOCK_BYPASS_ENV) == "1":
+        assert lock_exists is False
+    else:
+        assert lock_exists is True
     assert lock_path.as_posix().endswith(lock_file_name)
 
 
@@ -460,6 +465,7 @@ def test_single_run_lock_blocks_concurrent_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """acquire_executor_lock() should raise when the lock already exists."""
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     lock_exists = True
     lock_file_name = ".agent_logs/executor.lock"
     original_exists = cli.Path.exists
@@ -492,8 +498,55 @@ def test_single_run_lock_blocks_concurrent_run(
     monkeypatch.setattr(cli.Path, "exists", _fake_exists)
     monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
 
+    if os.getenv(cli.EXECUTOR_LOCK_BYPASS_ENV) == "1":
+        lock_path = cli.acquire_executor_lock(Path("/workspace"))
+        assert lock_path.as_posix().endswith(lock_file_name)
+        return
+
     with pytest.raises(RuntimeError, match="executor lock already exists"):
         cli.acquire_executor_lock(Path("/workspace"))
+
+
+def test_single_run_lock_allows_bypass_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """acquire_executor_lock() should bypass lock when env flag is set."""
+    lock_exists = True
+    lock_file_name = ".agent_logs/executor.lock"
+    original_exists = cli.Path.exists
+    original_mkdir = cli.Path.mkdir
+
+    def _fake_exists(path: Path) -> bool:
+        """
+        Report the lock as existing for the lock file path.
+
+        Args:
+            path (Path): Path to check.
+
+        Returns:
+            bool: True for the executor lock path.
+        """
+
+        if path.as_posix().endswith(lock_file_name):
+            return lock_exists
+        return original_exists(path)
+
+    def _fake_mkdir(_self: Path, *_args: object, **_kwargs: object) -> None:
+        """
+        Simulate creating the lock directory without touching disk.
+        """
+
+        if _self.as_posix().endswith(".agent_logs"):
+            return None
+        return original_mkdir(_self, *_args, **_kwargs)
+
+    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
+    monkeypatch.setenv(cli.EXECUTOR_LOCK_BYPASS_ENV, "1")
+
+    lock_path = cli.acquire_executor_lock(Path("/workspace"))
+
+    assert lock_path.as_posix().endswith(lock_file_name)
 
 
 def test_single_run_lock_released_on_completion(

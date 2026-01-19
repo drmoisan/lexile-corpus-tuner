@@ -9,12 +9,12 @@ Tests cover QCRunner class methods for running scoped and full QC toolchains
 
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import Mock
 
 import pytest
 
-from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
+from scripts.dev_tools.atomic_executor.qc_runner import QCRunner, QCToolResult
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -87,6 +87,132 @@ class TestQCRunnerChangedFiles:
         assert "src/module.py" in files
         assert "new.py" in files
         assert len(files) == 2
+
+
+class TestQCRunnerGitHasChanges:
+    """Tests for _git_has_changes() behavior."""
+
+    def test_git_has_changes_ignores_artifacts(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """_git_has_changes() returns False when only artifacts changed."""
+        git_output = (
+            " M artifacts/ck12_catalog_baseline_black.txt\n"
+            "?? artifacts/ck12_catalog_baseline_ruff.txt\n"
+        )
+
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = git_output
+            result.returncode = 0
+            return result
+
+        runner = QCRunner(tmp_path)
+        monkeypatch.setattr(runner, "_run", mock_run)
+
+        has_changes = runner._git_has_changes(  # pyright: ignore[reportPrivateUsage]
+            exclude_paths=[
+                tmp_path / "artifacts/ck12_catalog_baseline_black.txt",
+                tmp_path / "artifacts/ck12_catalog_baseline_ruff.txt",
+            ]
+        )
+
+        assert has_changes is False
+
+    def test_git_has_changes_reports_non_artifact_changes(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """_git_has_changes() returns True when non-artifact changes exist."""
+        git_output = (
+            " M artifacts/ck12_catalog_baseline_black.txt\n" " M src/module.py\n"
+        )
+
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = git_output
+            result.returncode = 0
+            return result
+
+        runner = QCRunner(tmp_path)
+        monkeypatch.setattr(runner, "_run", mock_run)
+
+        has_changes = runner._git_has_changes(  # pyright: ignore[reportPrivateUsage]
+            exclude_paths=[tmp_path / "artifacts/ck12_catalog_baseline_black.txt"]
+        )
+
+        assert has_changes is True
+
+
+class TestQCRunnerDiffSignature:
+    """Tests for _diff_signature() behavior."""
+
+    def test_diff_signature_ignores_excluded_artifacts(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """_diff_signature() omits excluded artifact paths from the fingerprint."""
+        diff_output = (
+            "1\t0\tartifacts/ck12_catalog_baseline_black.txt\n" "3\t2\tsrc/module.py\n"
+        )
+
+        def mock_run(*args: object, **kwargs: object) -> Mock:
+            result = Mock()
+            result.stdout = diff_output
+            result.returncode = 0
+            return result
+
+        runner = QCRunner(tmp_path)
+        monkeypatch.setattr(runner, "_run", mock_run)
+
+        signature = runner._diff_signature(  # pyright: ignore[reportPrivateUsage]
+            exclude_paths=[tmp_path / "artifacts/ck12_catalog_baseline_black.txt"]
+        )
+
+        assert signature == (("src/module.py", "3", "2"),)
+
+
+class TestQCRunnerFullLoop:
+    """Tests for run_full_loop_with_artifacts() behavior."""
+
+    def test_full_loop_completes_when_black_changes_nothing(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """run_full_loop_with_artifacts() should finish when diff is stable."""
+        diff_calls: list[int] = []
+        pytest_env: dict[str, str] | None = None
+
+        def fake_diff_signature(
+            *args: object, **kwargs: object
+        ) -> tuple[tuple[str, str, str], ...]:
+            diff_calls.append(1)
+            return (("src/module.py", "1", "0"),)
+
+        def fake_run_and_record(*args: object, **kwargs: object) -> QCToolResult:
+            nonlocal pytest_env
+            argv = kwargs.get("argv")
+            env = kwargs.get("env")
+            if isinstance(argv, list) and "pytest" in argv and isinstance(env, dict):
+                pytest_env = cast(dict[str, str], env)
+            return QCToolResult(step="tool", returncode=0, output="")
+
+        runner = QCRunner(tmp_path)
+        monkeypatch.setattr(runner, "_diff_signature", fake_diff_signature)
+        monkeypatch.setattr(runner, "_run_and_record", fake_run_and_record)
+
+        result = runner.run_full_loop_with_artifacts(
+            artifact_paths={
+                "black": tmp_path / "artifacts/black.txt",
+                "ruff": tmp_path / "artifacts/ruff.txt",
+                "pyright": tmp_path / "artifacts/pyright.txt",
+                "pytest": tmp_path / "artifacts/pytest.txt",
+            },
+            max_loops=1,
+        )
+
+        assert result.success is True
+        assert result.loop_count == 1
+        assert len(diff_calls) == 2
+        assert pytest_env is not None
+        assert pytest_env.get(runner.EXECUTOR_LOCK_BYPASS_ENV) == "1"
 
 
 class TestQCRunnerFilterHelpers:

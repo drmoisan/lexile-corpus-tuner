@@ -13,6 +13,7 @@ import contextlib
 import json
 import os
 import queue
+import re
 import shutil
 import subprocess
 import sys
@@ -46,6 +47,7 @@ DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
 PROTECTED_BRANCHES = {"main", "master", "development"}
 LOG_DIR = ".agent_logs"
 EXECUTOR_LOCK_FILE = ".agent_logs/executor.lock"
+EXECUTOR_LOCK_BYPASS_ENV = "ATOMIC_EXECUTOR_SKIP_LOCK"
 
 # Safe, bounded defaults for Copilot CLI throttling controls (issue #80).
 DEFAULT_COPILOT_CLI_MAX_CALLS_PER_WINDOW = 6
@@ -244,6 +246,9 @@ def acquire_executor_lock(workspace: Path) -> Path:
     Purpose:
         Ensures only one execute-all run is active at a time so that
         `--continue` does not resume unrelated Copilot sessions.
+        Allows pytest subprocesses launched by the executor to bypass the
+        lock when ATOMIC_EXECUTOR_SKIP_LOCK is set or when pytest exports
+        PYTEST_CURRENT_TEST.
 
     Args:
         workspace (Path): Repository root used to resolve the lock file path.
@@ -256,6 +261,11 @@ def acquire_executor_lock(workspace: Path) -> Path:
     """
     lock_path = workspace / EXECUTOR_LOCK_FILE
     lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Allow pytest subprocesses spawned by the executor to bypass the lock so
+    # execute-all tests do not fail when the parent process holds the lock.
+    if os.getenv(EXECUTOR_LOCK_BYPASS_ENV) == "1" or os.getenv("PYTEST_CURRENT_TEST"):
+        return lock_path
 
     if lock_path.exists():
         raise RuntimeError(
@@ -1095,6 +1105,81 @@ def _log_msg(log_file: Path, msg: str) -> None:
         f.write(f"{msg}\n")
 
 
+READ_TASK_PATTERN = re.compile(r"^read\b", re.IGNORECASE)
+
+
+def _is_phase0_read_task(task: PlanTask) -> bool:
+    """
+    Determine whether a task is a Phase 0 "read" task.
+
+    Purpose:
+        Allows the executor to bundle Phase 0 read tasks into the first prompt.
+
+    Args:
+        task (PlanTask): Task to evaluate.
+
+    Returns:
+        bool: True when the task is Phase 0 and begins with "read".
+    """
+    if task.phase != 0:
+        return False
+    return bool(READ_TASK_PATTERN.match(task.title.strip()))
+
+
+def _phase0_read_tasks(parser: PlanParser) -> list[PlanTask]:
+    """
+    Collect unchecked Phase 0 read tasks in plan order.
+
+    Purpose:
+        Provides the executor and prompt builder a deterministic list of
+        tasks to bundle into the first prompt.
+
+    Args:
+        parser (PlanParser): Parsed plan access.
+
+    Returns:
+        list[PlanTask]: Unchecked Phase 0 read tasks.
+    """
+    plan = parser.parse()
+    read_tasks: list[PlanTask] = []
+
+    # Preserve phase/task ordering for deterministic prompt sequencing.
+    for task in sorted(plan.tasks, key=lambda x: (x.phase, x.task_num)):
+        if task.checked:
+            continue
+        if _is_phase0_read_task(task):
+            read_tasks.append(task)
+
+    return read_tasks
+
+
+def _first_non_read_task(parser: PlanParser) -> PlanTask | None:
+    """
+    Return the first unchecked task that is not a Phase 0 read task.
+
+    Purpose:
+        Ensures the first prompt can combine Phase 0 reads with the first
+        actionable non-read task.
+
+    Args:
+        parser (PlanParser): Parsed plan access.
+
+    Returns:
+        PlanTask | None: First non-read task, or None if none exist.
+    """
+    plan = parser.parse()
+
+    # Scan tasks in order while skipping Phase 0 read tasks.
+    for task in sorted(plan.tasks, key=lambda x: (x.phase, x.task_num)):
+        if task.checked:
+            continue
+        if _is_phase0_read_task(task):
+            continue
+        return task
+
+    return None
+
+
 def _build_qc_fix_prompt(
     *,
     feature_dir: Path,
@@ -1337,6 +1422,7 @@ def execute_one_task(
     copilot_allow_all_paths: bool,
     copilot_allow_all_urls: bool,
     copilot_trust_workspace: bool,
+    include_phase0_reads: bool,
     print_prompt: bool = False,
     copy_prompt: bool = False,
     is_first_task: bool = True,
@@ -1369,6 +1455,8 @@ def execute_one_task(
         copilot_allow_all_paths (bool): Allow all file paths without approval.
         copilot_allow_all_urls (bool): Allow all URLs without approval.
         copilot_trust_workspace (bool): Persist workspace in Copilot trusted list.
+        include_phase0_reads (bool): Whether to include Phase 0 read tasks in
+            the prompt before the current task.
         print_prompt (bool): If True, print prompt and return.
         copy_prompt (bool): If True, copy prompt and return.
         is_first_task (bool): True when this is the first task in a plan run.
@@ -1379,7 +1467,11 @@ def execute_one_task(
     # Handle --print-prompt / --copy-prompt (static preview)
     if print_prompt or copy_prompt:
         # Initial build without retry context for preview
-        prompt_text = builder.build(feature_dir, cur)
+        prompt_text = builder.build(
+            feature_dir,
+            cur,
+            include_phase0_reads=include_phase0_reads,
+        )
         if print_prompt:
             print(prompt_text)
             return 0
@@ -1446,7 +1538,12 @@ def execute_one_task(
             return 5
 
         # Rebuild prompt with retry context if applicable
-        prompt_text = builder.build(feature_dir, cur, retry_context=retry_ctx)
+        prompt_text = builder.build(
+            feature_dir,
+            cur,
+            retry_context=retry_ctx,
+            include_phase0_reads=include_phase0_reads,
+        )
 
         limit_str = str(max_fix_attempts) if max_fix_attempts > 0 else "∞"
         msg = f"Executing task {cur.task_id} (attempt {attempt}/{limit_str})"
@@ -1648,6 +1745,17 @@ def main(argv: list[str] | None = None) -> int:
                     print("Plan already complete: no unchecked tasks found.")
                     return 0
 
+        include_phase0_reads = False
+        phase0_reads = _phase0_read_tasks(parser)
+        if phase0_reads:
+            include_phase0_reads = True
+
+        # Bundle Phase 0 read tasks with the first non-read task on session start.
+        if include_phase0_reads and _is_phase0_read_task(cur):
+            non_read_task = _first_non_read_task(parser)
+            if non_read_task is not None:
+                cur = non_read_task
+
         builder = PromptBuilder(
             workspace,
             prompt_template_path,
@@ -1695,6 +1803,7 @@ def main(argv: list[str] | None = None) -> int:
                 copilot_allow_all_paths=args.copilot_allow_all_paths,
                 copilot_allow_all_urls=args.copilot_allow_all_urls,
                 copilot_trust_workspace=args.copilot_trust_workspace,
+                include_phase0_reads=include_phase0_reads and is_first_task,
                 print_prompt=args.print_prompt,
                 copy_prompt=args.copy_prompt,
                 is_first_task=is_first_task,
@@ -1742,6 +1851,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             cur = next_task
             is_first_task = False
+            include_phase0_reads = False
             print(f"Proceeding to next task: {cur.task_id}...")
     finally:
         if lock_path is not None:

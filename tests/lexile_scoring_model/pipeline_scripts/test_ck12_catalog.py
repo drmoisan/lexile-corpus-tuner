@@ -5,6 +5,76 @@ from typing import Any, cast
 import pytest  # noqa: TCH002 - pytest required at runtime for fixtures
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import ck12_catalog
 
+STATIC_FEED_FIXTURE: dict[str, Any] = {
+    # Static feed entries covering /cbook/, /user:<handle>/cbook/, and /book/
+    # URL patterns.
+    "books": [
+        {
+            "Title": "Geometry FlexBook",
+            "Content_URL": "https://flexbooks.ck12.org/cbook/geometry-flexbook/",
+            "Language": "EN",
+            "artifactID": 1,
+            "artifactType": "flexbook",
+            "handle": "geometry-flexbook",
+        },
+        {
+            "Title": "Physics FlexBook",
+            "Content_URL": "https://flexbooks.ck12.org/user:teacher1/cbook/physics-flexbook/",
+            "Language": "EN",
+            "artifactID": 2,
+            "artifactType": "flexbook",
+            "handle": "physics-flexbook",
+        },
+        {
+            "Title": "Chemistry Book",
+            "Content_URL": "https://www.ck12.org/book/chemistry-book/",
+            "Language": "EN",
+            "artifactID": 3,
+            "artifactType": "book",
+            "handle": "chemistry-book",
+        },
+    ]
+}
+
+STATIC_FEED_FALLBACK_FIXTURE: dict[str, Any] = {
+    # Static feed entries to exercise identifier fallbacks when URL or handle is
+    # missing.
+    "books": [
+        {
+            "Title": "Handle Only FlexBook",
+            "artifactType": "flexbook",
+            "artifactID": 101,
+            "handle": "handle-only-flexbook",
+            "Language": "EN",
+        },
+        {
+            "Title": "Title Fallback FlexBook",
+            "artifactType": "flexbook",
+            "artifactID": 102,
+            "Language": "EN",
+        },
+    ]
+}
+
+STATIC_FEED_DEDUPE_FIXTURE: dict[str, Any] = {
+    # Static feed entries that share the same slug to validate deduplication keeps
+    # the first-seen entry.
+    "books": [
+        {
+            "Title": "Biology FlexBook Original",
+            "Content_URL": "https://flexbooks.ck12.org/cbook/biology-flexbook/",
+            "Language": "EN",
+            "handle": "biology-flexbook",
+        },
+        {
+            "Title": "Biology FlexBook Duplicate",
+            "Content_URL": "https://flexbooks.ck12.org/cbook/biology-flexbook/",
+            "Language": "EN",
+            "handle": "biology-flexbook",
+        },
+    ]
+}
+
 
 def test_fetch_catalog_page_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """
@@ -147,11 +217,12 @@ def test_fetch_catalog_page_targets_browse_api_with_required_headers(
 
     monkeypatch.setattr(ck12_catalog.requests, "get", _fake_get)
 
-    browse_url = "https://www.ck12.org/flx/browse/flexbook?limit=200"
-    result = ck12_catalog.fetch_catalog_page(browse_url)
+    expected_url = "https://static.ck12.org/testimonial/fbbrowse-prod.json"
+    result = ck12_catalog.fetch_catalog_page(ck12_catalog.DEFAULT_CK12_CATALOG_URL)
 
     assert result == {"books": []}
-    assert captured["url"] == browse_url
+    assert captured["url"] == expected_url
+    assert ck12_catalog.DEFAULT_CK12_CATALOG_URL == expected_url
 
     headers_obj = captured["headers"]
     assert isinstance(headers_obj, dict)
@@ -389,3 +460,120 @@ def test_generate_stable_slug_repeated_calls_stay_stable() -> None:
 
     assert first_slug == "ck-12-earth-science"
     assert second_slug == first_slug
+
+
+def test_parse_catalog_json_accepts_static_feed_books() -> None:
+    """
+    parse_catalog_json should accept static feed books and derive identifiers and
+    artifact types.
+
+    Purpose:
+        Validate static feed parsing for /cbook/, /user:<handle>/cbook/, and /book/ URL
+        patterns, ensuring slug extraction and artifact_type mapping follow the spec.
+    """
+
+    entries = ck12_catalog.parse_catalog_json(STATIC_FEED_FIXTURE)
+
+    # Three entries are produced when static feed books contain required fields.
+    assert len(entries) == 3
+
+    first_entry = entries[0]
+    assert first_entry.identifier == "geometry-flexbook"
+    assert first_entry.artifact_type == "flexbook"
+    assert first_entry.handle == "geometry-flexbook"
+
+    second_entry = entries[1]
+    assert second_entry.identifier == "physics-flexbook"
+    assert second_entry.artifact_type == "flexbook"
+    assert second_entry.handle == "physics-flexbook"
+
+    third_entry = entries[2]
+    assert third_entry.identifier == "chemistry-book"
+    assert third_entry.artifact_type == "book"
+    assert third_entry.handle == "chemistry-book"
+
+
+def test_parse_catalog_json_static_feed_missing_content_url_falls_back() -> None:
+    """
+    parse_catalog_json should fall back to handle and then slugified Title when
+    Content_URL is missing.
+
+    Purpose:
+        Validate that static feed entries without Content_URL still produce stable
+        identifiers by first using the handle and then slugified Title when handle
+        is absent.
+    """
+
+    entries = ck12_catalog.parse_catalog_json(STATIC_FEED_FALLBACK_FIXTURE)
+
+    # Two entries are produced: first falls back to handle, second to slugified Title.
+    assert len(entries) == 2
+
+    first_entry = entries[0]
+    assert first_entry.identifier == "handle-only-flexbook"
+    assert first_entry.handle == "handle-only-flexbook"
+
+    second_entry = entries[1]
+    assert second_entry.identifier == "title-fallback-flexbook"
+    assert second_entry.title == "Title Fallback FlexBook"
+
+
+def test_parse_catalog_json_static_feed_dedupes_by_identifier() -> None:
+    """
+    parse_catalog_json should deduplicate static feed entries by identifier.
+
+    Purpose:
+        Ensure static feed parsing keeps only the first occurrence when multiple
+        entries share the same identifier derived from the catalog slug and
+        preserves the first title.
+    """
+
+    entries = ck12_catalog.parse_catalog_json(STATIC_FEED_DEDUPE_FIXTURE)
+
+    # Duplicate slugs should result in a single CatalogEntry while preserving the
+    # first-seen metadata.
+    assert len(entries) == 1
+    only_entry = entries[0]
+    assert only_entry.title == "Biology FlexBook Original"
+
+
+def test_parse_catalog_json_allows_missing_artifact_id_and_normalizes_language() -> (
+    None
+):
+    """
+    parse_catalog_json should tolerate missing artifact_id and always return language
+    as a list.
+
+    Purpose:
+        Ensure static feed entries are not dropped solely because artifactID is
+        absent and that Language is normalized to a list even when provided as a
+        single string.
+    """
+
+    catalog_json = {
+        "books": [
+            {
+                "Title": "No Artifact ID FlexBook",
+                "Content_URL": "https://flexbooks.ck12.org/cbook/no-artifact-id/",
+                "Language": "EN",
+                "artifactType": "flexbook",
+            },
+            {
+                "Title": "Explicit Language List",
+                "Content_URL": "https://www.ck12.org/book/explicit-language-list/",
+                "Language": ["EN", "ES"],
+                "artifactType": "book",
+            },
+        ]
+    }
+
+    entries = ck12_catalog.parse_catalog_json(catalog_json)
+
+    assert len(entries) == 2
+    first_entry, second_entry = entries
+    assert first_entry.identifier == "no-artifact-id"
+    assert first_entry.artifact_id is None
+    assert first_entry.language == ["EN"]
+
+    assert second_entry.identifier == "explicit-language-list"
+    assert second_entry.language == ["EN", "ES"]

@@ -3,8 +3,8 @@
 - **Issue:** #92
 - **Owner:** drmoisan
 - **Date:** 2026-01-18
-- **Status:** Draft
-- **Outcome:** CK-12 catalog ingestion uses the static FlexBook browse feed to return the full set of catalog entries, with parsing rules that derive deterministic identifiers and a test suite that validates static-feed parsing, dedupe behavior, and fallback logic.
+- **Status:** Completed
+- **Outcome:** CK-12 catalog ingestion now uses the static FlexBook browse feed by default, derives deterministic identifiers across `/cbook/`, `/user:<handle>/cbook/`, and `/book/` URL patterns, and ships with tests that cover static-feed parsing, dedupe behavior, and fallback logic.
 - **Root Cause:** The public Browse API endpoint ignores `limit`/`offset` inputs and always returns the first 10 items, while the implementation relies on that endpoint without any alternative source.
 
 
@@ -58,9 +58,9 @@ Logs / Screenshots:
 The CK-12 Browse API returns a `response` payload that advertises paging fields, but observed requests ignore the provided `limit` and `offset` values and always return 10 items. The current downloader only hits that endpoint once, so even with correct pagination logic the endpoint itself blocks access to the full catalog.
 
 
-## Proposed Fix
-- [ ] Update `DEFAULT_CK12_CATALOG_URL` to the static FlexBook browse feed (`https://static.ck12.org/testimonial/fbbrowse-prod.json`).
-- [ ] Extend `parse_catalog_json` to support the static feed schema with explicit mapping rules:
+-## Proposed Fix
+- [x] Update `DEFAULT_CK12_CATALOG_URL` to the static FlexBook browse feed (`https://static.ck12.org/testimonial/fbbrowse-prod.json`).
+- [x] Extend `parse_catalog_json` to support the static feed schema with explicit mapping rules:
 	- Accept `books` list objects that include `Title`, `Content_URL`, `Language`, `Language_Code`, `Subject`, `General`, `Grade`, `Flexbook_2dot0`, `Community_Contributed`, `FB`, `Standard`, `Thumb_URL`, `Enable`, and `Remarks`.
 	- Derive `identifier` from `Content_URL` when it matches either:
 		- `https://flexbooks.ck12.org/cbook/<slug>/...` -> `<slug>`
@@ -72,8 +72,8 @@ The CK-12 Browse API returns a `response` payload that advertises paging fields,
 	- Populate `language` from `Language` (string) or `Language_Code` to keep backwards compatibility.
 	- Deduplicate entries by `identifier` while preserving first-seen ordering from the feed.
 	- Treat non-list `books` values as a `ValueError` to keep parser behavior explicit.
-- [ ] Keep Browse API parsing support intact for explicit `--catalog-url` usage; do not remove `response.flexbook` / `response.items` parsing.
-- [ ] Update unit tests in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py` to cover static-feed parsing, dedupe, and fallback logic.
+- [x] Keep Browse API parsing support intact for explicit `--catalog-url` usage; do not remove `response.flexbook` / `response.items` parsing.
+- [x] Update unit tests in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py` to cover static-feed parsing, dedupe, and fallback logic.
 
 
 ## Assumptions, Constraints, Dependencies
@@ -100,7 +100,7 @@ The CK-12 Browse API returns a `response` payload that advertises paging fields,
 	- None required; existing CLI output should remain unchanged.
 
 ## Test Strategy
-- [ ] Unit coverage areas (single test file for `ck12_catalog.py`):
+- [x] Unit coverage areas (single test file for `ck12_catalog.py`):
 	- Update `test_fetch_catalog_page_targets_browse_api_with_required_headers` to expect the new default static feed URL and headers, while still validating browser-like headers.
 	- Add `test_parse_catalog_json_accepts_static_feed_books` with a static-feed `books` list containing two entries:
 		- one `flexbooks.ck12.org` URL (expects `artifact_type="flexbook"`, identifier from `/cbook/<slug>/`)
@@ -112,6 +112,10 @@ The CK-12 Browse API returns a `response` payload that advertises paging fields,
 	- Keep network calls mocked via `monkeypatch`; avoid filesystem writes and temporary files.
 - [ ] Integration scenario to retest: run `ck12_catalog` in a controlled environment and verify output count is greater than 10 when the static feed includes more than 10 unique entries.
 - [ ] Manual verification notes: spot-check a few CK-12 titles that appear beyond the first 10 in the static feed and confirm identifiers map to the expected slugs.
+
+## Final Outcomes and Deviations
+- Implementation matches the proposed fixes: static feed is the default catalog source, slug extraction covers `/cbook/`, `/user:<handle>/cbook/`, and `/book/`, artifact type mapping is enforced, and unit tests cover static-feed parsing, dedupe, and fallbacks.
+- No deviations from the planned scope were introduced; integration run and manual spot-checks remain outstanding and tracked as follow-up items.
 
 
 ## Acceptance Criteria

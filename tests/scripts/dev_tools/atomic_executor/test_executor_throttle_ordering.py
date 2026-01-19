@@ -116,13 +116,32 @@ class _FakePromptBuilder:
     prompt_text: str
 
     def build(
-        self, feature_dir: Path, cur: PlanTask, retry_context: str | None = None
+        self,
+        feature_dir: Path,
+        cur: PlanTask,
+        retry_context: str | None = None,
+        include_phase0_reads: bool = False,
     ) -> str:
-        """Return a stable prompt string."""
+        """Return a stable prompt string.
+
+        Purpose:
+            Keep prompt construction deterministic for ordering tests without
+            consulting feature folder files.
+
+        Args:
+            feature_dir (Path): Unused path to the feature directory.
+            cur (PlanTask): Unused task metadata.
+            retry_context (str | None): Unused retry context.
+            include_phase0_reads (bool): Unused flag for phase 0 read bundling.
+
+        Returns:
+            str: Constant prompt text.
+        """
 
         _ = feature_dir
         _ = cur
         _ = retry_context
+        _ = include_phase0_reads
         return self.prompt_text
 
 
@@ -225,6 +244,7 @@ def test_executor_does_not_flip_checkbox_until_throttle_resolves(
         copilot_allow_all_paths=True,
         copilot_allow_all_urls=False,
         copilot_trust_workspace=True,
+        include_phase0_reads=False,
         print_prompt=False,
         copy_prompt=False,
     )
