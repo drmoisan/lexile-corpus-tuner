@@ -142,7 +142,20 @@ Run the pipeline to fetch the dump.
 poetry run lexile-scoring-model-pipeline corpus download --sources "simple_wiki"
 ```
 
-*   **Output:** The compressed dump is saved to `data/corpus/raw/simple_wiki/`.
+*   **Output:** The compressed `.bz2` dump and extracted `.xml` file are saved to
+    `data/corpus/raw/simple_wiki/`.
+
+### Step 3: Extract Articles
+
+Use the extracted XML file to build the JSONL article list (the extractor also
+accepts the `.bz2` file if you prefer streaming the archive).
+
+**Command:**
+```bash
+poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump \
+  --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml \
+  --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
+```
 
 ---
 

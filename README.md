@@ -67,9 +67,12 @@ poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.b
 poetry run lexile-scoring-model-pipeline corpus download
 
 # 2) Convert Simple Wiki dump to JSONL articles
+# The download step writes both `.xml.bz2` and extracted `.xml` files.
+# The extractor accepts either format.
 poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_simple_wiki_dump \
-  --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml.bz2 \
+  --dump data/corpus/raw/simple_wiki/simplewiki-latest-pages-articles.xml \
   --output data/corpus/raw/simple_wiki/simplewiki_articles.jsonl
+# (You can also pass the `.xml.bz2` path if you want to stream the archive.)
 
 # 3) Normalize & shard (shared tokenizer/normalizer)
 poetry run lexile-scoring-model-pipeline corpus normalize --shard-size-tokens 100000

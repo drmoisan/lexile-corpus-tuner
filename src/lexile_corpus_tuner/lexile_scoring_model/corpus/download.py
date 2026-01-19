@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bz2
 import json
 import logging
 import os
@@ -78,6 +79,26 @@ def download_gutenberg_subset(limit: int | None = None) -> None:
 def download_simple_wiki_dump(dump_url: str | None = None) -> Path:
     """
     Download a Simple English Wikipedia XML dump into RAW_ROOT/'simple_wiki'.
+
+    Purpose:
+        Ensure both the compressed `.bz2` dump and an extracted `.xml` file are
+        present for downstream processing.
+
+    Args:
+        dump_url (str | None): Optional override for the dump URL. When omitted,
+            the environment variable `LEXILE_SIMPLE_WIKI_DUMP_URL` or the
+            default Simple Wiki URL is used.
+
+    Returns:
+        Path: The path to the downloaded `.bz2` archive.
+
+    Raises:
+        requests.RequestException: If the download fails.
+        OSError: If extraction fails to write or replace the XML output.
+
+    Side Effects:
+        Creates the raw corpus directory, downloads the dump if needed, and
+        writes an extracted XML file alongside the `.bz2` archive.
     """
     ensure_dirs()
     if dump_url is None:
@@ -85,13 +106,37 @@ def download_simple_wiki_dump(dump_url: str | None = None) -> Path:
             "LEXILE_SIMPLE_WIKI_DUMP_URL", DEFAULT_SIMPLE_WIKI_URL
         )
     filename = dump_url.split("/")[-1] or "simplewiki_dump.xml.bz2"
-    dest = SIMPLE_WIKI_DIR / filename
-    if dest.exists():
-        LOGGER.info("Simple Wiki dump already exists at %s; skipping.", dest)
-        return dest
-    LOGGER.info("Downloading Simple Wiki dump from %s", dump_url)
-    _download_file(dump_url, dest)
-    return dest
+    bz2_path = SIMPLE_WIKI_DIR / filename
+    xml_path = bz2_path.with_suffix(".xml")
+    # Branch by artifact state:
+    # - If bz2 exists and XML is non-empty, skip extraction.
+    # - If bz2 exists but XML is missing/empty, extract.
+    # - If bz2 is missing, download then extract.
+    if bz2_path.exists():
+        if xml_path.exists():
+            xml_size = xml_path.stat().st_size
+            if xml_size > 0:
+                LOGGER.info(
+                    "Skipping Simple Wiki extraction for %s because XML exists at %s "
+                    "(size=%s).",
+                    bz2_path,
+                    xml_path,
+                    xml_size,
+                )
+                return bz2_path
+        LOGGER.info(
+            "Simple Wiki dump already exists at %s; extracting XML to %s.",
+            bz2_path,
+            xml_path,
+        )
+        _extract_simple_wiki_bz2(bz2_path)
+        return bz2_path
+
+    LOGGER.info("Downloading Simple Wiki dump from %s to %s", dump_url, bz2_path)
+    _download_file(dump_url, bz2_path)
+    LOGGER.info("Extracting Simple Wiki dump from %s to %s", bz2_path, xml_path)
+    _extract_simple_wiki_bz2(bz2_path)
+    return bz2_path
 
 
 def download_oer_sources() -> None:
@@ -227,3 +272,41 @@ def _copy_local_file(src: Path, dest: Path) -> None:
         raise FileNotFoundError(f"Source file not found: {src}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(src, dest)
+
+
+def _extract_simple_wiki_bz2(bz2_path: Path) -> Path:
+    """
+    Extract a Simple Wiki `.bz2` archive to a `.xml` file via streaming copy.
+
+    Purpose:
+        Materialize a plain XML dump from the compressed `.bz2` archive while
+        keeping memory usage bounded and writes atomic.
+
+    Args:
+        bz2_path (Path): Path to the `.bz2` archive to decompress.
+
+    Returns:
+        Path: The extracted `.xml` file path.
+
+    Raises:
+        OSError: If reading, writing, or replacing files fails.
+        EOFError: If the `.bz2` stream is truncated.
+        RuntimeError: If decompression fails due to invalid input.
+
+    Side Effects:
+        Writes a temporary XML file, then atomically replaces the final XML
+        destination; cleans up the temp file on errors.
+    """
+    xml_path = bz2_path.with_suffix(".xml")
+    tmp_path = xml_path.with_suffix(".xml.tmp")
+    try:
+        # Stream-decompress to a temp path to avoid loading the full dump in memory.
+        with bz2.open(bz2_path, "rb") as source, tmp_path.open("wb") as target:
+            shutil.copyfileobj(source, target, length=1 << 20)
+        tmp_path.replace(xml_path)
+    except Exception:
+        # Clean up temp output so retries are safe and idempotent.
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
+    return xml_path
