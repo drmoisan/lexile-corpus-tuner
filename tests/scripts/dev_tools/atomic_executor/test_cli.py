@@ -892,10 +892,6 @@ class TestMainEdgeCases:
         from scripts.dev_tools.atomic_executor.qc_runner import QCRunner
 
         monkeypatch.setattr(QCRunner, "run_scoped", lambda self: None)
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
 
         exit_code = main(
             [
@@ -1053,11 +1049,6 @@ class TestRunCopilot:
         path = os.environ.get("PATH", "")
         monkeypatch.setenv("PATH", f"{str(bin_dir)}{os.pathsep}{path}")
 
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
-
         class MockStdout:
             def read(self, size: int = -1) -> bytes:
                 return b""
@@ -1111,10 +1102,6 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot.exe"
         fake_copilot.write_text("@echo fake copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
 
         captured_argv: list[str] = []
         captured_stdin: str | None = None
@@ -1217,10 +1204,6 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot.exe"
         fake_copilot.write_text("@echo fake copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
 
         captured_argv: list[str] = []
 
@@ -1292,10 +1275,6 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("#!/bin/sh\necho copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: True,
-        )
 
         captured_argv: list[str] = []
 
@@ -1353,10 +1332,6 @@ class TestRunCopilot:
         fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("#!/bin/sh\necho copilot")
         monkeypatch.setenv("PATH", str(fake_bin))
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
 
         class MockStdout:
             def read(self, size: int = -1) -> bytes:
@@ -1397,59 +1372,6 @@ class TestRunCopilot:
         config_text = config_file.read_text(encoding="utf-8")
         assert str(tmp_path.resolve()) in config_text
 
-    def test_run_copilot_skips_session_when_not_supported(
-        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
-    ) -> None:
-        """run_copilot() omits --session-path if CLI lacks support."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
-
-        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
-        fake_bin = tmp_path / "bin"
-        fake_bin.mkdir()
-        fake_copilot = fake_bin / "copilot"
-        fake_copilot.write_text("#!/bin/sh\necho copilot")
-        monkeypatch.setenv("PATH", str(fake_bin))
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
-
-        captured_argv: list[str] = []
-
-        class MockStdout:
-            def read(self, size: int = -1) -> bytes:
-                return b""
-
-        class MockPopen:
-            def __init__(
-                self, argv: list[str], *args: object, **kwargs: object
-            ) -> None:
-                captured_argv.extend(argv)
-                self.stdout = MockStdout()
-                self.returncode = 0
-
-            def poll(self) -> int:
-                return 0
-
-            def wait(self) -> int:
-                return 0
-
-        monkeypatch.setattr("subprocess.Popen", MockPopen)
-
-        log_file = tmp_path / "log" / "test.log"
-
-        run_copilot(
-            workspace=tmp_path,
-            prompt_text="retry prompt",
-            log_file=log_file,
-            task_id="P1-T1",
-            preferred_model=None,
-            run_id="2026-01-07_000000",
-            resume_session=True,
-        )
-
-        assert "--session-path" not in captured_argv
-
     def test_run_copilot_times_out_when_cli_is_idle(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
@@ -1466,10 +1388,6 @@ class TestRunCopilot:
         path = os.environ.get("PATH", "")
         monkeypatch.setenv("PATH", f"{str(bin_dir)}{os.pathsep}{path}")
         monkeypatch.setenv("ATOMIC_EXECUTOR_COPILOT_IDLE_TIMEOUT_SECONDS", "0.2")
-        monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli._copilot_supports_session",
-            lambda exe: False,
-        )
 
         stdout_r, stdout_w = os.pipe()
         os.close(stdout_w)

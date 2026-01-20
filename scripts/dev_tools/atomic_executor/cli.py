@@ -19,7 +19,6 @@ import subprocess
 import sys
 import threading
 import time
-from functools import lru_cache
 from pathlib import Path
 from typing import IO, cast
 
@@ -660,16 +659,12 @@ def run_copilot(
         normalized_model = normalize_copilot_model(preferred_model)
         argv.extend(["--model", normalized_model])
 
-    supports_sessions = _copilot_supports_session(copilot_exe)
+    # Session continuation: --continue is the default for all tasks after the first.
+    # --session-path is used only for explicit resume (e.g., after executor restart).
     use_continue = False
-    if resume_session and supports_sessions:
+    if resume_session:
         argv.extend(["--session-path", str(share_path)])
-    elif resume_session and not supports_sessions:
-        _log_msg(
-            log_file,
-            "INFO: Copilot CLI does not support --session-path; skipping resume.",
-        )
-    elif not is_first_task and supports_sessions:
+    elif not is_first_task:
         argv.append("--continue")
         use_continue = True
 
@@ -714,12 +709,8 @@ def run_copilot(
             f.write(f"preferred_model: {preferred_model}\n")
         if normalized_model:
             f.write(f"normalized_model: {normalized_model}\n")
-        if resume_session:
-            f.write(f"resume_session: {supports_sessions}\n")
         session_mode = (
-            "continue"
-            if use_continue
-            else "resume" if resume_session and supports_sessions else "new"
+            "continue" if use_continue else "resume" if resume_session else "new"
         )
         f.write(f"session_mode: {session_mode}\n")
         f.write(f"share_path: {share_path}\n")
@@ -1045,27 +1036,6 @@ def _stream_copilot_output(
 
     return_code = process.wait()
     return (return_code, tail_buffer.decode("utf-8", errors="replace"))
-
-
-@lru_cache(maxsize=4)
-def _copilot_supports_session(copilot_exe: str) -> bool:
-    """
-    Detect whether the copilot CLI supports session reuse flags.
-
-    Returns:
-        bool: True if --session-path is supported.
-    """
-    try:
-        result = subprocess.run(  # noqa: S603 - copilot_exe resolved via shutil.which
-            [copilot_exe, "--help"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
-
-    return "--session-path" in result.stdout
 
 
 def _clean_session_file(session_path: Path, prompt_text: str) -> None:
