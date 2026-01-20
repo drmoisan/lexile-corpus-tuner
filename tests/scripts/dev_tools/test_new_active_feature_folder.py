@@ -79,14 +79,62 @@ def test_set_section_replaces_and_appends() -> None:
 
 
 def test_set_header_placeholder_replaces_placeholders() -> None:
-    content = "- Owner: name\n- Last Updated: YYYY-MM-DD\n<feature-name> #<id>"
+    content = "\n".join(
+        [
+            "- **Issue:** <issue>",
+            "- **Parent (optional):** <parent-id>",
+            "- **Owner:** <name>",
+            "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+            "- **Status:** <status>",
+            "- **Version:** <version_number>",
+            "<feature-name>",
+        ]
+    )
     result = mod.set_header_placeholder(
-        content, "example", "#123", "owner", "2024-01-01"
+        content,
+        "example",
+        "#123",
+        "owner",
+        "2024-01-01T00-00",
+        status_field="Draft",
+        parent_field="none",
+        version_field="0.1",
     )
     assert "example" in result
     assert "#123" in result
     assert "owner" in result
-    assert "2024-01-01" in result
+    assert "2024-01-01T00-00" in result
+    assert "Draft" in result
+    assert "none" in result
+    assert "0.1" in result
+
+
+def test_set_header_placeholder_does_not_prepend_plain_issue_line() -> None:
+    """Ensure bold Issue headers do not trigger the fallback prepend."""
+    content = "\n".join(
+        [
+            "# <bug-name> (Spec)",
+            "",
+            "- **Issue:** <issue>",
+            "- **Owner:** <name>",
+            "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+            "<bug-name>",
+        ]
+    )
+
+    result = mod.set_header_placeholder(
+        content,
+        "example-bug",
+        "#95",
+        "drmoisan",
+        "2026-01-20T16-15",
+        status_field="Draft",
+        parent_field="none",
+        version_field="0.1",
+    )
+
+    assert result.splitlines()[0] == "# example-bug (Spec)"
+    assert "- Issue: #95" not in result
 
 
 def test_build_folder_slug_uses_potential_and_issue_number() -> None:
@@ -123,8 +171,12 @@ def _seed_feature_template(fs: FakeFileSystem, workspace: Path) -> None:
         template_dir / "user-story.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<feature-name>",
                 "## Problem / Why",
                 "",
@@ -136,8 +188,12 @@ def _seed_feature_template(fs: FakeFileSystem, workspace: Path) -> None:
         template_dir / "spec.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<feature-name>",
                 "## Overview",
                 "",
@@ -153,8 +209,12 @@ def _seed_feature_template(fs: FakeFileSystem, workspace: Path) -> None:
         template_dir / "plan.yyyy-MM-ddTHH-mm.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<feature-name>",
             ]
         ),
@@ -167,8 +227,12 @@ def _seed_bug_template(fs: FakeFileSystem, workspace: Path) -> None:
         template_dir / "spec.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<feature-name>",
                 "## Context",
                 "## Repro & Evidence",
@@ -182,12 +246,12 @@ def _seed_bug_template(fs: FakeFileSystem, workspace: Path) -> None:
         template_dir / "plan.yyyy-MM-ddTHH-mm.md",
         "\n".join(
             [
-                "- **Issue:** <#id or TBD>",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
                 "- **Owner:** <name>",
-                "- **Date:** <yyyy-MM-ddTHH-mm>",
-                "- **Status:** <template>",
-                "- **Outcome:** <outcome>",
-                "- **Root Cause:** <rca>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<bug-name>",
             ]
         ),
@@ -252,7 +316,11 @@ def test_create_feature_folder_moves_potential_and_updates_files() -> None:
     plan_path = expected_folder / "plan.2024-01-02T03-04.md"
     assert fs.exists(plan_path)
     plan_content = fs.read_text(plan_path)
-    assert "- Last Updated: 2024-01-02" in plan_content
+    assert "- **Issue:** #63" in plan_content
+    assert "- **Parent (optional):** none" in plan_content
+    assert "- **Status:** Draft" in plan_content
+    assert "- **Version:** 0.1" in plan_content
+    assert "- **Last Updated:** 2024-01-02T03-04" in plan_content
     assert code_launcher.calls, "code launcher should be invoked"
 
 
@@ -316,16 +384,18 @@ def test_create_bug_folder_uses_issue_metadata_and_sections() -> None:
     assert "Proposed Fix" in spec_content
     assert "#77" in spec_content
     assert "octocat" in spec_content
-    assert "2024-02-02" in spec_content
+    assert "2024-02-03T04-05" in spec_content
     assert fetcher.calls == ["77"]
 
     plan_path = expected_folder / "plan.2024-02-03T04-05.md"
     assert fs.exists(plan_path)
     plan_content = fs.read_text(plan_path)
     assert "- **Issue:** #77" in plan_content
+    assert "- **Parent (optional):** none" in plan_content
     assert "- **Owner:** octocat" in plan_content
-    assert "- **Date:** 2024-02-03T04-05" in plan_content
+    assert "- **Last Updated:** 2024-02-03T04-05" in plan_content
     assert "- **Status:** Draft" in plan_content
+    assert "- **Version:** 0.1" in plan_content
     assert code_launcher.calls, "code launcher should be invoked"
 
 
@@ -365,11 +435,31 @@ def test_update_feature_docs_for_refactor_type() -> None:
     target_dir = Path("/target")
     fs.write_text(
         target_dir / "spec.md",
-        "- Owner: name\n- Last Updated: YYYY-MM-DD\n<refactor-name>\n",
+        "\n".join(
+            [
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
+                "<refactor-name>",
+            ]
+        ),
     )
     fs.write_text(
         target_dir / "plan.md",
-        "- Owner: name\n- Last Updated: YYYY-MM-DD\n<refactor-name>\n",
+        "\n".join(
+            [
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
+                "<refactor-name>",
+            ]
+        ),
     )
 
     sections = {
@@ -387,6 +477,10 @@ def test_update_feature_docs_for_refactor_type() -> None:
         issue_field="#42",
         owner_field="tester",
         updated_field="2024-01-15",
+        parent_field="none",
+        status_field="Draft",
+        version_field="0.1",
+        plan_updated_field="2024-01-15",
         fs=fs,
         sections=sections,
     )
@@ -414,6 +508,8 @@ def test_update_feature_docs_for_refactor_type() -> None:
     assert "my-refactor" in plan_content
     assert "#42" in plan_content
     assert "tester" in plan_content
+    assert "Draft" in plan_content
+    assert "0.1" in plan_content
 
 
 def test_update_feature_docs_for_epic_type() -> None:
@@ -423,7 +519,17 @@ def test_update_feature_docs_for_epic_type() -> None:
     target_dir = Path("/target")
     fs.write_text(
         target_dir / "initiative.md",
-        "- Owner: name\n- Last Updated: YYYY-MM-DD\n<epic-name>\n",
+        "\n".join(
+            [
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
+                "<epic-name>",
+            ]
+        ),
     )
 
     sections: dict[str, str] = {}
@@ -436,6 +542,10 @@ def test_update_feature_docs_for_epic_type() -> None:
         issue_field="#100",
         owner_field="epic-owner",
         updated_field="2024-03-20",
+        parent_field="none",
+        status_field="Draft",
+        version_field="0.1",
+        plan_updated_field="2024-03-20",
         fs=fs,
         sections=sections,
     )
@@ -459,8 +569,12 @@ def test_create_refactor_folder_seeds_refactor_docs() -> None:
         template_dir / "spec.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<refactor-name>",
                 "## Intent & Outcomes",
                 "",
@@ -528,8 +642,12 @@ def test_create_epic_folder_seeds_epic_docs() -> None:
         template_dir / "initiative.md",
         "\n".join(
             [
-                "- Owner: name",
-                "- Last Updated: YYYY-MM-DD",
+                "- **Issue:** <issue>",
+                "- **Parent (optional):** <parent-id>",
+                "- **Owner:** <name>",
+                "- **Last Updated:** <yyyy-MM-ddTHH-mm>",
+                "- **Status:** <status>",
+                "- **Version:** <version_number>",
                 "<epic-name>",
             ]
         ),

@@ -1,8 +1,11 @@
 # <feature-name> - Plan
 
-- Issue: #<id>
-- Owner: <name>
-- Last Updated: YYYY-MM-DD
+- **Issue:** <issue>
+- **Parent (optional):** <parent-id>
+- **Owner:** <name>
+- **Last Updated:** <yyyy-MM-ddTHH-mm>
+- **Status:** <template>
+- **Version:** <version_number>
 
 ## Required References
 

@@ -1,11 +1,11 @@
 # <bug-name> (Plan)
 
-- **Issue:** <#id or TBD>
+- **Issue:** <issue>
+- **Parent (optional):** <parent-id>
 - **Owner:** <name>
-- **Date:** <yyyy-MM-ddTHH-mm>
+- **Last Updated:** <yyyy-MM-ddTHH-mm>
 - **Status:** <template>
-- **Outcome:** <outcome>
-- **Root Cause:** <rca>
+- **Version:** <version_number>
 
 
 **Phase 0 — Context & Inputs**

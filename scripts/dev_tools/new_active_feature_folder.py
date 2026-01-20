@@ -202,10 +202,38 @@ def set_header_placeholder(
     owner_field: str,
     updated_field: str,
     status_field: str | None = None,
+    parent_field: str | None = None,
+    version_field: str | None = None,
 ) -> str:
+    """Replace template placeholders in the frontmatter/header block.
+
+    Purpose:
+        Fill in issue/owner/timestamp/status/version metadata while keeping the
+        templates aligned with the active folder creation flow.
+
+    Args:
+        content (str): Raw template content.
+        feature_name (str): Slug used to replace name placeholders.
+        issue_field (str): Issue identifier (e.g., #73 or TBD).
+        owner_field (str): Owner name or placeholder value.
+        updated_field (str): Last-updated timestamp token.
+        status_field (str | None): Status text to apply when present.
+        parent_field (str | None): Parent issue identifier or placeholder value.
+        version_field (str | None): Version token to apply when present.
+
+    Returns:
+        str: Updated content with frontmatter placeholders replaced.
+    """
     result = content
     for placeholder in PLACEHOLDERS:
         result = result.replace(placeholder, feature_name)
+    result = result.replace("<issue>", issue_field)
+    if parent_field is not None:
+        result = result.replace("<parent-id>", parent_field)
+    if status_field is not None:
+        result = result.replace("<status>", status_field)
+    if version_field is not None:
+        result = result.replace("<version_number>", version_field)
     result = re.sub(r"#`?<id>`?", issue_field, result)
     result = result.replace("<#id or TBD>", issue_field)
     result = result.replace("#<tracking-issue>", issue_field)
@@ -238,6 +266,33 @@ def set_header_placeholder(
         flags=re.MULTILINE,
     )
 
+    if parent_field is not None:
+        result = re.sub(
+            r"^-\s*\*\*Parent \(optional\):\*\*\s+.*$",
+            f"- **Parent (optional):** {parent_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+        result = re.sub(
+            r"^-\s*Parent \(optional\)\s*:\s+.*$",
+            f"- Parent (optional): {parent_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+
+    result = re.sub(
+        r"^-\s*\*\*Last Updated:\*\*\s+.*$",
+        f"- **Last Updated:** {updated_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+    result = re.sub(
+        r"^-\s*Last Updated\s*:\s+.*$",
+        f"- Last Updated: {updated_field}",
+        result,
+        flags=re.MULTILINE,
+    )
+
     result = re.sub(
         r"^-\s*\*\*Date:\*\*\s+.*$",
         f"- **Date:** {updated_field}",
@@ -251,13 +306,6 @@ def set_header_placeholder(
         flags=re.MULTILINE,
     )
     result = result.replace("<yyyy-MM-ddTHH-mm>", updated_field)
-
-    result = re.sub(
-        r"^-\s*Last Updated\s*:\s+YYYY-MM-DD$",
-        f"- Last Updated: {updated_field}",
-        result,
-        flags=re.MULTILINE,
-    )
 
     if status_field is not None:
         result = re.sub(
@@ -273,8 +321,22 @@ def set_header_placeholder(
             flags=re.MULTILINE,
         )
 
+    if version_field is not None:
+        result = re.sub(
+            r"^-\s*\*\*Version:\*\*\s+.*$",
+            f"- **Version:** {version_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+        result = re.sub(
+            r"^-\s*Version\s*:\s+.*$",
+            f"- Version: {version_field}",
+            result,
+            flags=re.MULTILINE,
+        )
+
     if not re.search(
-        r"^-\s*(?:\*\*Issue:\*\*|Issue)\s*:\s*#?",
+        r"^-\s*(?:\*\*Issue:\*\*\s*|Issue\s*:)\s*#?",
         result,
         flags=re.MULTILINE,
     ):
@@ -348,6 +410,9 @@ def materialize_plan_file(
     feature_name: str,
     issue_field: str,
     owner_field: str,
+    parent_field: str,
+    status_field: str,
+    version_field: str,
     plan_timestamp: str,
     fs: FileSystem,
 ) -> Path | None:
@@ -365,6 +430,9 @@ def materialize_plan_file(
         feature_name (str): Slug/name inserted into doc placeholders.
         issue_field (str): Issue identifier string (e.g., #73).
         owner_field (str): Owner name.
+        parent_field (str): Parent issue identifier or placeholder value.
+        status_field (str): Status text to apply.
+        version_field (str): Version token to apply.
         plan_timestamp (str): Timestamp token in `YYYY-MM-DDTHH-mm` (EST/ET).
         fs (FileSystem): File abstraction.
 
@@ -380,13 +448,8 @@ def materialize_plan_file(
         fs.move(template_plan, target_plan)
         content = fs.read_text(target_plan)
 
-        # Use full timestamp for bug plans; use date-only for other plans.
-        if feature_type == "bug":
-            updated_field = plan_timestamp
-            status_field = "Draft"
-        else:
-            updated_field = extract_date_from_timestamp(plan_timestamp)
-            status_field = None
+        # Plan templates now expect full timestamp in the Last Updated field.
+        updated_field = plan_timestamp
 
         content = set_header_placeholder(
             content,
@@ -395,6 +458,8 @@ def materialize_plan_file(
             owner_field=owner_field,
             updated_field=updated_field,
             status_field=status_field,
+            parent_field=parent_field,
+            version_field=version_field,
         )
         fs.write_text(target_plan, content)
         return target_plan
@@ -460,14 +525,42 @@ def _apply_header_and_sections(
     issue_field: str,
     owner_field: str,
     updated_field: str,
+    parent_field: str,
+    status_field: str,
+    version_field: str,
     fs: FileSystem,
     updates: list[tuple[str, str]],
 ) -> None:
+    """Apply header metadata and optional section overrides to a doc file.
+
+    Purpose:
+        Keep spec and plan documents aligned with current template frontmatter
+        while optionally seeding sections from potential docs.
+
+    Args:
+        path (Path): Document path to update.
+        feature_name (str): Feature slug used in header placeholders.
+        issue_field (str): Issue identifier string.
+        owner_field (str): Owner name.
+        updated_field (str): Last updated timestamp.
+        parent_field (str): Parent issue identifier or placeholder value.
+        status_field (str): Status text to apply.
+        version_field (str): Version token to apply.
+        fs (FileSystem): File abstraction layer.
+        updates (list[tuple[str, str]]): Section name/body pairs to apply.
+    """
     if not fs.exists(path):
         return
     content = fs.read_text(path)
     content = set_header_placeholder(
-        content, feature_name, issue_field, owner_field, updated_field
+        content,
+        feature_name,
+        issue_field,
+        owner_field,
+        updated_field,
+        status_field=status_field,
+        parent_field=parent_field,
+        version_field=version_field,
     )
     for section_name, body in updates:
         content = set_section(content, section_name, body)
@@ -481,10 +574,38 @@ def update_feature_docs(
     issue_field: str,
     owner_field: str,
     updated_field: str,
+    parent_field: str,
+    status_field: str,
+    version_field: str,
+    plan_updated_field: str,
     fs: FileSystem,
     sections: dict[str, str],
     plan_path: Path | None = None,
 ) -> list[Path]:
+    """Populate active feature docs with header metadata and seeded content.
+
+    Purpose:
+        Apply consistent frontmatter metadata for newly created spec/plan files
+        and inject any available context from potential documents.
+
+    Args:
+        feature_type (str): One of feature/refactor/epic/bug.
+        feature_name (str): Feature slug used for placeholder replacement.
+        target_dir (Path): Active feature folder.
+        issue_field (str): Issue identifier string.
+        owner_field (str): Owner name.
+        updated_field (str): Timestamp for spec documents.
+        parent_field (str): Parent issue identifier or placeholder value.
+        status_field (str): Status text to apply.
+        version_field (str): Version token to apply.
+        plan_updated_field (str): Date or timestamp for plan documents.
+        fs (FileSystem): File abstraction layer.
+        sections (dict[str, str]): Seeded section content from potential docs.
+        plan_path (Path | None): Optional plan document path.
+
+    Returns:
+        list[Path]: Files to open after creation.
+    """
     files_to_open: list[Path] = []
     if feature_type == "feature":
         user_story = target_dir / "user-story.md"
@@ -496,6 +617,9 @@ def update_feature_docs(
             issue_field,
             owner_field,
             updated_field,
+            parent_field,
+            status_field,
+            version_field,
             fs,
             [
                 ("Problem / Why", sections.get("problem", "")),
@@ -508,6 +632,9 @@ def update_feature_docs(
             issue_field,
             owner_field,
             updated_field,
+            parent_field,
+            status_field,
+            version_field,
             fs,
             [
                 ("Overview", sections.get("problem", "")),
@@ -520,7 +647,16 @@ def update_feature_docs(
             ],
         )
         _apply_header_and_sections(
-            plan, feature_name, issue_field, owner_field, updated_field, fs, []
+            plan,
+            feature_name,
+            issue_field,
+            owner_field,
+            plan_updated_field,
+            parent_field,
+            status_field,
+            version_field,
+            fs,
+            [],
         )
         files_to_open.extend([user_story, spec, plan])
     elif feature_type == "refactor":
@@ -532,6 +668,9 @@ def update_feature_docs(
             issue_field,
             owner_field,
             updated_field,
+            parent_field,
+            status_field,
+            version_field,
             fs,
             [
                 ("Intent & Outcomes", sections.get("problem", "")),
@@ -544,13 +683,31 @@ def update_feature_docs(
             ],
         )
         _apply_header_and_sections(
-            plan, feature_name, issue_field, owner_field, updated_field, fs, []
+            plan,
+            feature_name,
+            issue_field,
+            owner_field,
+            plan_updated_field,
+            parent_field,
+            status_field,
+            version_field,
+            fs,
+            [],
         )
         files_to_open.extend([spec, plan])
     elif feature_type == "epic":
         initiative = target_dir / "initiative.md"
         _apply_header_and_sections(
-            initiative, feature_name, issue_field, owner_field, updated_field, fs, []
+            initiative,
+            feature_name,
+            issue_field,
+            owner_field,
+            updated_field,
+            parent_field,
+            status_field,
+            version_field,
+            fs,
+            [],
         )
         files_to_open.append(initiative)
     elif feature_type == "bug":
@@ -597,19 +754,22 @@ def update_feature_docs(
             issue_field,
             owner_field,
             updated_field,
+            parent_field,
+            status_field,
+            version_field,
             fs,
             updates,
         )
         # For bug plan docs, we want the full timestamp in the Date field.
-        plan_updated_field = updated_field
-        if plan_path is not None and plan_path.name.startswith("plan."):
-            plan_updated_field = plan_path.stem.split(".", 1)[1]
         _apply_header_and_sections(
             plan,
             feature_name,
             issue_field,
             owner_field,
             plan_updated_field,
+            parent_field,
+            status_field,
+            version_field,
             fs,
             [],
         )
@@ -664,33 +824,34 @@ def create_active_folder(
     issue_meta = None
     if normalized_issue_number:
         issue_meta = issue_fetcher(normalized_issue_number)
-    issue_field = f"#{normalized_issue_number}" if normalized_issue_number else "#<id>"
+    issue_field = f"#{normalized_issue_number}" if normalized_issue_number else "TBD"
     if issue_meta:
         issue_field = f"#{issue_meta.number}"
-    owner_field = issue_meta.author if issue_meta else "name"
-    updated_field = issue_meta.updated_date if issue_meta else "YYYY-MM-DD"
+    owner_field = issue_meta.author if issue_meta else "TBD"
+    parent_field = "none"
+    status_field = "Draft"
+    version_field = "0.1"
 
     # One timestamp token is generated per folder creation and used consistently
     # for any timestamped plan file names and their document bodies.
     plan_timestamp = get_est_timestamp(now_provider)
+    updated_field = plan_timestamp
     plan_path = materialize_plan_file(
         feature_type=feature_type,
         target_dir=target_dir,
         feature_name=feature_name,
         issue_field=issue_field,
         owner_field=owner_field,
+        parent_field=parent_field,
+        status_field=status_field,
+        version_field=version_field,
         plan_timestamp=plan_timestamp,
         fs=filesystem,
     )
 
     # If we materialized a plan file, use its date (not the issue updated date)
     # when updating plan headers for non-bug types.
-    if (
-        feature_type != "bug"
-        and plan_path is not None
-        and plan_path.name.startswith("plan.")
-    ):
-        updated_field = extract_date_from_timestamp(plan_timestamp)
+    plan_updated_field = plan_timestamp
 
     sections: dict[str, str] = {
         "problem": get_section(potential_content, "Problem / Why"),
@@ -718,6 +879,10 @@ def create_active_folder(
         issue_field,
         owner_field,
         updated_field,
+        parent_field,
+        status_field,
+        version_field,
+        plan_updated_field,
         filesystem,
         sections,
         plan_path=plan_path,
