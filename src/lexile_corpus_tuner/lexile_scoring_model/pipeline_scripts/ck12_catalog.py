@@ -361,6 +361,8 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             entry_handle = handle
         elif isinstance(handle_raw, str):
             entry_handle = handle_raw
+        elif isinstance(content_url_slug, str):
+            entry_handle = content_url_slug
         else:
             entry_handle = None
 
