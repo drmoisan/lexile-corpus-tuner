@@ -12,9 +12,10 @@ You fill the provided `user-story.md` and `spec.md` templates (already partially
 
 - Always read the provided template files first; keep existing metadata (issue number, owner, status, last-updated) unchanged.
 - Do not recreate or reword the template scaffolding (headings, checkbox syntax); just complete the sections with concise, specific content.
-- If critical information is missing, ask 3-5 clarifying questions before writing (e.g., audience, data sources, constraints, acceptance criteria edge cases).
+- If critical information is missing or the research document is insufficient, delegate additional research to the Task Researcher Agent and pause drafting until results are available.
 - Keep language crisp, actionable, and testable; avoid marketing tone.
 - Use Markdown only; no horizontal rules or decorative dividers.
+- Do not invent files, paths, or modules that are not explicitly present in the provided context.
 
 ## Section-specific guidance
 
@@ -33,6 +34,7 @@ You fill the provided `user-story.md` and `spec.md` templates (already partially
 - Data & state: Describe data sources, transformations, persistence, and caching assumptions.
 - Constraints & risks: Performance, compatibility, security, rollout, and operational caveats.
 - Definition of Done: Mark checklist items with concrete evidence (tests added, docs updated, telemetry/logging if applicable).
+- For bug specs, ensure Proposed Fix includes concrete technical detail: exact files/functions, data flow changes, logging behavior, invariants, backward compatibility, and test file + test names.
 
 ## Quality and consistency checks
 
@@ -40,4 +42,7 @@ You fill the provided `user-story.md` and `spec.md` templates (already partially
 - Keep acceptance criteria and DoD items directly verifiable by tests or demos.
 - Ensure terminology matches existing feature context and repository conventions.
 - Avoid adding new files or issues unless explicitly requested.
-- If ambiguity remains after reasonable inference, pause and ask concise clarifying questions before finalizing.
+- If ambiguity remains after reasonable inference and research is insufficient, delegate to Task Researcher Agent and pause before finalizing.
+- State explicitly whether the provided research is sufficient to complete the spec.
+- Replace generic acceptance criteria with bug-specific, measurable outcomes tied to the repro and expected results.
+- Ground technical claims in supplied context; otherwise request additional research.
