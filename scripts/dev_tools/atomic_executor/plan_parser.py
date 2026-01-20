@@ -414,7 +414,11 @@ class PlanParser:
         phases: dict[int, AutoQCPhase] = {}
 
         # Index tasks by phase and scan their blocks for QC-related cues.
+        # Skip Phase 0 entirely: by convention it captures baselines, not QC loops.
         for task in plan.tasks:
+            if task.phase == 0:
+                continue
+
             block_lines = self._task_block_lines(lines, task.line_index)
             block_text = "\n".join(block_lines)
 
