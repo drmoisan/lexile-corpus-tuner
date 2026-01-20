@@ -44,19 +44,19 @@ Status Badge: [Planned | blue]
 	- Acceptance: test uses `caplog` at WARNING level, asserts warning contains `Content_URL slug missing`, the `Title`, and the `Content_URL`; fails before code change.
 
 ### Phase 2 — Minimal Fix
-- [ ] [P2-T1] TASK-CK12-0201: Update `extract_slug_from_content_url` in `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py`
+- [ ] [P2-T1] TASK-CK12-0201: Update `extract_slug_from_content_url` in `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py` (lines 64-103)
 	- Implementation detail: for `parsed.netloc == "www.ck12.org"`, accept prefixes `book`, `cbook`, `tebook`, `workbook`, `quizbook` by locating the first matching segment in `path_parts` and returning the following segment when present.
 	- Acceptance: tests [P1-T1]–[P1-T3] pass and existing `/book/` + `/cbook/` behavior remains unchanged.
-- [ ] [P2-T2] TASK-CK12-0202: Add warning logging in `parse_catalog_json` when `Title` is present, `Content_URL` is present, and `content_url_slug` is `None`
-	- Implementation detail: add `import logging` at module top, define `logger = logging.getLogger(__name__)`, and emit `logger.warning("Content_URL slug missing for title '%s' url '%s'", title, content_url_raw)` immediately after `content_url_slug` is computed.
+- [ ] [P2-T2] TASK-CK12-0202: Add warning logging in `parse_catalog_json` when `Title` is present, `Content_URL` is present, and `content_url_slug` is `None` (lines 154-360)
+	- Implementation detail: add `import logging` near the import block (lines 30-36), define `logger = logging.getLogger(__name__)` after imports (lines 37-40), and emit `logger.warning("Content_URL slug missing for title '%s' url '%s'", title, content_url_raw)` immediately after the `content_url_slug` assignment block (lines 269-279).
 	- Acceptance: test [P1-T4] passes with the exact message prefix `Content_URL slug missing` and includes title + URL.
 
 ### Phase 3 — QA Toolchain Loop
 - [ ] [P3-T1] TASK-CK12-0401: Run `poetry run black .`
 	- Acceptance: command exits 0 and produces no file changes.
 - [ ] [P3-T2] TASK-CK12-0402: Run `poetry run ruff check`
-	- Acceptance: command exits 0; if it changes files or fails, restart Phase 4 from [P4-T1].
+	- Acceptance: command exits 0; if it changes files or fails, restart Phase 3 from [P3-T1].
 - [ ] [P3-T3] TASK-CK12-0403: Run `poetry run pyright`
-	- Acceptance: command exits 0; if it fails, fix issues and restart Phase 4 from [P4-T1].
+	- Acceptance: command exits 0; if it fails, fix issues and restart Phase 3 from [P3-T1].
 - [ ] [P3-T4] TASK-CK12-0404: Run `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
-	- Acceptance: command exits 0; if it fails, fix issues and restart Phase 4 from [P4-T1].
+	- Acceptance: command exits 0; if it fails, fix issues and restart Phase 3 from [P3-T1].
