@@ -31,7 +31,6 @@ QC_STEP_PATTERNS: dict[str, re.Pattern[str]] = {
 QC_LOOP_PATTERN = re.compile(
     r"toolchain\s+loop|restart\s+the\s+toolchain", re.IGNORECASE
 )
-QC_ARTIFACT_PATTERN = re.compile(r"(artifacts/[^\s`]+\.txt)")
 
 
 @dataclass(frozen=True)
@@ -448,13 +447,7 @@ class PlanParser:
 
             task_ids = [*phase_meta.task_ids, task.task_id]
             step_task_ids = dict(phase_meta.step_task_ids)
-            artifact_paths = dict(phase_meta.artifact_paths)
 
-            # Capture artifact path from the task block if present.
-            artifact_match = QC_ARTIFACT_PATTERN.search(block_text)
-            artifact_path = Path(artifact_match.group(1)) if artifact_match else None
-
-            # Record each matched step, ensuring uniqueness within the phase.
             # Record each matched step, ensuring uniqueness within the phase.
             for step in matched_steps:
                 if step in step_task_ids:
@@ -463,19 +456,12 @@ class PlanParser:
                         f"'{step}' in phase {task.phase}."
                     )
                 step_task_ids[step] = task.task_id
-                # Artifact output is required for each QC step.
-                if artifact_path is None:
-                    raise RuntimeError(
-                        "Auto-QC detection requires an artifact output path "
-                        f"for step '{step}' in task {task.task_id}."
-                    )
-                artifact_paths[step] = artifact_path
 
             phases[task.phase] = AutoQCPhase(
                 phase=task.phase,
                 task_ids=task_ids,
                 step_task_ids=step_task_ids,
-                artifact_paths=artifact_paths,
+                artifact_paths={},  # Auto-generated at runtime, not from plan
             )
 
         # Validate required steps for any detected QC phase.
@@ -489,13 +475,19 @@ class PlanParser:
                     f"{missing_steps} for phase {phase_num}."
                 )
 
-            # Ensure artifacts are captured for each required step.
-            missing_artifacts = sorted(required_steps - set(phase_meta.artifact_paths))
-            if missing_artifacts:
-                raise RuntimeError(
-                    "Auto-QC detection missing artifact outputs "
-                    f"{missing_artifacts} for phase {phase_num}."
-                )
+        # Auto-generate artifact paths for each detected QC phase.
+        # Uses standard naming: artifacts/qc-{step}.txt
+        for phase_num, phase_meta in phases.items():
+            auto_paths = {
+                step: Path(f"artifacts/qc-{step}.txt")
+                for step in phase_meta.step_task_ids
+            }
+            phases[phase_num] = AutoQCPhase(
+                phase=phase_meta.phase,
+                task_ids=phase_meta.task_ids,
+                step_task_ids=phase_meta.step_task_ids,
+                artifact_paths=auto_paths,
+            )
 
         return phases
 
