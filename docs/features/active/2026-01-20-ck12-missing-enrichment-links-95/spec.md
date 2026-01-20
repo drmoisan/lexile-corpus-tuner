@@ -132,8 +132,10 @@ Logs / Screenshots:
 
 ## Test Strategy
 - [ ] Unit coverage areas
-	- Add tests for `extract_slug_from_content_url` to cover `/tebook/`, `/workbook/`, and `/quizbook/` paths.
-	- Add tests for invalid/missing `Content_URL` values to ensure `None` and warning logging when `Title` is present.
+	- Add `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_tebook` for `/tebook/`.
+	- Add `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_workbook` for `/workbook/`.
+	- Add `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_quizbook` for `/quizbook/`.
+	- Add `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_parse_catalog_json_logs_warning_when_title_and_content_url_missing_slug` for missing/invalid `Content_URL` with `Title` present and warning logging.
 - [x] Integration scenario to retest
 	- Rerun `ck12_catalog` → `ck12_enrichment` on the live CK-12 feed and verify enriched count reaches 165.
 - [x] Manual verification notes
@@ -145,7 +147,11 @@ Logs / Screenshots:
 - [ ] `extract_slug_from_content_url` returns a non-`None` slug for CK-12 `Content_URL` paths with `/tebook/`, `/workbook/`, and `/quizbook/` prefixes.
 - [ ] When `Title` and `Content_URL` are present but slug extraction fails, a warning log is emitted with enough context to trace the source row.
 - [ ] Rerunning `ck12_catalog` followed by `ck12_enrichment` yields exactly 165 enriched entries.
-- [ ] Unit tests added and passing for the new CK-12 URL prefixes and missing/invalid `Content_URL` cases (list file path + test names).
+- [ ] Unit tests added and passing:
+	- `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_tebook`
+	- `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_workbook`
+	- `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_extract_slug_from_content_url_supports_quizbook`
+	- `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py::test_parse_catalog_json_logs_warning_when_title_and_content_url_missing_slug`
 - [ ] Existing `/book/` and `/cbook/` URL handling remains unchanged (coverage demonstrates no regression).
 - [ ] No changes to enrichment skip conditions beyond handle availability checks.
 - [ ] Full toolchain pass completed (format → lint → type-check → test).
