@@ -84,6 +84,7 @@ Confirm all of the following; otherwise stop and request a corrected plan:
 - Phase 0 exists and contains the repo-policy reading tasks in the required order.
 - For plans that change code or tests: Phase 0 also includes baseline capture tasks for Ruff, Pyright, and Pytest (and coverage if the plan’s acceptance criteria rely on coverage).
 - For plans that change code or tests: a final QA phase exists that runs the full toolchain loop (Black → Ruff → Pyright → Pytest) and reports results.
+- Any **TDD Red** regression-test task (i.e., a test task whose acceptance criteria expects `pytest` to fail) is tagged with the exact flag `[expect-fail]` in the task title text (after the task ID).
 - No task is a “bucket task” (e.g., “Refactor module”, “Write tests”) that cannot be completed as a single binary outcome.
 
 Preflight rule: all blocking due to plan incompleteness must be raised **before** executing any task (before [P0-T1]). After execution begins, do not halt for replanning; continue to completion.
@@ -129,6 +130,9 @@ Start with:
 - Explicitly verify the acceptance criteria.
 - If the repo policy requires a toolchain loop, run it at the appropriate points (or per plan).
 - If the task changes code/tests and the plan does not explicitly specify verification commands, prefer repo-defined tasks/commands and ensure the final QA phase executes the full loop: Black → Ruff → Pyright → Pytest.
+- For tasks tagged with `[expect-fail]`:
+  - Treat a **failing** `pytest` run (as specified in the task acceptance criteria) as the expected outcome for that task.
+  - Continue to treat formatting (Black), linting (Ruff), and type checking (Pyright) as normal pass/fail gates unless the task explicitly says otherwise.
 - If verification fails, continue iterating **within the same task** until it passes. Do not stop mid-plan; complete the plan as written.
 
 ### 3.5 Check-off rules (binary)
