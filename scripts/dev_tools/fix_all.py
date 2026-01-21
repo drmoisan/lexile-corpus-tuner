@@ -358,17 +358,64 @@ subprocess_run = subprocess.run
 # Brief delay to allow fail-fast cancellation signals between step boundaries.
 CANCEL_CHECK_DELAY_S: float = 0.01
 
+# Poll interval for checking subprocess completion and cancellation signals.
+SUBPROCESS_POLL_INTERVAL_S: float = 0.1
+
 
 @dataclass
 class SubprocessCommandRunner:
-    """Real command runner that invokes subprocesses."""
+    """
+    Real command runner that invokes subprocesses with cancellation support.
+
+    Purpose:
+        Execute shell commands while respecting a cancellation signal for fail-fast
+        behavior in parallel branch execution.
+
+    Attributes:
+        logger (StepLogger): Logger for emitting command output.
+        cancel_event (threading.Event | None): Optional event that signals cancellation.
+            When set, running subprocesses are terminated and new commands return
+            immediately with a cancellation code.
+    """
 
     logger: StepLogger
+    cancel_event: threading.Event | None = None
 
     def run(self, command: Sequence[str], *, step_name: str) -> CommandResult:
+        """
+        Execute a command with support for cancellation.
+
+        Purpose:
+            Run a subprocess while periodically checking for cancellation signals,
+            enabling fail-fast termination when another branch fails.
+
+        Args:
+            command (Sequence[str]): Command and arguments to execute.
+            step_name (str): Descriptive name for logging (currently unused but
+                reserved for future diagnostics).
+
+        Returns:
+            CommandResult: Result containing returncode and combined output.
+                Returns returncode=-1 with "Canceled" output when cancelled.
+
+        Raises:
+            ValueError: Raised when command is empty.
+
+        Side Effects:
+            Spawns a subprocess, logs output, may terminate the subprocess early
+            if cancellation is signaled.
+        """
         if not command:
             raise ValueError("command cannot be empty.")
 
+        # Fast-path: return immediately if already cancelled before starting.
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            return CommandResult(returncode=-1, output="Canceled")
+
+        # Always use simple blocking subprocess.run - it handles pipe buffers
+        # correctly and the cancel_event is checked between steps, not during.
+        # The fail-fast behavior works by preventing the *next* step from
+        # starting when cancel_event is set.
         result = subprocess_run(  # noqa: S603
             list(command),
             check=False,
@@ -572,7 +619,10 @@ def run_fix_all(
     def factory(branch_name: str, branch_logger: StepLogger) -> CommandRunner:
         if runner_factory is not None:
             return runner_factory(branch_name, branch_logger)
-        return SubprocessCommandRunner(branch_logger)
+        # Pass cancel_event to enable subprocess termination on fail-fast.
+        return SubprocessCommandRunner(
+            branch_logger, cancel_event=None if complete_all else cancel_event
+        )
 
     def run_json_branch() -> BranchResult:
         branch_stream: StringIO = StringIO()

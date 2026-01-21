@@ -292,7 +292,9 @@ poetry run python -m scripts.dev_tools.atomic_executor.cli execute-all \
 - The executor invokes Copilot CLI with the `atomic_executor` agent profile (`--agent atomic_executor`).
 - The first task starts a new session; subsequent tasks use `--continue` when supported to preserve context.
 - `execute-all` acquires a single-run lock at `.agent_logs/executor.lock` to prevent concurrent runs from resuming unrelated sessions. Remove the lock file only if a prior run crashed and you have verified no other executor is active.
+- **Pre-flight QC**: Before executing any tasks, the executor runs a full QC check (Black, Ruff, Pyright, Pytest). If baseline QC fails, Copilot is invoked to fix the issues and must run the toolchain itself until passing. Use `--skip-preflight-qc` to bypass this check.
 - Prompt size and line count are logged; a warning is emitted when prompts exceed 15KB so you can trim context.
+- **Graceful shutdown**: Pressing Ctrl+C (SIGINT) or sending SIGTERM triggers a graceful shutdown that releases the executor lock before exiting.
 - Headless defaults allow shell commands and all paths, and the workspace is added to Copilot CLI trusted_folders. Use `--no-copilot-allow-shell`, `--no-copilot-allow-all-paths`, `--copilot-allow-all-urls`, or `--no-copilot-trust-workspace` to override.
 
 **Resume execution (next unchecked task):**

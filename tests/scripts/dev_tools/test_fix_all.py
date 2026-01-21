@@ -96,8 +96,8 @@ def test_command_runner_accepts_stderr_when_exit_code_zero(
 
     def fake_run(
         command: Sequence[str], check: bool, capture_output: bool, text: bool
-    ) -> object:  # type: ignore[override]
-        assert command == ["demo"]
+    ) -> object:
+        assert list(command) == ["demo"]
         assert not check
         assert capture_output
         assert text
@@ -125,8 +125,8 @@ def test_command_runner_captures_output_on_failure(
 
     def fake_run(
         command: Sequence[str], check: bool, capture_output: bool, text: bool
-    ) -> object:  # type: ignore[override]
-        assert command == ["demo"]
+    ) -> object:
+        assert list(command) == ["demo"]
         assert not check
         assert capture_output
         assert text
@@ -553,3 +553,69 @@ def test_final_summary_framing_lines_present() -> None:
     output = read_log(logger)
     assert "========== Branch Results ==========" in output
     assert "====================================" in output
+
+
+def test_subprocess_runner_returns_immediately_when_already_cancelled(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Verify runner returns immediately if cancel_event already set."""
+    import threading
+
+    captured = StringIO()
+    logger = fix_all.StepLogger(stream=captured)
+    cancel_event = threading.Event()
+    cancel_event.set()  # Already cancelled.
+
+    # Track whether subprocess_run was called (it shouldn't be).
+    run_called = False
+
+    def fake_run(
+        command: Sequence[str], check: bool, capture_output: bool, text: bool
+    ) -> object:
+        nonlocal run_called
+        run_called = True
+
+        class Result:
+            stdout = ""
+            stderr = ""
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+
+    runner = fix_all.SubprocessCommandRunner(logger, cancel_event=cancel_event)
+    result = runner.run(["should-not-run"], step_name="Test: pre-cancel")
+
+    assert result.returncode == -1
+    assert result.output == "Canceled"
+    assert not run_called, "subprocess_run should not be called when already cancelled"
+
+
+def test_subprocess_runner_runs_normally_with_cancel_event_not_set(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Verify runner executes normally when cancel_event exists but is not set."""
+    import threading
+
+    captured = StringIO()
+    logger = fix_all.StepLogger(stream=captured)
+    cancel_event = threading.Event()  # Not set.
+
+    def fake_run(
+        command: Sequence[str], check: bool, capture_output: bool, text: bool
+    ) -> object:
+        class Result:
+            stdout = "success output\n"
+            stderr = ""
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+
+    runner = fix_all.SubprocessCommandRunner(logger, cancel_event=cancel_event)
+    result = runner.run(["some-command"], step_name="Test: normal")
+
+    assert result.returncode == 0
+    assert "success output" in result.output

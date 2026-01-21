@@ -36,6 +36,10 @@ def mock_dependencies() -> Generator[dict[str, Any], None, None]:
         patch("scripts.dev_tools.atomic_executor.cli.run_copilot") as MockRunCopilot,
         patch("scripts.dev_tools.atomic_executor.cli.ensure_clean_tree"),
         patch("scripts.dev_tools.atomic_executor.cli.refuse_protected_branch"),
+        patch(
+            "scripts.dev_tools.atomic_executor.cli._run_preflight_qc_fix_loop",
+            return_value=0,
+        ),
         patch("pathlib.Path.is_file") as MockIsFile,
     ):
 
@@ -160,9 +164,8 @@ def _setup_run_copilot_capture(
     monkeypatch.setattr(cli.subprocess, "Popen", _fake_popen)
     monkeypatch.setattr(cli, "_stream_copilot_output", lambda **_kwargs: (0, ""))
     monkeypatch.setattr(cli, "_clean_session_file", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        cli, "_copilot_supports_session", lambda _exe: supports_sessions
-    )
+    # Note: _copilot_supports_session was never implemented; session support
+    # is determined by whether --continue is added in run_copilot.
 
     return captured_argv
 

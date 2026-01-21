@@ -10,27 +10,28 @@
 Status Badge: [Planned | blue]
 
 ### Phase 0 — Context & Inputs
-- [ ] [P0-T1] Read `.github/copilot-instructions.md`
+- [x] [P0-T1] Read `.github/copilot-instructions.md`
 	- Acceptance: task marked complete after confirming no conflicting policy with this plan.
-- [ ] [P0-T2] Read `.github/instructions/general-code-change.instructions.md`
+- [x] [P0-T2] Read `.github/instructions/general-code-change.instructions.md`
 	- Acceptance: task marked complete after confirming toolchain order and bugfix workflow requirements.
-- [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md`
+- [x] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md`
 	- Acceptance: task marked complete after confirming no-temp-file rule and coverage expectations.
-- [ ] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`
+- [x] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`
 	- Acceptance: task marked complete after confirming Python test runner and typing requirements.
-- [ ] [P0-T5] Read `docs/features/active/2026-01-20-ck12-missing-enrichment-links-95/spec.md`
+- [x] [P0-T5] Read `docs/features/active/2026-01-20-ck12-missing-enrichment-links-95/spec.md`
 	- Acceptance: task marked complete after confirming acceptance criteria and logging requirement are understood.
-- [ ] [P0-T6] Read `docs/features/active/2026-01-20-ck12-missing-enrichment-links-95/20260120-ck12-missing-handle-research.md`
+- [x] [P0-T6] Read `docs/features/active/2026-01-20-ck12-missing-enrichment-links-95/20260120-ck12-missing-handle-research.md`
 	- Acceptance: task marked complete after confirming required prefixes are `/tebook/`, `/workbook/`, `/quizbook/`.
-- [ ] [P0-T7] Capture baseline lint with `poetry run ruff check`
+- [x] [P0-T7] Capture baseline lint with `poetry run ruff check`
 	- Acceptance: command exits 0 and output is recorded in execution log.
-- [ ] [P0-T8] Capture baseline type-check with `poetry run pyright`
+- [x] [P0-T8] Capture baseline type-check with `poetry run pyright`
 	- Acceptance: command exits 0 and output is recorded in execution log.
-- [ ] [P0-T9] Capture baseline tests with `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+- [x] [P0-T9] Capture baseline tests with `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
 	- Acceptance: command exits 0 and output is recorded in execution log.
-- [ ] [P0-T10] Record branch and commit baseline using `git rev-parse --abbrev-ref HEAD` and `git rev-parse --short HEAD`
+	- Note: Baseline shows 3 pre-existing failures in test_atomic_executor_cli.py (unrelated to issue #95), 1282 passing, 88% coverage.
+- [x] [P0-T10] Record branch and commit baseline using `git rev-parse --abbrev-ref HEAD` and `git rev-parse --short HEAD`
 	- Acceptance: both command outputs are recorded in execution log.
-- [ ] [P0-T11] Record required data source and commands
+- [x] [P0-T11] Record required data source and commands
 	- Acceptance: execution log lists `https://static.ck12.org/testimonial/fbbrowse-prod.json` and the two CLI commands from spec Context.
 
 ### Phase 1 — Regression Tests (TDD)

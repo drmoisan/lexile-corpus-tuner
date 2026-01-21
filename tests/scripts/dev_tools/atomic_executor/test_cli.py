@@ -5,7 +5,7 @@ Tests cover CLI argument parsing, workspace resolution, precondition checks,
 clipboard operations, and main execution orchestration.
 """
 
-# pyright: reportArgumentType=false, reportUnknownLambdaType=false, reportUnknownArgumentType=false
+# pyright: reportArgumentType=false, reportUnknownLambdaType=false, reportUnknownArgumentType=false, reportPrivateUsage=false
 
 import os
 import subprocess
@@ -447,6 +447,7 @@ class TestMainEdgeCases:
                 "--workspace",
                 str(tmp_path),
                 "--print-prompt",
+                "--skip-preflight-qc",
             ]
         )
 
@@ -505,6 +506,7 @@ class TestMainEdgeCases:
                 "--workspace",
                 str(tmp_path),
                 "--copy-prompt",
+                "--skip-preflight-qc",
             ]
         )
 
@@ -697,6 +699,7 @@ class TestMainEdgeCases:
                 "--workspace",
                 str(tmp_path),
                 "--copy-prompt",
+                "--skip-preflight-qc",
             ]
         )
 
@@ -754,6 +757,7 @@ class TestMainEdgeCases:
                 "--start",
                 "P0-T2",
                 "--print-prompt",
+                "--skip-preflight-qc",
             ]
         )
 
@@ -899,6 +903,7 @@ class TestMainEdgeCases:
                 str(feature_dir),
                 "--workspace",
                 str(tmp_path),
+                "--skip-preflight-qc",
             ]
         )
 
@@ -909,6 +914,130 @@ class TestMainEdgeCases:
         # Verify copilot was invoked
         copilot_calls = [c for c in subprocess_calls if "copilot" in c[0]]
         assert len(copilot_calls) == 1
+
+
+class TestPreflightQC:
+    """Tests for pre-flight QC functionality."""
+
+    def test_preflight_qc_result_dataclass(self) -> None:
+        """PreflightQCResult stores success status and output."""
+        from scripts.dev_tools.atomic_executor.cli import PreflightQCResult
+
+        # Success case
+        result = PreflightQCResult(success=True, output="All passed")
+        assert result.success is True
+        assert result.output == "All passed"
+        assert result.failed_step is None
+
+        # Failure case
+        result = PreflightQCResult(
+            success=False, output="Ruff failed", failed_step="ruff"
+        )
+        assert result.success is False
+        assert result.output == "Ruff failed"
+        assert result.failed_step == "ruff"
+
+    def test_build_preflight_qc_fix_prompt_includes_workspace(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """_build_preflight_qc_fix_prompt includes workspace in prompt."""
+        from scripts.dev_tools.atomic_executor.cli import _build_preflight_qc_fix_prompt
+
+        prompt = _build_preflight_qc_fix_prompt(
+            workspace=tmp_path, qc_output="Black failed: file.py"
+        )
+
+        # Check key elements are present
+        assert "Pre-flight QC Fix Required" in prompt
+        assert str(tmp_path.as_posix()) in prompt
+        assert "Black failed: file.py" in prompt
+        assert "poetry run black" in prompt
+        assert "poetry run ruff" in prompt
+        assert "poetry run pyright" in prompt
+        assert "poetry run pytest" in prompt
+        assert "Do NOT end your turn until all QC steps pass" in prompt
+
+    def test_run_preflight_qc_with_capture_returns_success(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+    ) -> None:
+        """_run_preflight_qc_with_capture returns success when all steps pass."""
+        from scripts.dev_tools.atomic_executor.cli import (
+            _run_preflight_qc_with_capture,
+        )
+
+        # Mock subprocess.run to always succeed
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout="OK",
+                stderr="",
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = _run_preflight_qc_with_capture(tmp_path)
+
+        assert result.success is True
+        assert result.failed_step is None
+        assert "=== BLACK ===" in result.output
+        assert "=== RUFF ===" in result.output
+        assert "=== PYRIGHT ===" in result.output
+        assert "=== PYTEST ===" in result.output
+
+    def test_run_preflight_qc_with_capture_returns_failure(
+        self,
+        tmp_path: Path,
+        monkeypatch: "MonkeyPatch",
+    ) -> None:
+        """_run_preflight_qc_with_capture returns failure when a step fails."""
+        from scripts.dev_tools.atomic_executor.cli import (
+            _run_preflight_qc_with_capture,
+        )
+
+        call_count = 0
+
+        # Mock subprocess.run to fail on second step (ruff)
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:  # black
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="Black OK", stderr=""
+                )
+            # ruff fails
+            return subprocess.CompletedProcess(
+                args=args, returncode=1, stdout="Ruff error", stderr="E501"
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = _run_preflight_qc_with_capture(tmp_path)
+
+        assert result.success is False
+        assert result.failed_step == "ruff"
+        assert "=== BLACK ===" in result.output
+        assert "=== RUFF ===" in result.output
+        assert "Ruff error" in result.output
+        # Should not have pyright/pytest since ruff failed
+        assert "=== PYRIGHT ===" not in result.output
+
+    def test_skip_preflight_qc_flag_parses(self) -> None:
+        """parse_args() parses --skip-preflight-qc flag."""
+        args = parse_args(["execute", "feature", "--skip-preflight-qc"])
+        assert args.skip_preflight_qc is True
+
+    def test_skip_preflight_qc_flag_defaults_false(self) -> None:
+        """parse_args() defaults skip_preflight_qc to False."""
+        args = parse_args(["execute", "feature"])
+        assert args.skip_preflight_qc is False
 
 
 class TestRunCopilot:

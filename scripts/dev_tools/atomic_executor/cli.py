@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, cast
 
@@ -239,6 +240,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             action=argparse.BooleanOptionalAction,
             default=DEFAULT_COPILOT_TRUST_WORKSPACE,
             help=("Ensure the workspace is listed in Copilot CLI trusted_folders."),
+        )
+        sp.add_argument(
+            "--skip-preflight-qc",
+            action="store_true",
+            default=False,
+            help=(
+                "Skip the pre-flight QC check that runs before task execution. "
+                "By default, execute-all runs a full QC and invokes Copilot to fix "
+                "any baseline failures before proceeding."
+            ),
         )
 
     sp_exec = sub.add_parser("execute", help="Execute from first unchecked or --start.")
@@ -1234,6 +1245,290 @@ def _build_qc_fix_prompt(
     )
 
 
+@dataclass(frozen=True)
+class PreflightQCResult:
+    """
+    Result of a pre-flight QC run with captured output.
+
+    Attributes:
+        success: True if all QC steps passed.
+        output: Combined stdout/stderr from all QC steps.
+        failed_step: Name of the first step that failed (or None if success).
+    """
+
+    success: bool
+    output: str
+    failed_step: str | None = None
+
+
+def _run_preflight_qc_with_capture(workspace: Path) -> PreflightQCResult:
+    """
+    Run full QC toolchain and capture combined output.
+
+    Purpose:
+        Execute Black/Ruff/Pyright/Pytest in order and capture all output
+        for use in the pre-flight fix prompt.
+
+    Args:
+        workspace: Repository root.
+
+    Returns:
+        PreflightQCResult: Success status and captured output.
+    """
+    steps = [
+        ("black", ["poetry", "run", "black", "--check", "."]),
+        ("ruff", ["poetry", "run", "ruff", "check"]),
+        ("pyright", ["poetry", "run", "pyright"]),
+        (
+            "pytest",
+            [
+                "poetry",
+                "run",
+                "pytest",
+                "--cov=src/lexile_corpus_tuner",
+                "--cov=scripts/dev_tools",
+                "--cov-report=term-missing",
+            ],
+        ),
+    ]
+
+    all_output: list[str] = []
+
+    for step_name, cmd in steps:
+        all_output.append(f"=== {step_name.upper()} ===")
+        # Commands are static hardcoded constants (poetry run black/ruff/pyright/pytest)
+        result = subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+            cmd,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
+        combined = (result.stdout or "") + (result.stderr or "")
+        all_output.append(combined.strip() if combined else "(no output)")
+
+        if result.returncode != 0:
+            return PreflightQCResult(
+                success=False,
+                output="\n\n".join(all_output),
+                failed_step=step_name,
+            )
+
+    return PreflightQCResult(
+        success=True,
+        output="\n\n".join(all_output),
+    )
+
+
+def _build_preflight_qc_fix_prompt(workspace: Path, qc_output: str) -> str:
+    """
+    Build a prompt directing Copilot to fix pre-flight QC failures.
+
+    Purpose:
+        Creates a focused prompt that instructs the LLM to fix baseline QC
+        issues, run the full toolchain itself, and iterate until all checks
+        pass before yielding control back to the executor.
+
+    Args:
+        workspace: Repository root path for context.
+        qc_output: Captured output from the failed QC run.
+
+    Returns:
+        str: Prompt text for Copilot CLI execution.
+    """
+    return (
+        "# Pre-flight QC Fix Required\n\n"
+        "The atomic executor detected baseline QC failures before task execution.\n"
+        "You must fix these issues before the plan can proceed.\n\n"
+        f"**Workspace:** `{workspace.as_posix()}`\n\n"
+        "## Failed QC Output\n\n"
+        "```\n"
+        f"{qc_output}\n"
+        "```\n\n"
+        "## Your Instructions\n\n"
+        "1. Analyze the QC failures above.\n"
+        "2. Make the minimal code changes required to fix each issue.\n"
+        "3. **Run the full QC toolchain yourself** to verify your fixes:\n"
+        "   - `poetry run black .`\n"
+        "   - `poetry run ruff check`\n"
+        "   - `poetry run pyright`\n"
+        "   - `poetry run pytest --cov=src/lexile_corpus_tuner "
+        "--cov=scripts/dev_tools --cov-report=term-missing`\n"
+        "4. If any step fails, fix the issues and re-run from step 3.\n"
+        "5. **Do NOT end your turn until all QC steps pass.**\n"
+        "6. Once all checks pass, reply with a brief summary of what you fixed.\n\n"
+        "**CRITICAL:** You must iterate until QC passes completely. "
+        "The executor will verify QC independently after you yield control.\n"
+    )
+
+
+def _run_preflight_qc_fix_loop(
+    *,
+    workspace: Path,
+    log_file: Path,
+    run_id: str,
+    preferred_model: str | None,
+    copilot_rate_limiter: CallRateLimiter,
+    copilot_backoff: ExponentialBackoff,
+    copilot_max_retries: int,
+    copilot_output_tail_bytes: int,
+    copilot_allow_shell: bool,
+    copilot_allow_all_paths: bool,
+    copilot_allow_all_urls: bool,
+    copilot_trust_workspace: bool,
+    max_fix_attempts: int,
+) -> int:
+    """
+    Run the pre-flight QC fix loop until baseline passes or attempts exhausted.
+
+    Purpose:
+        When pre-flight QC fails, this function invokes Copilot to fix the
+        issues. The LLM is instructed to run the toolchain itself and iterate
+        until passing. After Copilot yields, the executor verifies QC
+        independently. If still failing, the loop retries.
+
+    Flow:
+        1. Build prompt with QC failure output
+        2. Invoke Copilot (LLM runs toolchain itself)
+        3. When Copilot returns, run full QC to verify
+        4. If QC passes, return 0
+        5. If QC fails, retry (up to max_fix_attempts)
+        6. If attempts exhausted, return error code
+
+    Args:
+        workspace: Repository root.
+        log_file: Path to log file.
+        run_id: Run identifier for artifact grouping.
+        preferred_model: Preferred AI model name.
+        copilot_rate_limiter: Rate limiter for Copilot calls.
+        copilot_backoff: Backoff strategy for throttling.
+        copilot_max_retries: Max throttle retries per invocation.
+        copilot_output_tail_bytes: Bytes of output tail to retain.
+        copilot_allow_shell: Allow shell commands without approval.
+        copilot_allow_all_paths: Allow all file paths without approval.
+        copilot_allow_all_urls: Allow all URLs without approval.
+        copilot_trust_workspace: Add workspace to trusted folders.
+        max_fix_attempts: Max number of fix attempts (0 = infinite).
+
+    Returns:
+        int: 0 on success, 6 on failure.
+    """
+    attempt = 1
+    copilot_invocation_count = 0
+
+    while True:
+        if max_fix_attempts > 0 and attempt > max_fix_attempts:
+            msg = f"Pre-flight QC fix failed after {max_fix_attempts} attempts."
+            print(msg, file=sys.stderr)
+            _log_msg(log_file, f"ERROR: {msg}")
+            return 6
+
+        # Capture QC output for the prompt
+        print("Running pre-flight QC check...")
+        _log_msg(log_file, "INFO: Running pre-flight QC check")
+
+        preflight_check = _run_preflight_qc_with_capture(workspace)
+        if preflight_check.success:
+            # QC passed - we're done
+            print("Pre-flight QC passed.")
+            _log_msg(log_file, "INFO: Pre-flight QC passed")
+            return 0
+
+        # QC failed - extract output for prompt
+        qc_output = preflight_check.output
+
+        limit_str = str(max_fix_attempts) if max_fix_attempts > 0 else "∞"
+        msg = (
+            f"Pre-flight QC failed (attempt {attempt}/{limit_str}), "
+            "invoking Copilot to fix..."
+        )
+        print(msg)
+        _log_msg(log_file, f"WARN: {msg}")
+
+        # Build prompt for Copilot
+        prompt_text = _build_preflight_qc_fix_prompt(workspace, qc_output)
+
+        # Write prompt to file for debugging
+        prompt_dir = workspace / LOG_DIR / "prompts"
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = prompt_dir / f"prompt_{run_id}_preflight_{attempt}.md"
+        prompt_file.write_text(prompt_text, encoding="utf-8")
+
+        # Invoke Copilot with throttle-aware loop
+        throttle_retries = 0
+
+        while True:
+            copilot_rate_limiter.acquire()
+
+            copilot_result = run_copilot(
+                workspace=workspace,
+                prompt_text=prompt_text,
+                log_file=log_file,
+                task_id=f"preflight-{attempt}",
+                preferred_model=preferred_model,
+                run_id=run_id,
+                resume_session=(copilot_invocation_count > 0),
+                is_first_task=(copilot_invocation_count == 0),
+                allow_all_paths=copilot_allow_all_paths,
+                allow_all_urls=copilot_allow_all_urls,
+                allow_shell=copilot_allow_shell,
+                trust_workspace=copilot_trust_workspace,
+                _output_tail_bytes=copilot_output_tail_bytes,
+            )
+            copilot_invocation_count += 1
+
+            if copilot_result.exit_code == 0:
+                copilot_backoff.on_success()
+                break
+
+            failure_kind = classify_copilot_failure(
+                exit_code=copilot_result.exit_code,
+                output_tail=copilot_result.output_tail,
+            )
+            if failure_kind is FailureKind.NON_THROTTLE:
+                err_msg = (
+                    "Copilot CLI failed (non-throttle) during pre-flight fix. "
+                    f"exit_code={copilot_result.exit_code}. "
+                    f"output_tail={copilot_result.output_tail!r}"
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                return 6
+
+            # Throttle handling
+            effective_max_retries = copilot_max_retries
+            if effective_max_retries < 0:
+                effective_max_retries = 0
+
+            if throttle_retries >= effective_max_retries:
+                err_msg = (
+                    f"Copilot CLI throttled during pre-flight fix, "
+                    f"max retries ({effective_max_retries}) exhausted."
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"ERROR: {err_msg}")
+                return 6
+
+            delay_seconds = copilot_backoff.on_throttle()
+            throttle_retries += 1
+
+            retry_msg = (
+                f"Copilot throttled during pre-flight fix; retry "
+                f"{throttle_retries}/{effective_max_retries} after "
+                f"{delay_seconds:.2f}s backoff."
+            )
+            print(retry_msg)
+            _log_msg(log_file, f"WARN: {retry_msg}")
+
+            if delay_seconds > 0:
+                copilot_rate_limiter.sleeper.sleep(delay_seconds)
+
+        # Copilot returned - verify QC independently
+        print("Copilot completed, verifying QC...")
+        _log_msg(log_file, "INFO: Verifying QC after Copilot pre-flight fix")
+        attempt += 1
+        # Loop back to re-run QC check at the top
+
+
 def _execute_auto_qc_phase(
     *,
     workspace: Path,
@@ -1780,6 +2075,33 @@ def main(argv: list[str] | None = None) -> int:
             clock=SystemClock(),
             sleeper=TimeSleeper(),
         )
+
+        # Pre-flight QC: run full toolchain before task execution
+        # If baseline fails, enter fix loop with Copilot
+        if not args.skip_preflight_qc:
+            # Backoff state for pre-flight Copilot invocations
+            preflight_backoff = ExponentialBackoff(
+                base_seconds=args.copilot_cli_backoff_base_seconds,
+                max_seconds=args.copilot_cli_backoff_max_seconds,
+                random_source=SystemRandom(),
+            )
+            preflight_result = _run_preflight_qc_fix_loop(
+                workspace=workspace,
+                log_file=log_file,
+                run_id=run_id,
+                preferred_model=args.preferred_model,
+                copilot_rate_limiter=copilot_rate_limiter,
+                copilot_backoff=preflight_backoff,
+                copilot_max_retries=args.copilot_cli_max_retries,
+                copilot_output_tail_bytes=args.copilot_cli_output_tail_bytes,
+                copilot_allow_shell=args.copilot_allow_shell,
+                copilot_allow_all_paths=args.copilot_allow_all_paths,
+                copilot_allow_all_urls=args.copilot_allow_all_urls,
+                copilot_trust_workspace=args.copilot_trust_workspace,
+                max_fix_attempts=args.max_fix_attempts,
+            )
+            if preflight_result != 0:
+                return preflight_result
 
         is_first_task = True
 
