@@ -203,6 +203,16 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --out-dir data/meta/catalogs
   ```
   *Uses the CK-12 Browse API (`/flx/browse/flexbook?limit=200`) and derives stable IDs from canonical `handle` values.*
+  
+  **Note on artifact types:** The catalog parser automatically detects artifact types from the `Content_URL` path prefix. Supported artifact types are:
+  - `cbook` (from `flexbooks.ck12.org/cbook/`)
+  - `book` (from `www.ck12.org/book/`)
+  - `tebook` (from `www.ck12.org/tebook/`)
+  - `workbook` (from `www.ck12.org/workbook/`)
+  - `quizbook` (from `www.ck12.org/quizbook/`)
+  
+  These artifact types are critical for the Perma API to correctly retrieve revision JSON data during enrichment.
+
 2. **Enrich (Perma API + revision IDs):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment \

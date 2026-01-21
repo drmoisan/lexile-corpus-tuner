@@ -233,6 +233,22 @@ API keys are resolved in this order:
 2. Config file: `openai.api_key`
 3. Environment variable: `os.environ[openai.api_key_env]`
 
+## OER Curation Workflows
+
+### CK-12 Workflow
+
+The CK-12 catalog and enrichment pipeline derives artifact types from `Content_URL` path prefixes. Supported artifact types are:
+
+- `cbook` (from `flexbooks.ck12.org/cbook/`)
+- `book` (from `www.ck12.org/book/`)
+- `tebook` (from `www.ck12.org/tebook/`)
+- `workbook` (from `www.ck12.org/workbook/`)
+- `quizbook` (from `www.ck12.org/quizbook/`)
+
+These artifact types are automatically detected during catalog parsing and are critical for the Perma API to correctly retrieve revision JSON data during enrichment. The artifact type is passed to the Perma API to fetch the correct content format.
+
+For detailed step-by-step instructions, see `docs/source-curation-guide.md`.
+
 ## Repository Navigation
 
 Use `scripts/dev-tools/tree.ps1` to print a directory tree for quick inspection (entries marked with the Windows `Hidden` attribute are included by default; use `-IncludeHidden:$false` to suppress them).
