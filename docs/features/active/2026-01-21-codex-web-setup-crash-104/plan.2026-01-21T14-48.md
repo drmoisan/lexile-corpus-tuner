@@ -43,22 +43,11 @@ last_updated: 2026-01-21
 - [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and record the “no external deps / no temp files” constraints
 	- Acceptance: Add a single sentence under this task stating tests must be deterministic, offline, and must not create temp files.
 
-- [ ] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md` (baseline repo QC gates)
-	- Acceptance: Add a single sentence under this task confirming the approved commands include `poetry run ruff check`, `poetry run pyright`, and `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`.
-
-- [ ] [P0-T5] Record exact current branch name and HEAD SHA in this plan
+- [ ] [P0-T4] Record exact current branch name and HEAD SHA in this plan
 	- Inputs: `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD`
 	- Acceptance: This plan file contains the branch name and commit SHA as literal text (no placeholders).
 
-- [ ] [P0-T6] Capture baseline repo QC status before changes (required for regression detection)
-	- Commands (record PASS/FAIL for each):
-		- `poetry run black .`
-		- `poetry run ruff check`
-		- `poetry run pyright`
-		- `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
-	- Acceptance: This plan file contains a 4-line PASS/FAIL baseline summary with the exact command strings.
-
-- [ ] [P0-T7] Capture baseline shell QC status before changes (shell-specific gates)
+- [ ] [P0-T5] Capture baseline shell QC status before changes (shell-specific gates)
 	- Commands (record exit code for each):
 		- `poetry run python -m scripts.dev_tools.shell_qc format`
 		- `poetry run python -m scripts.dev_tools.shell_qc check`
@@ -68,7 +57,7 @@ last_updated: 2026-01-21
 ### Phase 1 — TDD Red: source-safety seam
 
 - [ ] [P1-T1] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_source_safety.bats` asserting the script contains a `main()` guard
-	- File under test: `.github/codex/codex-web-setup.sh`
+	- Code under test: `.github/codex/codex-web-setup.sh`
 	- Assertion: `grep -n` must find a line exactly matching `if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi`
 	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails and output includes `test_codex_web_setup_source_safety.bats` as failing.
 
@@ -224,23 +213,7 @@ last_updated: 2026-01-21
 
 ### Phase 8 — Final verification loop (repo QC + shell QC)
 
-- [ ] [P8-T1] Run formatting and restart loop if any files change
-	- Command: `poetry run black .`
-	- Acceptance: Exit code 0 and no files changed by Black (rerun until stable).
-
-- [ ] [P8-T2] Run Ruff linting and restart loop from Phase 8 Task 1 if Ruff fails or auto-fixes
-	- Command: `poetry run ruff check`
-	- Acceptance: Exit code 0.
-
-- [ ] [P8-T3] Run Pyright type checking and restart loop from Phase 8 Task 1 if Pyright fails
-	- Command: `poetry run pyright`
-	- Acceptance: Exit code 0.
-
-- [ ] [P8-T4] Run Pytest with coverage and restart loop from Phase 8 Task 1 if tests fail
-	- Command: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
-	- Acceptance: Exit code 0.
-
-- [ ] [P8-T5] Run shell QC (format → check → test) and restart loop from Phase 8 Task 1 if any step fails
+- [ ] [P8-T1] Run shell QC (format → check → test) and restart loop from Phase 8 Task 1 if any step fails
 	- Commands:
 		- `poetry run python -m scripts.dev_tools.shell_qc format`
 		- `poetry run python -m scripts.dev_tools.shell_qc check`
