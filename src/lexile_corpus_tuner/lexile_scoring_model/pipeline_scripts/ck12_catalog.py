@@ -28,6 +28,7 @@ Side Effects:
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -36,6 +37,8 @@ import requests
 import typer
 
 from .oer_models import CatalogEntry, generate_stable_slug
+
+logger = logging.getLogger(__name__)
 
 # CK-12 static FlexBook browse feed (Issue #73 spec)
 DEFAULT_CK12_CATALOG_URL = "https://static.ck12.org/testimonial/fbbrowse-prod.json"
@@ -73,8 +76,9 @@ def extract_slug_from_content_url(url: str) -> str | None:
         url (str): Fully-qualified CK-12 Content_URL string to parse.
 
     Returns:
-        str | None: Slug when the URL matches /cbook/, /user:<handle>/cbook/, or
-            /book/ patterns; None when the URL cannot be parsed.
+        str | None: Slug when the URL matches /cbook/, /user:<handle>/cbook/,
+            /book/, /tebook/, /workbook/, or /quizbook/ patterns;
+            None when the URL cannot be parsed.
 
     Raises:
         None.
@@ -94,10 +98,13 @@ def extract_slug_from_content_url(url: str) -> str | None:
         return None
 
     if parsed.netloc == "www.ck12.org":
-        if "book" in path_parts:
-            book_index = path_parts.index("book")
-            if book_index + 1 < len(path_parts):
-                return path_parts[book_index + 1]
+        # Check for known CK-12 path prefixes and extract the following segment.
+        # Supported prefixes: book, tebook, workbook, quizbook (issue #95).
+        for prefix in ["book", "tebook", "workbook", "quizbook"]:
+            if prefix in path_parts:
+                prefix_index = path_parts.index(prefix)
+                if prefix_index + 1 < len(path_parts):
+                    return path_parts[prefix_index + 1]
         return None
 
     return None
@@ -277,6 +284,23 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             if isinstance(content_url_raw, str) and content_url_raw
             else None
         )
+
+        # Log warning when Title and Content_URL are present but slug extraction fails
+        # (Issue #95: surfaces feed changes or unsupported URL patterns)
+        title_raw = book.get("Title")
+        if (
+            isinstance(title_raw, str)
+            and title_raw
+            and isinstance(content_url_raw, str)
+            and content_url_raw
+            and content_url_slug is None
+        ):
+            logger.warning(
+                "Content_URL slug missing for title '%s' url '%s'",
+                title_raw,
+                content_url_raw,
+            )
+
         handle_raw: object | None = book.get("handle")
         handle: str | None = None
 

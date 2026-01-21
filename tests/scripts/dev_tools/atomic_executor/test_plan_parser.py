@@ -111,6 +111,42 @@ class TestPlanParserParse:
         assert task.checked is False
         assert task.line_index == 1
 
+    def test_parse_sets_expect_fail_true_and_strips_tag(self) -> None:
+        """
+        PlanParser.parse should detect and strip the [expect-fail] tag.
+
+        Purpose:
+            Regression test for the atomic executor TDD "Red" workflow. Plan tasks
+            can be annotated with [expect-fail] to invert pytest success criteria.
+
+        Side Effects:
+            Reads a committed fixture file from tests/fixtures (no temp files).
+        """
+        parser = PlanParser(Path("tests/fixtures/atomic_executor/plan_expect_fail.md"))
+        model = parser.parse()
+
+        assert model.tasks[0].expect_fail is True
+        assert model.tasks[0].title == "Add failing regression test"
+
+    def test_parse_defaults_expect_fail_false_when_tag_missing(
+        self, tmp_path: Path
+    ) -> None:
+        """
+        PlanParser.parse defaults expect_fail to False when tag is absent.
+
+        Purpose:
+            Ensure normal tasks without [expect-fail] prefix get expect_fail=False.
+        """
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text(
+            "## Phase 1\n- [ ] [P1-T1] Normal task without tag\n", encoding="utf-8"
+        )
+        parser = PlanParser(plan_file)
+        model = parser.parse()
+
+        assert model.tasks[0].expect_fail is False
+        assert model.tasks[0].title == "Normal task without tag"
+
     def test_parse_single_checked_task(self, tmp_path: Path) -> None:
         """Parsing a single checked task returns correct PlanTask."""
         plan_file = tmp_path / "plan.md"

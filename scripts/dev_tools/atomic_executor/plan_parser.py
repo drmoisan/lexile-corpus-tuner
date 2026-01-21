@@ -48,6 +48,8 @@ class PlanTask:
         title (str): Human-readable task description.
         checked (bool): True if checkbox is marked [x], False if [ ].
         line_index (int): Zero-based line number in plan.md (for editing).
+        expect_fail (bool): True if task title was annotated with [expect-fail]
+            tag (inverts pytest success criteria for TDD Red workflow).
     """
 
     task_id: str
@@ -56,6 +58,7 @@ class PlanTask:
     title: str
     checked: bool
     line_index: int
+    expect_fail: bool = False
 
 
 @dataclass(frozen=True)
@@ -167,14 +170,24 @@ class PlanParser:
                 phase = int(m.group("phase"))
                 task_num = int(m.group("task"))
                 checked = m.group("state").strip().lower() == "x"
+                raw_title = m.group("title").strip()
+
+                # Detect [expect-fail] tag at the start of the title (TDD Red workflow).
+                # If present, set expect_fail=True and remove the tag from the title.
+                expect_fail = False
+                if raw_title.lower().startswith("[expect-fail]"):
+                    expect_fail = True
+                    raw_title = raw_title[len("[expect-fail]") :].strip()
+
                 tasks.append(
                     PlanTask(
                         task_id=m.group("task_id"),
                         phase=phase,
                         task_num=task_num,
-                        title=m.group("title").strip(),
+                        title=raw_title,
                         checked=checked,
                         line_index=idx,
+                        expect_fail=expect_fail,
                     )
                 )
                 phases.add(phase)

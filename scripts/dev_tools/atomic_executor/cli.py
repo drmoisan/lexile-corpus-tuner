@@ -702,12 +702,10 @@ def run_copilot(
         normalized_model = normalize_copilot_model(preferred_model)
         argv.extend(["--model", normalized_model])
 
-    # Session continuation: --continue is the default for all tasks after the first.
-    # --session-path is used only for explicit resume (e.g., after executor restart).
+    # Session continuation: --continue resumes the most recent session.
+    # Used for both multi-task continuation and explicit resume after executor restart.
     use_continue = False
-    if resume_session:
-        argv.extend(["--session-path", str(share_path)])
-    elif not is_first_task:
+    if resume_session or not is_first_task:
         argv.append("--continue")
         use_continue = True
 
@@ -1930,7 +1928,44 @@ def execute_one_task(
         # Task-step QC (scoped)
         try:
             qc_runner.run_scoped()
+            # QC passed (no exception)
+            if cur.expect_fail:
+                # Unexpected: test should have failed but all QC passed
+                err_msg = (
+                    f"Task {cur.task_id} expected failure (TDD Red) but QC passed."
+                )
+                print(err_msg, file=sys.stderr)
+                _log_msg(log_file, f"WARN: {err_msg}")
+
+                retry_ctx = (
+                    f"Attempt {attempt}: Expected pytest failure but all QC passed.\n"
+                    "The test should fail to verify the TDD Red condition."
+                )
+                attempt += 1
+                continue
         except subprocess.CalledProcessError as e:
+            # Determine which command failed to distinguish pytest from other tools.
+            # e.cmd can be str | Sequence[str]; normalize to string for matching.
+            if isinstance(e.cmd, str):
+                cmd_str = e.cmd
+            else:
+                cmd_str = " ".join(str(arg) for arg in e.cmd)
+            is_pytest_failure = "pytest" in cmd_str
+
+            if cur.expect_fail and is_pytest_failure:
+                # SUCCESS: Expected pytest failure achieved (TDD Red workflow)
+                success_msg = (
+                    f"Task {cur.task_id} failed as expected (TDD Red). Verified."
+                )
+                print(success_msg)
+                _log_msg(log_file, f"SUCCESS: {success_msg}")
+
+                # Flip checkbox since expected failure is verified
+                if cur_after and not cur_after.checked:
+                    parser.flip_checkbox(cur_after)
+                return 0
+
+            # Real failure (non-pytest error OR normal task with any failure)
             err_msg = f"Scoped QC failed for task {cur.task_id}: {e}"
             print(err_msg, file=sys.stderr)
             _log_msg(log_file, f"WARN: {err_msg}")

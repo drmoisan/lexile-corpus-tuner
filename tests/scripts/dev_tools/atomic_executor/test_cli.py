@@ -1395,7 +1395,7 @@ class TestRunCopilot:
     def test_run_copilot_reuses_session_when_requested(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
-        """run_copilot() adds --session-path when resume_session=True and supported."""
+        """run_copilot() adds --continue when resume_session=True."""
         from scripts.dev_tools.atomic_executor.cli import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
@@ -1439,12 +1439,8 @@ class TestRunCopilot:
             resume_session=True,
         )
 
-        # Should reuse the same session path for resume
-        assert "--session-path" in captured_argv
-        session_idx = captured_argv.index("--session-path")
-        assert captured_argv[session_idx + 1].endswith(
-            "copilot_session_2026-01-07_000000_P1-T1.md"
-        )
+        # resume_session=True should add --continue flag
+        assert "--continue" in captured_argv
 
     def test_run_copilot_trusts_workspace_in_config(
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
