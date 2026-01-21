@@ -30,21 +30,34 @@
 - Affected components/modules (paths, services, pipelines):
 
 ## Proposed Fix
-- Design summary (what changes where):
-- Boundaries and invariants to preserve:
-- Dependencies or blocked work:
 
-- Implementation strategy (what changes, not sequencing):
-	- Files/modules to change:
-	- Functions/classes/CLI commands impacted:
-	- Data flow and validation changes:
-	- Error handling and logging updates:
-	- Rollback/feature-flag considerations (if applicable):
-- Technical specifications (interfaces/contracts):
-	- Inputs/outputs and formats:
-	- Required configuration keys and defaults:
-	- Backward-compatibility expectations:
-	- Performance constraints (latency/throughput/memory):
+### Design summary (what changes where):
+
+### Boundaries and invariants to preserve:
+
+### Dependencies or blocked work:
+
+### Implementation strategy (what changes, not sequencing):
+	
+#### Files/modules to change:
+
+#### Functions/classes/CLI commands impacted:
+
+#### Data flow and validation changes:
+
+#### Error handling and logging updates:
+
+#### Rollback/feature-flag considerations (if applicable):
+
+### Technical specifications (interfaces/contracts):
+
+#### Inputs/outputs and formats:
+
+#### Required configuration keys and defaults:
+
+#### Backward-compatibility expectations:
+
+#### Performance constraints (latency/throughput/memory):
 
 ## Assumptions, Constraints, Dependencies
 - Assumptions (environment, data, access):
