@@ -33,36 +33,36 @@ last_updated: 2026-01-17
 
 ## Task Index
 
-| TASK-ID | Plan-ID | Summary |
-| --- | --- | --- |
-| TASK-P0-T1 | P0-T1 | Read copilot instructions |
-| TASK-P0-T2 | P0-T2 | Read general code-change policy |
-| TASK-P0-T3 | P0-T3 | Read general unit-test policy |
-| TASK-P0-T4 | P0-T4 | Read python code-change policy |
-| TASK-P0-T5 | P0-T5 | Read python unit-test policy |
-| TASK-P0-T6 | P0-T6 | Read self-explanatory commenting policy |
-| TASK-P0-T7 | P0-T7 | Read spec.md |
-| TASK-P0-T8 | P0-T8 | Read implementation research |
-| TASK-P0-T9 | P0-T9 | Read issue.md |
-| TASK-P0-T10 | P0-T10 | Create QA baseline output directory |
-| TASK-P0-T11 | P0-T11 | Capture Ruff baseline |
-| TASK-P0-T12 | P0-T12 | Capture Pyright baseline |
-| TASK-P0-T13 | P0-T13 | Capture Pytest baseline |
-| TASK-P1-T1 | P1-T1 | Add extraction helper success test |
-| TASK-P1-T2 | P1-T2 | Add extraction helper cleanup test |
-| TASK-P1-T3 | P1-T3 | Add idempotent skip test |
-| TASK-P1-T4 | P1-T4 | Add recovery extraction test |
-| TASK-P1-T5 | P1-T5 | Add download+extract test |
-| TASK-P1-T6 | P1-T6 | Run regression tests to confirm failure |
-| TASK-P2-T1 | P2-T1 | Add _extract_simple_wiki_bz2 helper |
-| TASK-P2-T2 | P2-T2 | Update download_simple_wiki_dump flow |
-| TASK-P2-T3 | P2-T3 | Add logging and decision comments |
-| TASK-P3-T1 | P3-T1 | Update README.md commands and notes |
-| TASK-P3-T2 | P3-T2 | Update source-curation guide steps |
-| TASK-P4-T1 | P4-T1 | Run Black (format) |
-| TASK-P4-T2 | P4-T2 | Run Ruff (lint) |
-| TASK-P4-T3 | P4-T3 | Run Pyright (type check) |
-| TASK-P4-T4 | P4-T4 | Run Pytest with coverage |
+| Task ID | Summary |
+| --- | --- |
+| P0-T1 | Read copilot instructions |
+| P0-T2 | Read general code-change policy |
+| P0-T3 | Read general unit-test policy |
+| P0-T4 | Read python code-change policy |
+| P0-T5 | Read python unit-test policy |
+| P0-T6 | Read self-explanatory commenting policy |
+| P0-T7 | Read spec.md |
+| P0-T8 | Read implementation research |
+| P0-T9 | Read issue.md |
+| P0-T10 | Create QA baseline output directory |
+| P0-T11 | Capture Ruff baseline |
+| P0-T12 | Capture Pyright baseline |
+| P0-T13 | Capture Pytest baseline |
+| P1-T1 | Add extraction helper success test |
+| P1-T2 | Add extraction helper cleanup test |
+| P1-T3 | Add idempotent skip test |
+| P1-T4 | Add recovery extraction test |
+| P1-T5 | Add download+extract test |
+| P1-T6 | Run regression tests to confirm failure |
+| P2-T1 | Add _extract_simple_wiki_bz2 helper |
+| P2-T2 | Update download_simple_wiki_dump flow |
+| P2-T3 | Add logging and decision comments |
+| P3-T1 | Update README.md commands and notes |
+| P3-T2 | Update source-curation guide steps |
+| P4-T1 | Run Black (format) |
+| P4-T2 | Run Ruff (lint) |
+| P4-T3 | Run Pyright (type check) |
+| P4-T4 | Run Pytest with coverage |
 
 ## Implementation Plan (Atomic Tasks)
 

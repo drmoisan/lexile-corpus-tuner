@@ -40,7 +40,8 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 - Include specific file paths, line numbers, and exact code references where applicable
 - Define all variables, constants, and configuration values explicitly
 - Provide complete context within each task description
-- Use standardized prefixes for all identifiers (REQ-, TASK-, etc.)
+- Use standardized prefixes for requirements and constraints (e.g., REQ-, SEC-, CON-)
+- Use `[P#-T#]` identifiers for tasks (canonical)
 - Include validation criteria that can be automatically verified
 
 ## Output
