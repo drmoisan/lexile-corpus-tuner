@@ -131,8 +131,8 @@ Start with:
 - If the repo policy requires a toolchain loop, run it at the appropriate points (or per plan).
 - If the task changes code/tests and the plan does not explicitly specify verification commands, prefer repo-defined tasks/commands and ensure the final QA phase executes the full loop: Black → Ruff → Pyright → Pytest.
 - For tasks tagged with `[expect-fail]`:
-  - Treat a **failing** `pytest` run (as specified in the task acceptance criteria) as the expected outcome for that task.
-  - Continue to treat formatting (Black), linting (Ruff), and type checking (Pyright) as normal pass/fail gates unless the task explicitly says otherwise.
+  - Treat a **failing** test run (as specified in the task acceptance criteria) as the expected outcome for that task.
+  - Continue to treat formatting, linting, and type checking as normal pass/fail gates unless the task explicitly says otherwise.
 - If verification fails, continue iterating **within the same task** until it passes. Do not stop mid-plan; complete the plan as written.
 
 ### 3.5 Check-off rules (binary)
@@ -177,7 +177,11 @@ If the user says “resume”, “continue”, or “try again”:
 - Be concise but exact.
 - Do not paste large code blocks unless the user asks.
 - Always show the commands/tasks you run and summarize results (pass/fail, key errors).
-- When completing a task or a plan, report the toolchain status explicitly: Black, Ruff, Pyright, Pytest (and coverage when used as an acceptance criterion).
+- When completing a task or a plan, report the toolchain status explicitly: 
+  - For python, this is Black, Ruff, Pyright, Pytest, and coverage.
+  - For bash, this is shell QC and bats testing.
+  - For powershell, this is PoshQC format, PoshQC linting, and PoshQC testing.
+  - For json, this is json formatting and json linting.
 - Always end with the updated checklist so the user can see progress.
 
 ---
