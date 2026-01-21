@@ -1,0 +1,248 @@
+---
+id: 2026-01-21-codex-web-setup-crash-104
+status: Planned
+status_color: blue
+owner: drmoisan
+last_updated: 2026-01-21
+---
+
+# 2026-01-21-codex-web-setup-crash (Plan)
+
+![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+
+- **Issue:** #104
+- **Spec (authoritative):** `docs/features/active/2026-01-21-codex-web-setup-crash-104/spec.md`
+- **Research (authoritative):** `artifacts/research/20260121-codex-web-setup-crash-104-implementation-research.md`
+- **Owner:** drmoisan
+- **Plan file:** `docs/features/active/2026-01-21-codex-web-setup-crash-104/plan.2026-01-21T14-48.md`
+- **Primary implementation file:** `.github/codex/codex-web-setup.sh`
+
+## Requirements Traceability (REQ-*)
+
+| REQ ID | Source | Requirement (machine-verifiable) |
+| --- | --- | --- |
+| REQ-001 | spec.md Scope & Non-Goals | All apt update/install call sites in `.github/codex/codex-web-setup.sh` use a shared wrapper that applies bounded retries, timeouts, and pipelining-disable options. |
+| REQ-002 | spec.md Proposed Fix | Script defines environment-variable configuration with defaults: `APT_RETRY_ATTEMPTS=5`, `APT_RETRY_DELAY_SECONDS=5`, `APT_HTTP_TIMEOUT_SECONDS=30`, `APT_DISABLE_PIPELINING=1`. |
+| REQ-003 | spec.md Error handling and logging | Each apt operation logs operation type, attempt number/max attempts, and presence (not values) of `http_proxy`, `https_proxy`, `no_proxy`; retries are bounded and exhaustion fails with clear error including command and exit code. |
+| REQ-004 | spec.md Boundaries and invariants | Non-root execution path using `sudo bash -c "$(declare -f fn); fn"` passes required helper function definitions and `APT_*` values into the sudo shell so apt wrapper works under sudo. |
+| REQ-005 | spec.md Data flow and validation | Post-install validation fails the script if required executables are missing after apt install (must include: `shellcheck`, `shfmt`, `node`, `npm`). |
+| REQ-006 | spec.md Test Strategy | `.github/codex/codex-web-setup.sh` is safe to `source` (imperative execution moved to `main()` guarded by `if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi`), enabling deterministic Bats unit tests without real network/root. |
+| REQ-007 | spec.md Test Strategy | Bats tests exist under `tests/shell/` and run deterministically offline (via stubs) for: `apt_with_retries`, `apt_update`, `apt_install`, and `check_pypi_connectivity`. |
+| REQ-008 | spec.md Toolchain commands | `poetry run python -m scripts.dev_tools.shell_qc test` runs Bats tests when `bats` is available and exits 0 when tests pass. |
+
+## Implementation plan (atomic tasks)
+
+### Phase 0 — Context & Inputs
+
+- [ ] [P0-T1] Read `.github/copilot-instructions.md` and record policy precedence note in this plan
+	- Acceptance: Add a single sentence under this task stating the policy precedence order.
+
+- [ ] [P0-T2] Read `.github/instructions/general-code-change.instructions.md` and record the required QC loop order
+	- Acceptance: Add a single sentence under this task stating the loop order is Black → Ruff → Pyright → Pytest and must restart on changes/failures.
+
+- [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and record the “no external deps / no temp files” constraints
+	- Acceptance: Add a single sentence under this task stating tests must be deterministic, offline, and must not create temp files.
+
+- [ ] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md` (baseline repo QC gates)
+	- Acceptance: Add a single sentence under this task confirming the approved commands include `poetry run ruff check`, `poetry run pyright`, and `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`.
+
+- [ ] [P0-T5] Record exact current branch name and HEAD SHA in this plan
+	- Inputs: `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD`
+	- Acceptance: This plan file contains the branch name and commit SHA as literal text (no placeholders).
+
+- [ ] [P0-T6] Capture baseline repo QC status before changes (required for regression detection)
+	- Commands (record PASS/FAIL for each):
+		- `poetry run black .`
+		- `poetry run ruff check`
+		- `poetry run pyright`
+		- `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+	- Acceptance: This plan file contains a 4-line PASS/FAIL baseline summary with the exact command strings.
+
+- [ ] [P0-T7] Capture baseline shell QC status before changes (shell-specific gates)
+	- Commands (record exit code for each):
+		- `poetry run python -m scripts.dev_tools.shell_qc format`
+		- `poetry run python -m scripts.dev_tools.shell_qc check`
+		- `poetry run python -m scripts.dev_tools.shell_qc test`
+	- Acceptance: This plan file contains a 3-line exit-code summary with the exact command strings.
+
+### Phase 1 — TDD Red: source-safety seam
+
+- [ ] [P1-T1] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_source_safety.bats` asserting the script contains a `main()` guard
+	- File under test: `.github/codex/codex-web-setup.sh`
+	- Assertion: `grep -n` must find a line exactly matching `if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi`
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails and output includes `test_codex_web_setup_source_safety.bats` as failing.
+
+### Phase 2 — Implement source-safety seam (enables real Bats unit tests)
+
+- [ ] [P2-T1] Refactor `.github/codex/codex-web-setup.sh` so it is safe to `source` without performing installs
+	- Exact change:
+		1. Wrap all imperative top-level execution (currently starting at line 17 `echo "=== ..."` through final `echo "=== ... done ==="`) into a `main()` function.
+		2. Leave function definitions at top-level.
+		3. Add the guard line at end of file: `if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi`.
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` passes `test_codex_web_setup_source_safety.bats`.
+
+### Phase 3 — TDD Red: apt resilience helper contracts
+
+- [ ] [P3-T1] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_apt_helpers.bats` for `apt_with_retries` retry success
+	- Preconditions: Phase 2 completed (script is safe to source).
+	- Test mechanics:
+		- In Bats, define a stub `apt-get()` function that fails the first 2 calls and succeeds on the 3rd.
+		- `source .github/codex/codex-web-setup.sh` and run: `run apt_with_retries update -qq`
+	- Acceptance: Running `poetry run python -m scripts.dev_tools.shell_qc test` fails because `apt_with_retries` is not defined yet.
+
+- [ ] [P3-T2] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_apt_helpers.bats` for `apt_with_retries` retry exhaustion
+	- Preconditions: Phase 2 completed.
+	- Test mechanics:
+		- Stub `apt-get()` always fails.
+		- Set env: `APT_RETRY_ATTEMPTS=3`, `APT_RETRY_DELAY_SECONDS=0`.
+		- `run apt_with_retries update -qq`
+		- Assert: exit code non-zero and stderr includes `ERROR: apt command failed after 3 attempts`.
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails because `apt_with_retries` is not defined yet.
+
+- [ ] [P3-T3] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_apt_helpers.bats` for `apt_update` option construction
+	- Preconditions: Phase 2 completed.
+	- Test mechanics:
+		- Stub `apt-get()` to print its argv to stdout and return 0.
+		- Set env: `APT_RETRY_ATTEMPTS=5`, `APT_HTTP_TIMEOUT_SECONDS=30`, `APT_DISABLE_PIPELINING=1`.
+		- `run apt_update`
+		- Assert stdout contains all of:
+			- `-o Acquire::Retries=5`
+			- `-o Acquire::http::Timeout=30`
+			- `-o Acquire::https::Timeout=30`
+			- `-o Acquire::http::Pipeline-Depth=0`
+			- `-o Acquire::https::Pipeline-Depth=0`
+			- `update -qq`
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails because `apt_update` is not defined yet.
+
+- [ ] [P3-T4] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_apt_helpers.bats` for `apt_install` option construction and `--fix-missing`
+	- Preconditions: Phase 2 completed.
+	- Test mechanics:
+		- Stub `apt-get()` to print argv and return 0.
+		- Set env: `APT_RETRY_ATTEMPTS=5`, `APT_HTTP_TIMEOUT_SECONDS=30`, `APT_DISABLE_PIPELINING=1`.
+		- `run apt_install shellcheck`
+		- Assert stdout contains `install -y --no-install-recommends --fix-missing shellcheck` and the same `Acquire::*` options as `apt_update`.
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails because `apt_install` is not defined yet.
+
+### Phase 4 — Implement apt resilience helpers (Option A + Option C)
+
+- [ ] [P4-T1] Add env-default constants and parsing in `.github/codex/codex-web-setup.sh` for apt resilience configuration
+	- Exact defaults (must be literal in code):
+		- `APT_RETRY_ATTEMPTS_DEFAULT=5`
+		- `APT_RETRY_DELAY_SECONDS_DEFAULT=5`
+		- `APT_HTTP_TIMEOUT_SECONDS_DEFAULT=30`
+		- `APT_DISABLE_PIPELINING_DEFAULT=1`
+	- Acceptance: `grep -n "APT_RETRY_ATTEMPTS_DEFAULT=5" .github/codex/codex-web-setup.sh` exits 0.
+
+- [ ] [P4-T2] Implement `apt_with_retries()` as a top-level function in `.github/codex/codex-web-setup.sh`
+	- Contract:
+		- Reads env with defaults: `APT_RETRY_ATTEMPTS`, `APT_RETRY_DELAY_SECONDS`.
+		- Logs: operation name (first argv token), attempt/max, and proxy-env presence (names only).
+		- Retries bounded; sleeps `APT_RETRY_DELAY_SECONDS` between attempts.
+		- On exhaustion, prints `ERROR: apt command failed after <N> attempts: <cmd...>` to stderr and returns non-zero.
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` passes tests from Phase 3 that target `apt_with_retries`.
+
+- [ ] [P4-T3] Implement `apt_update()` as a top-level function in `.github/codex/codex-web-setup.sh`
+	- Contract:
+		- Constructs apt args (as separate argv entries) including:
+			- `-o Acquire::Retries=<APT_RETRY_ATTEMPTS>`
+			- `-o Acquire::http::Timeout=<APT_HTTP_TIMEOUT_SECONDS>`
+			- `-o Acquire::https::Timeout=<APT_HTTP_TIMEOUT_SECONDS>`
+			- When `APT_DISABLE_PIPELINING=1`: `-o Acquire::http::Pipeline-Depth=0` and `-o Acquire::https::Pipeline-Depth=0`
+		- Runs `apt_with_retries apt-get <args...> update -qq`
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` passes the Phase 3 `apt_update` option test.
+
+- [ ] [P4-T4] Implement `apt_install()` as a top-level function in `.github/codex/codex-web-setup.sh`
+	- Contract:
+		- Uses the same `Acquire::*` options as `apt_update`.
+		- Runs `apt_with_retries apt-get <args...> install -y --no-install-recommends --fix-missing "$@"`
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` passes the Phase 3 `apt_install` option test.
+
+### Phase 5 — Route all apt call sites through helpers (and preserve sudo correctness)
+
+- [ ] [P5-T1] Replace direct apt calls in `install_system_packages()` with `apt_update` + `apt_install` (call sites currently at lines 59-60)
+	- Current call sites (must be removed):
+		- Line 59: `apt-get update -qq`
+		- Line 60: `apt-get install -y --no-install-recommends \\`
+	- Replacement:
+		- Call `apt_update`
+		- Call `apt_install` with the full package list currently installed by `apt-get install`.
+	- Acceptance: `grep -n "apt-get update -qq" .github/codex/codex-web-setup.sh` shows no matches inside `install_system_packages()`.
+
+- [ ] [P5-T2] Replace direct apt calls in `ensure_pwsh()` with `apt_update` + `apt_install` (call sites currently at lines 221-222, 234-235, 247)
+	- Current call sites (must be removed or routed):
+		- Line 221: `apt-get update -qq`
+		- Line 222: `apt-get install -y --no-install-recommends \\`
+		- Line 234: `apt-get update -qq`
+		- Line 235: `apt-get install -y --no-install-recommends powershell`
+		- Line 247: `apt-get install -y /tmp/powershell.deb`
+	- Replacement:
+		- Use `apt_update` for each update operation.
+		- Use `apt_install` for each install operation (for `/tmp/powershell.deb`, call `apt_install /tmp/powershell.deb`).
+	- Acceptance: `grep -n "apt-get " .github/codex/codex-web-setup.sh` returns no matches (all apt usage is via helpers).
+
+- [ ] [P5-T3] Preserve non-root sudo re-exec behavior by expanding the sudo payload for `install_system_packages()`
+	- Current sudo line (must be replaced, currently line 90):
+		- `sudo bash -c "$(declare -f install_system_packages); install_system_packages"`
+	- Replacement contract:
+		- Must include helper definitions in the sudo shell: `declare -f apt_with_retries apt_update apt_install install_system_packages`
+		- Must pass `APT_*` values into the sudo shell as literal assignments in the sudo command string (do not rely on sudo env preservation).
+	- Acceptance: `grep -n "declare -f apt_with_retries" .github/codex/codex-web-setup.sh` finds the updated sudo payload line.
+
+- [ ] [P5-T4] Add env overrides for OS detection in `ensure_pwsh()`
+	- Exact behavior:
+		- If `CODEX_OS_ID` is set and non-empty, use it as `os_id`.
+		- If `CODEX_OS_VERSION` is set and non-empty, use it as `os_version`.
+		- Otherwise, fall back to sourcing `/etc/os-release` as today.
+	- Acceptance: `grep -n "CODEX_OS_ID" .github/codex/codex-web-setup.sh` exits 0.
+
+### Phase 6 — Post-install validation (prevent false success)
+
+- [ ] [P6-T1] Add a `validate_required_tools()` function and call it immediately after `install_system_packages()`
+	- Required executables (must all be checked with `command -v`): `shellcheck`, `shfmt`, `node`, `npm`
+	- Failure behavior: if any are missing, print `ERROR: missing required tool: <name>` to stderr and exit 1.
+	- Acceptance: `grep -n "validate_required_tools" .github/codex/codex-web-setup.sh` shows the function definition and a call site after system package install.
+
+### Phase 7 — Deterministic Bats tests for `check_pypi_connectivity`
+
+- [ ] [P7-T1] Add Bats test `tests/shell/test_codex_web_setup_pypi_connectivity.bats` for offline bypass path
+	- Preconditions: Phase 2 completed.
+	- Test mechanics:
+		- Stub `curl()` to fail if called.
+		- Set env: `ALLOW_OFFLINE_INSTALL=1`.
+		- `source .github/codex/codex-web-setup.sh` and `run check_pypi_connectivity`.
+		- Assert: exit code 0 and output contains `ALLOW_OFFLINE_INSTALL=1 set; skipping PyPI connectivity check.`
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` exits 0.
+
+- [ ] [P7-T2] Add Bats test `tests/shell/test_codex_web_setup_pypi_connectivity.bats` for curl failure path
+	- Preconditions: Phase 2 completed.
+	- Test mechanics:
+		- Stub `curl()` to return non-zero.
+		- Ensure env: `ALLOW_OFFLINE_INSTALL=0` (or unset).
+		- `source .github/codex/codex-web-setup.sh` and `run check_pypi_connectivity`.
+		- Assert: exit code non-zero and stderr contains `ERROR: Unable to reach pypi.org`.
+	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` exits 0.
+
+### Phase 8 — Final verification loop (repo QC + shell QC)
+
+- [ ] [P8-T1] Run formatting and restart loop if any files change
+	- Command: `poetry run black .`
+	- Acceptance: Exit code 0 and no files changed by Black (rerun until stable).
+
+- [ ] [P8-T2] Run Ruff linting and restart loop from Phase 8 Task 1 if Ruff fails or auto-fixes
+	- Command: `poetry run ruff check`
+	- Acceptance: Exit code 0.
+
+- [ ] [P8-T3] Run Pyright type checking and restart loop from Phase 8 Task 1 if Pyright fails
+	- Command: `poetry run pyright`
+	- Acceptance: Exit code 0.
+
+- [ ] [P8-T4] Run Pytest with coverage and restart loop from Phase 8 Task 1 if tests fail
+	- Command: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+	- Acceptance: Exit code 0.
+
+- [ ] [P8-T5] Run shell QC (format → check → test) and restart loop from Phase 8 Task 1 if any step fails
+	- Commands:
+		- `poetry run python -m scripts.dev_tools.shell_qc format`
+		- `poetry run python -m scripts.dev_tools.shell_qc check`
+		- `poetry run python -m scripts.dev_tools.shell_qc test`
+	- Acceptance: All three exit with code 0.
