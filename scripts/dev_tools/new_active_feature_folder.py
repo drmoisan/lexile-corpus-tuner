@@ -195,6 +195,67 @@ def set_section(content: str, name: str, body: str) -> str:
     return f"{trimmed}## {name}\n{body}\n"
 
 
+def _prepend_to_section_body(section_body: str, prefix: str) -> str:
+    """Prepend text to an existing section body while preserving existing content.
+
+    Purpose:
+        When templates already contain useful prompts/bullets, we seed issue-derived
+        context without deleting the template guidance.
+
+    Args:
+        section_body (str): Existing section body.
+        prefix (str): Text to insert at the top of the section.
+
+    Returns:
+        str: Updated section body.
+    """
+
+    trimmed_prefix = prefix.strip()
+    if not trimmed_prefix:
+        return section_body
+
+    trimmed_body = section_body.strip()
+    if not trimmed_body:
+        return f"{trimmed_prefix}\n"
+    return f"{trimmed_prefix}\n\n{trimmed_body}\n"
+
+
+def _update_section_body(
+    content: str, section_name: str, updater: Callable[[str], str]
+) -> tuple[str, bool]:
+    """Update a `##` section body using a transformation function.
+
+    Purpose:
+        Provide a reusable mechanism to preserve templates while making targeted edits
+        inside specific sections.
+
+    Args:
+        content (str): Full markdown document content.
+        section_name (str): Top-level section name (without the leading `##`).
+        updater (callable[[str], str]): Function that transforms the section body.
+
+    Returns:
+        tuple[str, bool]: (updated_content, was_updated).
+    """
+
+    pattern = re.compile(
+        rf"(^##\s+{re.escape(section_name)}\s*\r?\n)(.*?)(?=^\s*##\s+|\Z)",
+        re.DOTALL | re.MULTILINE,
+    )
+    match = pattern.search(content)
+    if not match:
+        return content, False
+
+    header = match.group(1)
+    body = match.group(2)
+    updated_body = updater(body)
+    if updated_body == body:
+        return content, False
+
+    replacement = f"{header}{updated_body}\n"
+    return pattern.sub(replacement, content, count=1), True
+
+
 def set_header_placeholder(
     content: str,
     feature_name: str,
@@ -744,9 +805,8 @@ def update_feature_docs(
             updates.append(("Repro & Evidence", repro_body))
         if sections.get("bug_cause"):
             updates.append(("Root Cause Analysis", sections["bug_cause"]))
-        if sections.get("bug_validation"):
-            updates.append(("Proposed Fix", sections["bug_validation"]))
-            updates.append(("Test Strategy", sections["bug_validation"]))
+
+        bug_validation = sections.get("bug_validation", "").strip()
 
         _apply_header_and_sections(
             spec,
@@ -760,6 +820,27 @@ def update_feature_docs(
             fs,
             updates,
         )
+
+        if bug_validation:
+            # Preserve the bug template structure.
+            #
+            # IMPORTANT: Do not auto-fill `### Design summary (what changes where):`
+            # from issue/potential content. That subsection is intended to be filled
+            # later by an LLM using `issue.md` plus any subsequent research.
+            spec_content = fs.read_text(spec)
+
+            def update_test_strategy(body: str) -> str:
+                # Preserve the template checklist and prompts; seed additional
+                # context at the top.
+                return _prepend_to_section_body(
+                    body,
+                    prefix=f"Seeded from issue:\n\n{bug_validation}",
+                )
+
+            spec_content, _ = _update_section_body(
+                spec_content, "Test Strategy", update_test_strategy
+            )
+            fs.write_text(spec, spec_content)
         # For bug plan docs, we want the full timestamp in the Date field.
         _apply_header_and_sections(
             plan,
