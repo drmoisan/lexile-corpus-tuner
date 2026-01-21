@@ -589,3 +589,136 @@ def test_single_run_lock_released_on_completion(
     cli.release_executor_lock(Path("/workspace/.agent_logs/executor.lock"))
 
     assert lock_exists is False
+
+
+class TestExpectFailBehavior:
+    """
+    Tests for [expect-fail] task semantics in execute_one_task().
+
+    Purpose:
+        Verifies that tasks annotated with [expect-fail] invert pytest success
+        criteria (TDD Red workflow) while still enforcing non-pytest QC steps.
+    """
+
+    def test_execute_one_task_expect_fail_succeeds_on_pytest_failure(
+        self, mock_dependencies: dict[str, Any]
+    ) -> None:
+        """
+        Task with expect_fail=True should succeed when pytest fails but QC passes.
+
+        Purpose:
+            TDD Red workflow: a failing test is the expected outcome.
+
+        Verifies:
+            - exit_code == 0 (success)
+            - Checkbox is flipped
+            - Log output contains the required verification message
+        """
+        mocks = mock_dependencies
+
+        # Create expect-fail task
+        task = PlanTask(
+            task_id="P1-T1",
+            phase=1,
+            task_num=1,
+            title="Add failing regression test",
+            checked=False,
+            line_index=10,
+            expect_fail=True,
+        )
+        mocks["parser"].next_unchecked_task.return_value = task
+        mocks["parser"].find_task_by_id.return_value = task
+
+        # QC: black/ruff/pyright pass, pytest fails
+        qc_instance = mocks["qc_runner"].return_value
+        qc_instance.run_scoped.side_effect = subprocess.CalledProcessError(1, "pytest")
+        qc_instance.run_black.return_value = None
+        qc_instance.run_ruff.return_value = None
+        qc_instance.run_pyright.return_value = None
+        qc_instance.run_pytest.side_effect = subprocess.CalledProcessError(1, "pytest")
+
+        argv = ["execute", "feature-folder", "--max-fix-attempts", "1"]
+        exit_code = main(argv)
+
+        # After implementation: expect_fail + pytest failure = success
+        assert exit_code == 0
+        mocks["parser"].flip_checkbox.assert_called_once_with(task)
+
+    def test_execute_one_task_expect_fail_retries_and_exits_5_when_qc_passes(
+        self, mock_dependencies: dict[str, Any]
+    ) -> None:
+        """
+        Task with expect_fail=True should fail if QC unexpectedly passes (green).
+
+        Purpose:
+            Unexpected green means the TDD Red precondition is violated.
+
+        Verifies:
+            - exit_code == 5 (persistent failure after retries)
+            - Copilot retried max_fix_attempts times
+        """
+        mocks = mock_dependencies
+
+        # Create expect-fail task
+        task = PlanTask(
+            task_id="P1-T1",
+            phase=1,
+            task_num=1,
+            title="Add failing regression test",
+            checked=False,
+            line_index=10,
+            expect_fail=True,
+        )
+        mocks["parser"].next_unchecked_task.return_value = task
+        mocks["parser"].find_task_by_id.return_value = task
+
+        # QC fully passes (unexpected green)
+        qc_instance = mocks["qc_runner"].return_value
+        qc_instance.run_scoped.return_value = None
+
+        argv = ["execute", "feature-folder", "--max-fix-attempts", "2"]
+        exit_code = main(argv)
+
+        # After implementation: unexpected green should retry then return 5
+        assert exit_code == 5
+        # Copilot should retry (1 initial + 2 max_fix_attempts = 3 total)
+        assert mocks["run_copilot"].call_count >= 2
+
+    def test_execute_one_task_expect_fail_does_not_mask_non_pytest_failure(
+        self, mock_dependencies: dict[str, Any]
+    ) -> None:
+        """
+        Task with expect_fail=True should still fail if black/ruff/pyright fails.
+
+        Purpose:
+            Only pytest failure is expected; other QC failures are still errors.
+
+        Verifies:
+            - Non-pytest QC failure triggers retry loop
+            - Behavior matches normal task handling for non-pytest steps
+        """
+        mocks = mock_dependencies
+
+        # Create expect-fail task
+        task = PlanTask(
+            task_id="P1-T1",
+            phase=1,
+            task_num=1,
+            title="Add failing regression test",
+            checked=False,
+            line_index=10,
+            expect_fail=True,
+        )
+        mocks["parser"].next_unchecked_task.return_value = task
+        mocks["parser"].find_task_by_id.return_value = task
+
+        # QC fails on ruff (non-pytest failure)
+        qc_instance = mocks["qc_runner"].return_value
+        qc_instance.run_scoped.side_effect = subprocess.CalledProcessError(1, "ruff")
+
+        argv = ["execute", "feature-folder", "--max-fix-attempts", "1"]
+        exit_code = main(argv)
+
+        # Non-pytest failure should still return failure (exit 5 after retries).
+        # This test should pass both before and after implementation.
+        assert exit_code == 5

@@ -327,6 +327,22 @@ Platform note:
 
 - GitHub Copilot CLI native Windows PowerShell support is experimental; WSL is recommended on Windows when available.
 
+### TDD Red Workflow (`[expect-fail]` tag)
+
+For TDD-first development, the executor supports tasks that intentionally create failing tests. Annotate the task title with the `[expect-fail]` tag:
+
+```markdown
+- [ ] [P1-T1] [expect-fail] Add failing regression test for slug extraction
+```
+
+Behavior:
+- The tag inverts pytest success criteria: **pytest must fail** for the task to succeed.
+- Black, Ruff, and Pyright must still pass (formatting, linting, and type-checking are not inverted).
+- If all QC passes (unexpected green), the executor retries (Copilot should ensure the test actually fails).
+- On success, the executor logs: `Task {task_id} failed as expected (TDD Red). Verified.`
+
+This enables proper TDD flow where the plan can include a failing-test task followed by an implementation task that makes it pass.
+
 ## VS Code Integration
 
 ### Recommended Extensions

@@ -594,3 +594,86 @@ def test_extract_slug_from_content_url_supports_tebook() -> None:
     url = "https://www.ck12.org/tebook/CK-12-Earth-Science-For-Middle-School-Teachers-Edition/"
     slug = ck12_catalog.extract_slug_from_content_url(url)
     assert slug == "CK-12-Earth-Science-For-Middle-School-Teachers-Edition"
+
+
+def test_extract_slug_from_content_url_supports_workbook() -> None:
+    """
+    extract_slug_from_content_url should recognize /workbook/ URL paths.
+
+    Purpose:
+        Regression test for issue #95. Ensures that CK-12 URLs with /workbook/ prefix
+        are correctly parsed to extract the slug, preventing missing handle errors
+        during enrichment.
+
+    Side Effects:
+        None. Pure function test.
+    """
+    url = (
+        "https://www.ck12.org/workbook/CK-12-Earth-Science-For-Middle-School-Workbook/"
+    )
+    slug = ck12_catalog.extract_slug_from_content_url(url)
+    assert slug == "CK-12-Earth-Science-For-Middle-School-Workbook"
+
+
+def test_extract_slug_from_content_url_supports_quizbook() -> None:
+    """
+    extract_slug_from_content_url should recognize /quizbook/ URL paths.
+
+    Purpose:
+        Regression test for issue #95. Ensures that CK-12 URLs with /quizbook/ prefix
+        are correctly parsed to extract the slug, preventing missing handle errors
+        during enrichment.
+
+    Side Effects:
+        None. Pure function test.
+    """
+    url = "https://www.ck12.org/quizbook/CK-12-Earth-Science-For-Middle-School-Quizzes-and-Tests/"
+    slug = ck12_catalog.extract_slug_from_content_url(url)
+    assert slug == "CK-12-Earth-Science-For-Middle-School-Quizzes-and-Tests"
+
+
+def test_parse_catalog_json_logs_warning_when_title_and_content_url_missing_slug(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """
+    parse_catalog_json should log a warning when Title and Content_URL are present
+    but slug extraction fails.
+
+    Purpose:
+        Regression test for issue #95. Ensures that when a book has a Title and
+        Content_URL but the URL cannot be parsed to extract a slug, a warning is
+        logged with enough context to trace the source row.
+
+    Args:
+        caplog (pytest.LogCaptureFixture): Pytest fixture to capture log messages.
+
+    Side Effects:
+        Captures WARNING level logs emitted during parse_catalog_json execution.
+    """
+    import logging
+
+    catalog_json = {
+        "books": [
+            {
+                "Title": "Unknown URL Format Book",
+                "Content_URL": "https://example.com/unknown/path/to/book/",
+                "Language": "EN",
+                "artifactID": 9001,
+                "artifactType": "book",
+                "handle": "test-handle",
+            }
+        ]
+    }
+
+    with caplog.at_level(logging.WARNING):
+        entries = ck12_catalog.parse_catalog_json(catalog_json)
+
+    # Should still create an entry (fallback to handle)
+    assert len(entries) == 1
+
+    # Should have logged a warning
+    assert len(caplog.records) == 1
+    warning_message = caplog.records[0].message
+    assert "Content_URL slug missing" in warning_message
+    assert "Unknown URL Format Book" in warning_message
+    assert "https://example.com/unknown/path/to/book/" in warning_message
