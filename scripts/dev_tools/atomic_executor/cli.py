@@ -15,6 +15,7 @@ import os
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -67,6 +68,37 @@ DEFAULT_COPILOT_TRUST_WORKSPACE = True
 COPILOT_PERMISSION_DENIED_SUBSTRING = (
     "Permission denied and could not request permission from user"
 )
+
+# Graceful shutdown state: set by signal handler to request termination.
+_shutdown_requested = False
+_active_lock_path: Path | None = None
+
+
+def _handle_shutdown_signal(signum: int, frame: object) -> None:
+    """
+    Signal handler for graceful shutdown (SIGINT/SIGTERM).
+
+    Purpose:
+        Sets the global shutdown flag so the main loop can exit cleanly
+        after the current task, and releases the lock file immediately
+        to avoid leaving stale locks.
+
+    Args:
+        signum: Signal number received.
+        frame: Current stack frame (unused).
+    """
+    global _shutdown_requested
+    _shutdown_requested = True
+    sig_name = signal.Signals(signum).name if hasattr(signal, "Signals") else signum
+    print(f"\n[atomic_executor] Received {sig_name}, shutting down gracefully...")
+    # Release lock immediately to avoid stale locks on forced termination
+    if _active_lock_path is not None:
+        release_executor_lock(_active_lock_path)
+
+
+def is_shutdown_requested() -> bool:
+    """Check if graceful shutdown has been requested via signal."""
+    return _shutdown_requested
 
 
 class CopilotPermissionDeniedError(RuntimeError):
@@ -1687,8 +1719,15 @@ def main(argv: list[str] | None = None) -> int:
     log_file = log_dir / f"atomic_executor_{run_id}.log"
 
     lock_path: Path | None = None
+    # Declare global for signal handler to access; set below if execute-all
+    global _active_lock_path
     if args.cmd == "execute-all":
         lock_path = acquire_executor_lock(workspace)
+        _active_lock_path = lock_path
+
+    # Register signal handlers for graceful shutdown (Ctrl+C, kill)
+    signal.signal(signal.SIGINT, _handle_shutdown_signal)
+    signal.signal(signal.SIGTERM, _handle_shutdown_signal)
 
     try:
         # Parse plan and preflight validate
@@ -1745,6 +1784,11 @@ def main(argv: list[str] | None = None) -> int:
         is_first_task = True
 
         while True:
+            # Check for graceful shutdown request (Ctrl+C or SIGTERM)
+            if is_shutdown_requested():
+                print("[atomic_executor] Shutdown requested, exiting after cleanup.")
+                return 130  # Standard exit code for SIGINT
+
             # Backoff state is per-task; it resets after successful Copilot invocations.
             copilot_backoff = ExponentialBackoff(
                 base_seconds=args.copilot_cli_backoff_base_seconds,
@@ -1824,6 +1868,8 @@ def main(argv: list[str] | None = None) -> int:
             include_phase0_reads = False
             print(f"Proceeding to next task: {cur.task_id}...")
     finally:
+        # Clear global and release lock
+        _active_lock_path = None
         if lock_path is not None:
             release_executor_lock(lock_path)
 
