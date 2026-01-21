@@ -2,6 +2,10 @@
 description: "Fill partially completed feature docs (user-story.md + spec.md) using supplied templates without re-embedding the templates themselves."
 name: "prd_feature"
 tools: ['read/problems', 'read/readFile', 'read/terminalSelection', 'read/terminalLastCommand', 'edit/editFiles', 'search', 'web', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues']
+handoffs:
+  - label: Research Implementation
+    agent: Task Researcher Instructions
+    prompt: "Research the needed information listed above and update the research document"
 ---
 
 # Feature Docs Completion Agent
