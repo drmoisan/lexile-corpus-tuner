@@ -88,7 +88,6 @@ Notes:
 - [ ] [P5-T1] Update `scripts/dev_tools/atomic_executor/cli.py` so pre-flight pytest is invoked with `--color=no` to stabilize output parsing
 	- Acceptance: `_run_preflight_qc_with_capture` includes `--color=no` in the pytest argv and `poetry run pytest tests/scripts/dev_tools/atomic_executor/test_cli.py -k run_preflight_qc_with_capture` exits 0
 - [ ] [P5-T2] Add a collect-only probe in `scripts/dev_tools/atomic_executor/cli.py` that validates checked expectation `test_ref` values can be collected before running the full pytest step
-- [ ] [P5-T2] Add a collect-only probe in `scripts/dev_tools/atomic_executor/cli.py` that validates checked expectation `test_ref` values can be collected before running the full pytest step
 	- Acceptance: `poetry run pytest tests/scripts/dev_tools/atomic_executor/test_cli.py -k preflight_missing_test_ref` exits 0
 - [ ] [P5-T3] Apply plan-linked expectation filtering to the pre-flight pytest step in `scripts/dev_tools/atomic_executor/cli.py` using `scripts/dev_tools/atomic_executor/pytest_expectations.py`
 	- Acceptance: `poetry run pytest tests/scripts/dev_tools/atomic_executor/test_cli.py -k preflight_expected_fail` exits 0
