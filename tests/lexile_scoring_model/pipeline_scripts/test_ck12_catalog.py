@@ -470,6 +470,8 @@ def test_parse_catalog_json_accepts_static_feed_books() -> None:
     Purpose:
         Validate static feed parsing for /cbook/, /user:<handle>/cbook/, and /book/ URL
         patterns, ensuring slug extraction and artifact_type mapping follow the spec.
+        After fix for issue #100, /cbook/ URLs from flexbooks.ck12.org correctly
+        map to artifact_type "cbook" instead of "flexbook".
     """
 
     entries = ck12_catalog.parse_catalog_json(STATIC_FEED_FIXTURE)
@@ -479,12 +481,12 @@ def test_parse_catalog_json_accepts_static_feed_books() -> None:
 
     first_entry = entries[0]
     assert first_entry.identifier == "geometry-flexbook"
-    assert first_entry.artifact_type == "flexbook"
+    assert first_entry.artifact_type == "cbook"
     assert first_entry.handle == "geometry-flexbook"
 
     second_entry = entries[1]
     assert second_entry.identifier == "physics-flexbook"
-    assert second_entry.artifact_type == "flexbook"
+    assert second_entry.artifact_type == "cbook"
     assert second_entry.handle == "physics-flexbook"
 
     third_entry = entries[2]
@@ -585,15 +587,18 @@ def test_extract_slug_from_content_url_supports_tebook() -> None:
 
     Purpose:
         Regression test for issue #95. Ensures that CK-12 URLs with /tebook/ prefix
-        are correctly parsed to extract the slug, preventing missing handle errors
-        during enrichment.
+        are correctly parsed to extract the slug and artifact type, preventing missing
+        handle errors during enrichment.
 
     Side Effects:
         None. Pure function test.
     """
     url = "https://www.ck12.org/tebook/CK-12-Earth-Science-For-Middle-School-Teachers-Edition/"
-    slug = ck12_catalog.extract_slug_from_content_url(url)
+    result = ck12_catalog.extract_slug_from_content_url(url)
+    assert result is not None
+    slug, artifact_type = result
     assert slug == "CK-12-Earth-Science-For-Middle-School-Teachers-Edition"
+    assert artifact_type == "tebook"
 
 
 def test_extract_slug_from_content_url_supports_workbook() -> None:
@@ -602,8 +607,8 @@ def test_extract_slug_from_content_url_supports_workbook() -> None:
 
     Purpose:
         Regression test for issue #95. Ensures that CK-12 URLs with /workbook/ prefix
-        are correctly parsed to extract the slug, preventing missing handle errors
-        during enrichment.
+        are correctly parsed to extract the slug and artifact type, preventing missing
+        handle errors during enrichment.
 
     Side Effects:
         None. Pure function test.
@@ -611,8 +616,11 @@ def test_extract_slug_from_content_url_supports_workbook() -> None:
     url = (
         "https://www.ck12.org/workbook/CK-12-Earth-Science-For-Middle-School-Workbook/"
     )
-    slug = ck12_catalog.extract_slug_from_content_url(url)
+    result = ck12_catalog.extract_slug_from_content_url(url)
+    assert result is not None
+    slug, artifact_type = result
     assert slug == "CK-12-Earth-Science-For-Middle-School-Workbook"
+    assert artifact_type == "workbook"
 
 
 def test_extract_slug_from_content_url_supports_quizbook() -> None:
@@ -621,15 +629,18 @@ def test_extract_slug_from_content_url_supports_quizbook() -> None:
 
     Purpose:
         Regression test for issue #95. Ensures that CK-12 URLs with /quizbook/ prefix
-        are correctly parsed to extract the slug, preventing missing handle errors
-        during enrichment.
+        are correctly parsed to extract the slug and artifact type, preventing missing
+        handle errors during enrichment.
 
     Side Effects:
         None. Pure function test.
     """
     url = "https://www.ck12.org/quizbook/CK-12-Earth-Science-For-Middle-School-Quizzes-and-Tests/"
-    slug = ck12_catalog.extract_slug_from_content_url(url)
+    result = ck12_catalog.extract_slug_from_content_url(url)
+    assert result is not None
+    slug, artifact_type = result
     assert slug == "CK-12-Earth-Science-For-Middle-School-Quizzes-and-Tests"
+    assert artifact_type == "quizbook"
 
 
 def test_parse_catalog_json_logs_warning_when_title_and_content_url_missing_slug(
@@ -677,3 +688,96 @@ def test_parse_catalog_json_logs_warning_when_title_and_content_url_missing_slug
     assert "Content_URL slug missing" in warning_message
     assert "Unknown URL Format Book" in warning_message
     assert "https://example.com/unknown/path/to/book/" in warning_message
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_slug", "expected_type"),
+    [
+        (
+            "https://flexbooks.ck12.org/cbook/cbse-biology-class-10/",
+            "cbse-biology-class-10",
+            "cbook",
+        ),
+        (
+            "https://www.ck12.org/book/CK-12-Biology/",
+            "CK-12-Biology",
+            "book",
+        ),
+        (
+            "https://www.ck12.org/tebook/CK-12-Biology-Teachers-Edition/",
+            "CK-12-Biology-Teachers-Edition",
+            "tebook",
+        ),
+        (
+            "https://www.ck12.org/workbook/CK-12-Biology-Workbook/",
+            "CK-12-Biology-Workbook",
+            "workbook",
+        ),
+        (
+            "https://www.ck12.org/quizbook/CK-12-Biology-Quizzes-and-Tests/",
+            "CK-12-Biology-Quizzes-and-Tests",
+            "quizbook",
+        ),
+    ],
+)
+def test_extract_slug_and_type_from_content_url(
+    url: str, expected_slug: str, expected_type: str
+) -> None:
+    """
+    extract_slug_from_content_url should return (slug, artifact_type) tuple for
+    supported CK-12 URL patterns.
+
+    Purpose:
+        Regression test for issue #100. Ensures that extract_slug_from_content_url
+        correctly identifies the artifact type from URL path prefixes (cbook, book,
+        tebook, workbook, quizbook) and returns both the slug and type as a tuple
+        instead of just the slug string.
+
+    Args:
+        url (str): CK-12 Content_URL to parse.
+        expected_slug (str): Expected slug value extracted from URL.
+        expected_type (str): Expected artifact type (cbook, book, tebook, workbook,
+            quizbook) derived from URL path prefix.
+
+    Side Effects:
+        None. Pure function test.
+    """
+    result = ck12_catalog.extract_slug_from_content_url(url)
+
+    # Verify the function returns a tuple (not just a string)
+    assert isinstance(result, tuple), f"Expected tuple, got {type(result)}"
+    assert len(result) == 2, f"Expected 2-tuple, got {len(result)}-tuple"
+
+    # Extract tuple components with proper type narrowing
+    slug: str = result[0]
+    artifact_type: str = result[1]
+    assert slug == expected_slug
+    assert artifact_type == expected_type
+
+
+def test_extract_slug_and_type_unknown_prefix_returns_none(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """
+    extract_slug_from_content_url should return None for unknown URL prefixes.
+
+    Purpose:
+        Regression test for issue #100. Ensures that CK-12 URLs with unknown or
+        unsupported path prefixes return None instead of defaulting to 'book' or
+        'flexbook'. Note: warnings are emitted by parse_catalog_json, not by this
+        pure function.
+
+    Args:
+        caplog (pytest.LogCaptureFixture): Pytest fixture to capture log messages
+            (unused in this test but kept for consistency with TDD-generated tests).
+
+    Side Effects:
+        None. Pure function test.
+    """
+    # Test with an unknown URL prefix pattern
+    unknown_url = "https://www.ck12.org/unknown-prefix/some-resource/"
+
+    result = ck12_catalog.extract_slug_from_content_url(unknown_url)
+
+    # Verify None is returned for unknown prefixes
+    assert result is None

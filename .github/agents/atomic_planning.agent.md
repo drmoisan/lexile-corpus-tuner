@@ -448,6 +448,34 @@ When the work involves tests:
    * [ ] [P3-T2] Add Pester test for Get-PoshQCFileList excluding directories listed in `$ExcludeDirs` in `PoshQC.Tests.ps1`
    * [ ] [P3-T3] Add Pester test for Invoke-PoshQCFormat skipping files when `$FileList` is empty in `PoshQC.Tests.ps1`
 
+### 5.4.1 TDD Red regression tests must be tagged (MANDATORY)
+
+When the plan includes a **TDD Red** step (i.e., adding a regression test that is expected to fail until a later implementation task), you MUST mark that test task with the exact flag:
+
+`[expect-fail]`
+
+Required rules:
+
+* The flag MUST appear in the task title text (after the task ID), for example:
+   `- [ ] [P1-T1] [expect-fail] Add regression test ...`
+* Any test task whose acceptance criteria explicitly requires `pytest` (or equivalent) to **fail** MUST include `[expect-fail]`.
+* Any task with `[expect-fail]` MUST have acceptance criteria that are mechanically verifiable and state:
+   - the exact test command to run, and
+   - that the command is expected to **fail** for the task to be considered complete.
+
+Examples:
+
+* Good:
+   `- [ ] [P1-T1] [expect-fail] Add parameterized test for slug extraction in tests/.../test_ck12_catalog.py`
+   - Acceptance: `poetry run pytest tests/... -k slug_extraction` fails with a tuple/type mismatch.
+
+* Bad (missing tag):
+   `- [ ] [P1-T1] Add failing regression test for slug extraction ...`
+
+* Bad (tagged but non-verifiable):
+   `- [ ] [P1-T1] [expect-fail] Add regression test ...`
+   - Acceptance: "Test fails".
+
 ### 5.5 Refactor decomposition rules (MANDATORY)
 
 When refactoring is required (e.g., to enable dependency injection, improve testability):

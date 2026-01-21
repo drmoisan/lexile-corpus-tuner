@@ -64,21 +64,23 @@ app = typer.Typer(
 )
 
 
-def extract_slug_from_content_url(url: str) -> str | None:
+def extract_slug_from_content_url(url: str) -> tuple[str, str] | None:
     """
-    Derive the CK-12 content slug from known Content_URL patterns.
+    Derive the CK-12 content slug and artifact type from known Content_URL patterns.
 
     Purpose:
-        Extract a stable slug from CK-12 Content_URL values so identifier derivation
-        remains deterministic across static feed and Browse API inputs.
+        Extract a stable slug and artifact type from CK-12 Content_URL values so
+        identifier derivation and Perma API requests remain deterministic across
+        static feed and Browse API inputs.
 
     Args:
         url (str): Fully-qualified CK-12 Content_URL string to parse.
 
     Returns:
-        str | None: Slug when the URL matches /cbook/, /user:<handle>/cbook/,
-            /book/, /tebook/, /workbook/, or /quizbook/ patterns;
-            None when the URL cannot be parsed.
+        tuple[str, str] | None: A tuple of (slug, artifact_type) when the URL matches
+            /cbook/, /user:<handle>/cbook/, /book/, /tebook/, /workbook/, or /quizbook/
+            patterns, where artifact_type is one of {cbook, book, tebook, workbook,
+            quizbook}. Returns None when the URL cannot be parsed.
 
     Raises:
         None.
@@ -94,7 +96,7 @@ def extract_slug_from_content_url(url: str) -> str | None:
         if "cbook" in path_parts:
             cbook_index = path_parts.index("cbook")
             if cbook_index + 1 < len(path_parts):
-                return path_parts[cbook_index + 1]
+                return (path_parts[cbook_index + 1], "cbook")
         return None
 
     if parsed.netloc == "www.ck12.org":
@@ -104,7 +106,7 @@ def extract_slug_from_content_url(url: str) -> str | None:
             if prefix in path_parts:
                 prefix_index = path_parts.index(prefix)
                 if prefix_index + 1 < len(path_parts):
-                    return path_parts[prefix_index + 1]
+                    return (path_parts[prefix_index + 1], prefix)
         return None
 
     return None
@@ -279,11 +281,14 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             if isinstance(content_url_raw, str) and content_url_raw
             else None
         )
-        content_url_slug: str | None = (
+        # Extract both slug and artifact type from URL
+        slug_and_type: tuple[str, str] | None = (
             extract_slug_from_content_url(content_url_raw)
             if isinstance(content_url_raw, str) and content_url_raw
             else None
         )
+        content_url_slug: str | None = slug_and_type[0] if slug_and_type else None
+        perma_type: str | None = slug_and_type[1] if slug_and_type else None
 
         # Log warning when Title and Content_URL are present but slug extraction fails
         # (Issue #95: surfaces feed changes or unsupported URL patterns)
@@ -293,7 +298,7 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             and title_raw
             and isinstance(content_url_raw, str)
             and content_url_raw
-            and content_url_slug is None
+            and slug_and_type is None
         ):
             logger.warning(
                 "Content_URL slug missing for title '%s' url '%s'",
@@ -321,7 +326,11 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
             elif isinstance(artifact_id, str) and artifact_id.isdigit():
                 artifact_id_value = int(artifact_id)
 
-            if content_url_host == "flexbooks.ck12.org":
+            # Use perma_type from URL parsing when available; otherwise fall back
+            # to host-based defaults for backward compatibility
+            if perma_type:
+                artifact_type_value = perma_type
+            elif content_url_host == "flexbooks.ck12.org":
                 artifact_type_value = "flexbook"
             elif content_url_host == "www.ck12.org":
                 artifact_type_value = "book"
@@ -351,7 +360,11 @@ def parse_catalog_json(catalog_data: dict[str, Any]) -> list[CatalogEntry]:
                     artifact_id_value = int(artifact_id_text)
 
             artifact_type_text = str(artifact_type)
-            if content_url_host == "flexbooks.ck12.org":
+            # Use perma_type from URL parsing when available; otherwise fall back
+            # to host-based defaults for backward compatibility
+            if perma_type:
+                artifact_type_value = perma_type
+            elif content_url_host == "flexbooks.ck12.org":
                 artifact_type_value = "flexbook"
             elif content_url_host == "www.ck12.org":
                 artifact_type_value = "book"
