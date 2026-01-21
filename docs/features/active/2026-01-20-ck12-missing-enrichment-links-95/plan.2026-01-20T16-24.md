@@ -35,7 +35,7 @@ Status Badge: [Planned | blue]
 	- Acceptance: execution log lists `https://static.ck12.org/testimonial/fbbrowse-prod.json` and the two CLI commands from spec Context.
 
 ### Phase 1 — Regression Tests (TDD)
-- [ ] [P1-T1] Add pytest `test_extract_slug_from_content_url_supports_tebook` in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [x] [P1-T1] Add pytest `test_extract_slug_from_content_url_supports_tebook` in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
 	- Acceptance: test asserts slug equals `CK-12-Earth-Science-For-Middle-School-Teachers-Edition` for a `/tebook/` URL and fails before code change.
 - [ ] [P1-T2] Add pytest `test_extract_slug_from_content_url_supports_workbook` in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
 	- Acceptance: test asserts slug equals `CK-12-Earth-Science-For-Middle-School-Workbook` for a `/workbook/` URL and fails before code change.

@@ -577,3 +577,20 @@ def test_parse_catalog_json_allows_missing_artifact_id_and_normalizes_language()
 
     assert second_entry.identifier == "explicit-language-list"
     assert second_entry.language == ["EN", "ES"]
+
+
+def test_extract_slug_from_content_url_supports_tebook() -> None:
+    """
+    extract_slug_from_content_url should recognize /tebook/ URL paths.
+
+    Purpose:
+        Regression test for issue #95. Ensures that CK-12 URLs with /tebook/ prefix
+        are correctly parsed to extract the slug, preventing missing handle errors
+        during enrichment.
+
+    Side Effects:
+        None. Pure function test.
+    """
+    url = "https://www.ck12.org/tebook/CK-12-Earth-Science-For-Middle-School-Teachers-Edition/"
+    slug = ck12_catalog.extract_slug_from_content_url(url)
+    assert slug == "CK-12-Earth-Science-For-Middle-School-Teachers-Edition"
