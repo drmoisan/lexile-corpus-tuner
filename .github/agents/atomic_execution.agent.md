@@ -40,8 +40,19 @@ Additional guardrails (for quality + determinism):
 If the plan does not include Phase 0 tasks that cover the above, treat the plan as **invalid** and request a corrected plan. (Do not “silently add” Phase 0; that is replanning.)
 
 In particular, for any plan that changes code or tests, the plan must:
-- Include Phase 0 tasks that (a) read applicable repo policies, and (b) capture baseline results for Ruff + Pyright + Pytest (and coverage when the plan relies on coverage).
-- Include a final QA phase that runs the full toolchain loop (Black → Ruff → Pyright → Pytest) and reports pass/fail.
+- Include Phase 0 tasks that (a) read applicable repo policies, and (b) capture baseline results for the **language-specific toolchains** applicable to the files being changed (see table below).
+- Include a final QA phase that runs the full toolchain loop for **each applicable language** and reports pass/fail.
+
+**Language-specific toolchains (run only for languages touched by the plan):**
+
+| Language   | Baseline & Final QC commands                                                                 |
+|------------|----------------------------------------------------------------------------------------------|
+| Python     | `poetry run black .` → `poetry run ruff check` → `poetry run pyright` → `poetry run pytest --cov=...` |
+| Bash/Shell | `poetry run python -m scripts.dev_tools.shell_qc format` → `shell_qc check` → `shell_qc test` |
+| PowerShell | `Invoke-PoshQCFormat` → `Invoke-PoshQCAnalyze` → `Invoke-PoshQCTest`                         |
+| JSON       | `poetry run python -m scripts.dev_tools.format_json` → `validate_json`                       |
+
+A plan that changes **only Bash** files requires only the Bash toolchain in Phase 0 baseline and final QA. A plan that changes **Python and PowerShell** requires both toolchains. Do not require toolchains for languages not touched by the plan.
 
 ---
 
@@ -82,8 +93,8 @@ Confirm all of the following; otherwise stop and request a corrected plan:
 - Phase numbers in IDs match the phase heading.
 - Task numbers are sequential within each phase.
 - Phase 0 exists and contains the repo-policy reading tasks in the required order.
-- For plans that change code or tests: Phase 0 also includes baseline capture tasks for Ruff, Pyright, and Pytest (and coverage if the plan’s acceptance criteria rely on coverage).
-- For plans that change code or tests: a final QA phase exists that runs the full toolchain loop (Black → Ruff → Pyright → Pytest) and reports results.
+- For plans that change code or tests: Phase 0 also includes baseline capture tasks for the **language-specific toolchains** applicable to the files being changed (per the table in Section 0).
+- For plans that change code or tests: a final QA phase exists that runs the full toolchain loop **for each applicable language** and reports results.
 - Any **TDD Red** regression-test task (i.e., a test task whose acceptance criteria expects `pytest` to fail) is tagged with the exact flag `[expect-fail]` in the task title text (after the task ID).
 - No task is a “bucket task” (e.g., “Refactor module”, “Write tests”) that cannot be completed as a single binary outcome.
 
@@ -129,7 +140,7 @@ Start with:
 ### 3.4 Verification (mandatory before check-off)
 - Explicitly verify the acceptance criteria.
 - If the repo policy requires a toolchain loop, run it at the appropriate points (or per plan).
-- If the task changes code/tests and the plan does not explicitly specify verification commands, prefer repo-defined tasks/commands and ensure the final QA phase executes the full loop: Black → Ruff → Pyright → Pytest.
+- If the task changes code/tests and the plan does not explicitly specify verification commands, prefer repo-defined tasks/commands and ensure the final QA phase executes the full toolchain loop for each language touched by the plan (per the table in Section 0).
 - For tasks tagged with `[expect-fail]`:
   - Treat a **failing** test run (as specified in the task acceptance criteria) as the expected outcome for that task.
   - Continue to treat formatting, linting, and type checking as normal pass/fail gates unless the task explicitly says otherwise.
