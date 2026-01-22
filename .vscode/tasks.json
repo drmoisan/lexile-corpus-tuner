@@ -703,12 +703,12 @@
         "python",
         "${workspaceFolder}/scripts/dev_tools/resolve_execute_plan_prompt.py",
         "--feature",
-        "${input:ExecutePlanFeatureFolder}",
+        "${file}",
         "--agent",
         "${input:ExecutePlanAgent}"
       ],
       "command": "poetry",
-      "detail": "Resolves the active feature, fills execute-plan prompt, and copies it to the clipboard.",
+      "detail": "Resolves the feature from the current file, fills execute-plan prompt, and copies it to the clipboard.",
       "label": "Dev: Resolve Execute Plan Prompt",
       "options": {
         "cwd": "${workspaceFolder}"
