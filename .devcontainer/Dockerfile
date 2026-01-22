@@ -1,12 +1,5 @@
 # Use Python 3.13 base image with Debian Bookworm
-# Stage 1: Get kcov binary from official image (kcov is not available via apt in Bookworm)
-FROM kcov/kcov:latest AS kcov
-
-# Stage 2: Main devcontainer image
 FROM mcr.microsoft.com/devcontainers/python:3.13-bookworm
-
-# Copy kcov binaries from the kcov stage
-COPY --from=kcov /usr/local/bin/kcov* /usr/local/bin/
 
 # Install PowerShell
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
@@ -19,7 +12,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     # Shell QC tooling
     shellcheck \
     shfmt \
-    bats \
     # Bash debugger build dependencies
     autoconf \
     automake \
