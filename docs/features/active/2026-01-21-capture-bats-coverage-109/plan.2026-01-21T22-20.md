@@ -106,23 +106,23 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 1 — Devcontainer support (kcov install)
 
-- [ ] [P1-T1] Update `.devcontainer/Dockerfile` to install `kcov` via multi-stage copy from `kcov/kcov:latest` (non-apt route)
+- [x] [P1-T1] Update `.devcontainer/Dockerfile` to install `kcov` via multi-stage copy from `kcov/kcov:latest` (non-apt route)
   - Implementation details:
     - Add a build stage: `FROM kcov/kcov:latest AS kcov`
     - Add a copy step: `COPY --from=kcov /usr/local/bin/kcov* /usr/local/bin/`
     - Keep the base stage as `mcr.microsoft.com/devcontainers/python:3.13-bookworm`.
   - Acceptance: After rebuilding the devcontainer, `kcov --version` succeeds inside the container.
 
-- [ ] [P1-T2] Update `.devcontainer/Dockerfile` to ensure `bats` is installed during devcontainer build
+- [x] [P1-T2] Update `.devcontainer/Dockerfile` to ensure `bats` is installed during devcontainer build
   - Acceptance: After rebuilding the devcontainer, `bats --version` succeeds inside the container.
 
 ### Phase 2 — TDD red tests (Python unit tests)
 
-- [ ] [P2-T1] [expect-fail] Add a failing pytest test asserting `scripts.dev_tools.shell_qc.parse_args(["test", "--coverage"])` is accepted in `tests/scripts/dev_tools/test_shell_qc.py`
+- [x] [P2-T1] [expect-fail] Add a failing pytest test asserting `scripts.dev_tools.shell_qc.parse_args(["test", "--coverage"])` is accepted in `tests/scripts/dev_tools/test_shell_qc.py`
   - Preconditions: No production code changes in `scripts/dev_tools/shell_qc.py` have been made for `--coverage`.
   - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_shell_qc.py -k test_parse_args_accepts_test_coverage_flag` fails.
 
-- [ ] [P2-T2] [expect-fail] Add a failing pytest test asserting `scripts.dev_tools.shell_qc.main(["test", "--coverage"])` returns exit code 127 when `kcov` is missing in `tests/scripts/dev_tools/test_shell_qc.py`
+- [x] [P2-T2] [expect-fail] Add a failing pytest test asserting `scripts.dev_tools.shell_qc.main(["test", "--coverage"])` returns exit code 127 when `kcov` is missing in `tests/scripts/dev_tools/test_shell_qc.py`
   - Preconditions: No production code changes have been made to enforce `kcov` presence.
   - Implementation details:
     - Use `monkeypatch.setattr(shell_qc.shutil, "which", lambda _: None)` to simulate missing `kcov` deterministically.
@@ -141,20 +141,20 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 4 — Implement `shell-qc test --coverage`
 
-- [ ] [P4-T1] Update `scripts/dev_tools/shell_qc.py:parse_args` to add a `--coverage` flag for the `test` subcommand
+- [x] [P4-T1] Update `scripts/dev_tools/shell_qc.py:parse_args` to add a `--coverage` flag for the `test` subcommand
   - Implementation details:
     - Capture the `test` parser instance returned by `subparsers.add_parser("test", ...)`.
     - Add `test_parser.add_argument("--coverage", action="store_true", help="Run bats tests under coverage instrumentation.")`.
   - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_shell_qc.py -k test_parse_args_accepts_test_coverage_flag` exits with code 0.
 
-- [ ] [P4-T2] Update `scripts/dev_tools/shell_qc.py:main` to dispatch `test --coverage` to a new coverage-aware path
+- [x] [P4-T2] Update `scripts/dev_tools/shell_qc.py:main` to dispatch `test --coverage` to a new coverage-aware path
   - Implementation details:
     - If `args.command == "test"` and `args.coverage is True`, call a new function `run_test_with_coverage()`.
     - If `args.command == "test"` and `args.coverage is False`, preserve existing `run_test()` behavior.
     - In `run_test_with_coverage()`, require `kcov` via `shutil.which("kcov")` and return 127 if missing.
   - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_shell_qc.py -k test_main_test_coverage_errors_when_kcov_missing` exits with code 0.
 
-- [ ] [P4-T3] Implement `scripts/dev_tools/shell_qc.py:run_test_with_coverage` to generate `artifacts/pester/bash/cov.xml` and HTML output using `kcov --cobertura-only`
+- [x] [P4-T3] Implement `scripts/dev_tools/shell_qc.py:run_test_with_options` to generate `artifacts/pester/kcov/cov.xml` and HTML output using `kcov --cobertura-only`
   - Implementation details:
     - Coverage output directory: `Path("artifacts") / "pester" / "bash"`.
     - Ensure the output directory exists before invoking kcov.
