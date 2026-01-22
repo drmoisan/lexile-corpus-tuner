@@ -1,7 +1,6 @@
 ---
 agent: 'atomic_planner'
 description: 'Update an existing implementation plan file with new or update requirements to provide new features, refactoring existing code or upgrading packages, design, architecture or infrastructure.'
-tools: ['search/changes', 'search/codebase', 'edit/editFiles', 'vscode/extensions', 'web/fetch', 'web/githubRepo', 'vscode/openSimpleBrowser', 'read/problems', 'execute/createAndRunTask', 'execute/getTaskOutput', 'execute/runTask', 'search', 'search/searchResults', 'read/terminalLastCommand', 'read/terminalSelection', 'execute/testFailure', 'search/usages', 'vscode/vscodeAPI']
 ---
 # Update Implementation Plan - `${name}`
 
