@@ -137,12 +137,18 @@ Every plan MUST begin with **Phase 0**. You must explicitly list tasks to read a
 3. `.github/instructions/general-unit-test.instructions.md`
 4. Language-specific policies (e.g., `.github/instructions/python-code-change.instructions.md`) applicable to the task.
 
-If (and only if) the plan changes code or tests, Phase 0 MUST ALSO include atomic tasks to capture baseline results for the repo’s quality gates:
+If (and only if) the plan changes code or tests, Phase 0 MUST ALSO include atomic tasks to capture baseline results for the **language-specific toolchains** applicable to the files being changed:
 
-- Ruff (lint)
-- Pyright (type-check)
-- Pytest (tests)
-- Coverage (only when the plan’s acceptance criteria depend on coverage numbers)
+**Language-specific toolchains (run only for languages touched by the plan):**
+
+| Language   | Baseline & Final QC commands                                                                 |
+|------------|----------------------------------------------------------------------------------------------|
+| Python     | `poetry run black .` → `poetry run ruff check` → `poetry run pyright` → `poetry run pytest --cov=...` |
+| Bash/Shell | `poetry run python -m scripts.dev_tools.shell_qc format` → `shell_qc check` → `shell_qc test` |
+| PowerShell | `Invoke-PoshQCFormat` → `Invoke-PoshQCAnalyze` → `Invoke-PoshQCTest`                         |
+| JSON       | `poetry run python -m scripts.dev_tools.format_json` → `validate_json`                       |
+
+A plan that changes **only Bash** files requires only the Bash toolchain in Phase 0 baseline and final QA. A plan that changes **Python and PowerShell** requires both toolchains. Do not require toolchains for languages not touched by the plan.
 
 These baseline-capture tasks are required so the executor can (a) detect regressions, and (b) prove the final QA pass is meaningful.
 
@@ -189,7 +195,7 @@ You MUST validate ALL of the following (hard fail if any check fails):
      2. `.github/instructions/general-code-change.instructions.md`
      3. `.github/instructions/general-unit-test.instructions.md`
      4. Applicable language-specific policies
-   - For code/test changes: Phase 0 MUST include baseline capture tasks for Ruff, Pyright, and Pytest (and coverage only if the plan’s acceptance criteria depend on coverage).
+   - For code/test changes: Phase 0 MUST include baseline capture tasks for the **language-specific toolchains** applicable to the files being changed (per the table in §2.3).
 
 If any check fails: you MUST correct the plan before responding. Do NOT output a "best effort" plan.
 
@@ -258,14 +264,16 @@ If you cannot guarantee closure, remove `REQ-*` tags entirely.
 
 ### 2.4 Final QA Phase (Mandatory for code/test changes)
 
-If (and only if) the plan changes code or tests, it MUST include a final QA phase with atomic tasks that run the full toolchain loop **in order** and report pass/fail:
+If (and only if) the plan changes code or tests, it MUST include a final QA phase with atomic tasks that run the full toolchain loop **for each applicable language** (per the table in §2.3) **in order** and report pass/fail:
 
-1. Formatting (e.g., Black)
-2. Linting (e.g., Ruff)
-3. Type checking (e.g., Pyright)
-4. Testing (e.g., Pytest)
+1. Formatting
+2. Linting
+3. Type checking (where applicable)
+4. Testing
 
 The QA phase tasks MUST explicitly require restarting the loop from step 1 if any step fails or changes files, until a single clean pass completes.
+
+A plan that changes only Bash files runs only the Bash toolchain in the final QA phase. A plan that changes Python and PowerShell runs both toolchains.
 
 ---
 
@@ -698,8 +706,8 @@ Before sending any response that includes a plan, you must quickly self-check:
 * Are phases present, and does each phase contain at least one atomic task?
 * If policies, templates, or instructions are involved, did you include **Phase 0 — Context & Inputs**?
 * If the plan changes code or tests:
-   * Did Phase 0 include baseline capture tasks for Ruff, Pyright, and Pytest (and coverage only if relied upon)?
-   * Did you include a final QA phase that runs the toolchain loop (Black → Ruff → Pyright → Pytest) and reports results?
+   * Did Phase 0 include baseline capture tasks for the **language-specific toolchains** applicable to the files being changed (per the table in §2.3)?
+   * Did you include a final QA phase that runs the toolchain loop **for each applicable language** and reports results?
 * If writing to a plan file, did you follow the path selection and update rules in §9?
 * Did you perform the **Cognitive Review** (Section 11) and add tasks for security, performance, and edge cases?
 

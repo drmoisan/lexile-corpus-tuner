@@ -38,7 +38,8 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 - Include specific file paths, line numbers, and exact code references where applicable
 - Define all variables, constants, and configuration values explicitly
 - Provide complete context within each task description
-- Use standardized prefixes for all identifiers (REQ-, TASK-, etc.)
+- Use standardized prefixes for requirements and constraints (e.g., REQ-, SEC-, CON-)
+- Use `[P#-T#]` identifiers for tasks (canonical)
 - Include validation criteria that can be automatically verified
 
 ## Output File Specifications
@@ -99,21 +100,21 @@ tags: [Optional: List of relevant tags or categories, e.g., `feature`, `upgrade`
 
 - GOAL-001: [Describe the goal of this phase, e.g., "Implement feature X", "Refactor module Y", etc.]
 
-| Task | Description | Completed | Date |
+| Task ID | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-001 | Description of task 1 | ✅ | 2025-04-25 |
-| TASK-002 | Description of task 2 | |  |
-| TASK-003 | Description of task 3 | |  |
+| [P1-T1] | Description of task 1 | ✅ | 2025-04-25 |
+| [P1-T2] | Description of task 2 | |  |
+| [P1-T3] | Description of task 3 | |  |
 
 ### Implementation Phase 2
 
 - GOAL-002: [Describe the goal of this phase, e.g., "Implement feature X", "Refactor module Y", etc.]
 
-| Task | Description | Completed | Date |
+| Task ID | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-004 | Description of task 4 | |  |
-| TASK-005 | Description of task 5 | |  |
-| TASK-006 | Description of task 6 | |  |
+| [P2-T1] | Description of task 4 | |  |
+| [P2-T2] | Description of task 5 | |  |
+| [P2-T3] | Description of task 6 | |  |
 
 ## 3. Alternatives
 

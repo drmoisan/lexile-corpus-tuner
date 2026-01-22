@@ -1,7 +1,6 @@
 ---
 agent: 'atomic_planner'
 description: 'Update an existing implementation plan file with new or update requirements to provide new features, refactoring existing code or upgrading packages, design, architecture or infrastructure.'
-tools: ['search/changes', 'search/codebase', 'edit/editFiles', 'vscode/extensions', 'web/fetch', 'web/githubRepo', 'vscode/openSimpleBrowser', 'read/problems', 'execute/createAndRunTask', 'execute/getTaskOutput', 'execute/runTask', 'search', 'search/searchResults', 'read/terminalLastCommand', 'read/terminalSelection', 'execute/testFailure', 'search/usages', 'vscode/vscodeAPI']
 ---
 # Update Implementation Plan - `${name}`
 
@@ -40,7 +39,8 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 - Include specific file paths, line numbers, and exact code references where applicable
 - Define all variables, constants, and configuration values explicitly
 - Provide complete context within each task description
-- Use standardized prefixes for all identifiers (REQ-, TASK-, etc.)
+- Use standardized prefixes for requirements and constraints (e.g., REQ-, SEC-, CON-)
+- Use `[P#-T#]` identifiers for tasks (canonical)
 - Include validation criteria that can be automatically verified
 
 ## Output
