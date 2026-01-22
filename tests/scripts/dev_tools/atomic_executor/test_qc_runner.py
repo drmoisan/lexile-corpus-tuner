@@ -412,6 +412,7 @@ class TestQCRunnerRunFull:
             "poetry",
             "run",
             "pytest",
+            "--color=no",
             "--cov=src/lexile_corpus_tuner",
             "--cov-report=xml",
             "--cov-report=term-missing",
@@ -439,6 +440,89 @@ class TestQCRunnerRunFull:
         runner = QCRunner(tmp_path)
         with pytest.raises(subprocess.CalledProcessError):
             runner.run_full()
+
+    def test_phase_expected_fail_tolerates_pytest_failures(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """
+        run_full() tolerates expected pytest failures when expectations exist.
+
+        Purpose:
+            Ensure expected-fail refs do not fail the phase gate.
+        """
+        from scripts.dev_tools.atomic_executor.pytest_expectations import (
+            ResolvedTestExpectations,
+        )
+
+        expectations = ResolvedTestExpectations(
+            expected_fail_refs={"tests/bugs/2026/test_issue_98.py::test_expected_fail"},
+            expected_pass_refs=set(),
+            missing_test_refs=[],
+        )
+
+        def mock_run(
+            argv: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if "pytest" in argv:
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=1,
+                    stdout=(
+                        "FAILED tests/bugs/2026/test_issue_98.py::"
+                        "test_expected_fail - AssertionError"
+                    ),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="", stderr=""
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        runner = QCRunner(tmp_path)
+        runner.run_full(expectations=expectations)
+
+    def test_phase_unexpected_fail_raises_on_pytest_failures(
+        self, tmp_path: Path, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """
+        run_full() raises when pytest failures are unexpected.
+
+        Purpose:
+            Confirm unexpected pytest failures continue to fail the phase gate.
+        """
+        from scripts.dev_tools.atomic_executor.pytest_expectations import (
+            ResolvedTestExpectations,
+        )
+
+        expectations = ResolvedTestExpectations(
+            expected_fail_refs=set(),
+            expected_pass_refs=set(),
+            missing_test_refs=[],
+        )
+
+        def mock_run(
+            argv: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            if "pytest" in argv:
+                return subprocess.CompletedProcess(
+                    args=argv,
+                    returncode=1,
+                    stdout=(
+                        "FAILED tests/bugs/2026/test_issue_98.py::"
+                        "test_unexpected - AssertionError"
+                    ),
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=argv, returncode=0, stdout="", stderr=""
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        runner = QCRunner(tmp_path)
+        with pytest.raises(subprocess.CalledProcessError):
+            runner.run_full(expectations=expectations)
 
 
 class TestQCRunnerEdgeCases:

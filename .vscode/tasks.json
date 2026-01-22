@@ -533,6 +533,27 @@
     },
     {
       "args": [
+        "run",
+        "python",
+        "-m",
+        "scripts.dev_tools.copy_research_to_issue"
+      ],
+      "command": "poetry",
+      "detail": "Interactively selects a research doc and an active issue file, then copies it into the issue folder as research.md.",
+      "label": "Dev: Copy Research to Active Folder",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always",
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "type": "shell"
+    },
+    {
+      "args": [
         "issue",
         "create",
         "--template",

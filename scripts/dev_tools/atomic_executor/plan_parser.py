@@ -21,6 +21,12 @@ TASK_LINE_RE = re.compile(
 )
 
 PHASE_HEADING_RE = re.compile(r"^\s*#+\s*Phase\s+(?P<phase>\d+)\b", re.IGNORECASE)
+EXPECT_FAIL_TAG = "[expect-fail]"
+EXPECT_SUCCESS_TAG = "[expect-pass]"
+PYTEST_REF_PREFIX = "pytest "
+PROSE_PYTEST_REF_RE = re.compile(
+    r"^Add pytest `(?P<test_name>[^`]+)` in `(?P<path>[^`]+)`$"
+)
 
 QC_STEP_PATTERNS: dict[str, re.Pattern[str]] = {
     "black": re.compile(r"poetry\s+run\s+black\b", re.IGNORECASE),
@@ -50,6 +56,10 @@ class PlanTask:
         line_index (int): Zero-based line number in plan.md (for editing).
         expect_fail (bool): True if task title was annotated with [expect-fail]
             tag (inverts pytest success criteria for TDD Red workflow).
+        expect_pass (bool): True if task title was annotated with [expect-pass]
+            tag (declares pytest failures unacceptable for the referenced test).
+        test_ref (str | None): Optional pytest nodeid or nodeid prefix extracted
+            from the task title when expectation tags are present.
     """
 
     task_id: str
@@ -59,6 +69,35 @@ class PlanTask:
     checked: bool
     line_index: int
     expect_fail: bool = False
+    expect_pass: bool = False
+    test_ref: str | None = None
+
+
+def _extract_test_ref(title: str) -> str | None:
+    """
+    Extract a pytest nodeid reference from a plan task title.
+
+    Purpose:
+        Convert expectation-tagged task titles into deterministic pytest refs.
+
+    Args:
+        title (str): Task title after stripping expectation tags.
+
+    Returns:
+        str | None: Extracted nodeid/prefix or None when absent.
+    """
+    normalized_title = title.strip()
+
+    # Prefer explicit pytest references to avoid ambiguous inference.
+    if normalized_title.lower().startswith(PYTEST_REF_PREFIX):
+        return normalized_title[len(PYTEST_REF_PREFIX) :].strip()
+
+    # Fall back to the prose form used in plan templates.
+    prose_match = PROSE_PYTEST_REF_RE.match(normalized_title)
+    if prose_match:
+        return f"{prose_match.group('path')}::{prose_match.group('test_name')}"
+
+    return None
 
 
 @dataclass(frozen=True)
@@ -172,12 +211,22 @@ class PlanParser:
                 checked = m.group("state").strip().lower() == "x"
                 raw_title = m.group("title").strip()
 
-                # Detect [expect-fail] tag at the start of the title (TDD Red workflow).
-                # If present, set expect_fail=True and remove the tag from the title.
+                # Decide which expectation tag applies so downstream QC can
+                # interpret it.
                 expect_fail = False
-                if raw_title.lower().startswith("[expect-fail]"):
+                expect_pass = False
+                if raw_title.lower().startswith(EXPECT_FAIL_TAG):
                     expect_fail = True
-                    raw_title = raw_title[len("[expect-fail]") :].strip()
+                    raw_title = raw_title[len(EXPECT_FAIL_TAG) :].strip()
+                elif raw_title.lower().startswith(EXPECT_SUCCESS_TAG):
+                    expect_pass = True
+                    raw_title = raw_title[len(EXPECT_SUCCESS_TAG) :].strip()
+
+                # Capture an explicit pytest reference when expectation tags
+                # are present.
+                test_ref = None
+                if expect_fail or expect_pass:
+                    test_ref = _extract_test_ref(raw_title)
 
                 tasks.append(
                     PlanTask(
@@ -188,6 +237,8 @@ class PlanParser:
                         checked=checked,
                         line_index=idx,
                         expect_fail=expect_fail,
+                        expect_pass=expect_pass,
+                        test_ref=test_ref,
                     )
                 )
                 phases.add(phase)

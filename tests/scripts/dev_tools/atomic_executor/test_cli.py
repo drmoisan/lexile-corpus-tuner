@@ -1040,6 +1040,212 @@ class TestPreflightQC:
         assert args.skip_preflight_qc is False
 
 
+class TestPhaseEndQC:
+    """Tests for phase-end QC behavior in the CLI."""
+
+    def test_phase_end_expectations_passed_to_qc_runner(
+        self, monkeypatch: "MonkeyPatch"
+    ) -> None:
+        """
+        CLI should pass resolved expectations to phase-end QC.
+
+        Purpose:
+            Ensure phase completion forwards plan expectations into run_full().
+        """
+        from scripts.dev_tools.atomic_executor import cli
+        from scripts.dev_tools.atomic_executor.plan_parser import PlanModel, PlanTask
+
+        plan_task = PlanTask(
+            task_id="P1-T1",
+            phase=1,
+            task_num=1,
+            title="pytest tests/bugs/2026/test_issue_98.py::test_expected_fail",
+            checked=True,
+            line_index=0,
+            expect_fail=True,
+            test_ref="tests/bugs/2026/test_issue_98.py::test_expected_fail",
+        )
+        plan = PlanModel(tasks=[plan_task], phases=[1])
+
+        parser = Mock()
+        parser.next_unchecked_task.return_value = plan_task
+        parser.find_task_by_id.return_value = plan_task
+        parser.phase_complete.return_value = True
+        parser.preflight_validate.return_value = None
+        parser.parse.return_value = plan
+
+        resolver = Mock()
+        resolver.resolve.return_value = (Mock(), Path.cwd())
+        qc_runner = Mock()
+
+        monkeypatch.setattr(cli, "PlanParser", lambda _path: parser)
+        monkeypatch.setattr(cli, "FeatureResolver", Mock(return_value=resolver))
+        monkeypatch.setattr(cli, "QCRunner", Mock(return_value=qc_runner))
+        monkeypatch.setattr(cli, "resolve_workspace", lambda _workspace: Path.cwd())
+        monkeypatch.setattr(
+            cli,
+            "resolve_feature_plan",
+            lambda _dir: Mock(path=Path("docs/features/active/README.md")),
+        )
+        monkeypatch.setattr(cli, "refuse_protected_branch", lambda _workspace: None)
+        monkeypatch.setattr(cli, "execute_one_task", lambda **_kwargs: 0)
+
+        exit_code = cli.main(["execute", "feature", "--skip-preflight-qc"])
+
+        assert exit_code == 0
+        qc_runner.run_full.assert_called_once()
+        _, kwargs = qc_runner.run_full.call_args
+        assert "expectations" in kwargs
+        assert (
+            "tests/bugs/2026/test_issue_98.py::test_expected_fail"
+            in kwargs["expectations"].expected_fail_refs
+        )
+
+    def test_preflight_expected_fail_allows_known_failures(
+        self,
+        monkeypatch: "MonkeyPatch",
+    ) -> None:
+        """
+        Preflight QC should allow failures covered by expected-fail refs.
+
+        Purpose:
+            Ensure expected-fail refs suppress baseline fix behavior for pytest.
+        """
+        from scripts.dev_tools.atomic_executor.cli import (
+            _run_preflight_qc_with_capture,
+        )
+        from scripts.dev_tools.atomic_executor.pytest_expectations import (
+            ResolvedTestExpectations,
+        )
+
+        expectations = ResolvedTestExpectations(
+            expected_fail_refs={"tests/bugs/2026/test_issue_98.py::test_expected_fail"},
+            expected_pass_refs=set(),
+            missing_test_refs=[],
+        )
+
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            """Return a failing pytest run for the expected-fail nodeid."""
+            cmd = args[0]
+            if isinstance(cmd, list) and "pytest" in cmd and "--collect-only" in cmd:
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0, stdout="collected", stderr=""
+                )
+            if isinstance(cmd, list) and "pytest" in cmd:
+                output = (
+                    "FAILED tests/bugs/2026/test_issue_98.py::"
+                    "test_expected_fail - AssertionError"
+                )
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=1, stdout=output, stderr=""
+                )
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="OK", stderr=""
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+
+        assert result.success is True
+        assert result.failed_step is None
+        assert "expected pytest failures" in result.output.lower()
+
+    def test_preflight_expected_pass_wins(
+        self,
+        monkeypatch: "MonkeyPatch",
+    ) -> None:
+        """
+        Expected-pass should override expected-fail for the same ref.
+
+        Purpose:
+            Ensure expected-pass entries cause the pytest gate to fail.
+        """
+        from scripts.dev_tools.atomic_executor.cli import (
+            _run_preflight_qc_with_capture,
+        )
+        from scripts.dev_tools.atomic_executor.pytest_expectations import (
+            ResolvedTestExpectations,
+        )
+
+        expectations = ResolvedTestExpectations(
+            expected_fail_refs={"tests/bugs/2026/test_issue_98.py::test_expected_fail"},
+            expected_pass_refs={"tests/bugs/2026/test_issue_98.py::test_expected_fail"},
+            missing_test_refs=[],
+        )
+
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            """Return a failing pytest run for the expected-pass nodeid."""
+            cmd = args[0]
+            if isinstance(cmd, list) and "pytest" in cmd and "--collect-only" in cmd:
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0, stdout="collected", stderr=""
+                )
+            if isinstance(cmd, list) and "pytest" in cmd:
+                output = (
+                    "FAILED tests/bugs/2026/test_issue_98.py::"
+                    "test_expected_fail - AssertionError"
+                )
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=1, stdout=output, stderr=""
+                )
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="OK", stderr=""
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+
+        assert result.success is False
+        assert result.failed_step == "pytest"
+        assert "expected-pass" in result.output.lower()
+
+    def test_preflight_missing_test_ref(
+        self,
+        monkeypatch: "MonkeyPatch",
+    ) -> None:
+        """
+        Missing test refs should fail preflight before running pytest.
+
+        Purpose:
+            Provide actionable feedback when expectation tasks lack test refs.
+        """
+        from scripts.dev_tools.atomic_executor.cli import (
+            _run_preflight_qc_with_capture,
+        )
+        from scripts.dev_tools.atomic_executor.pytest_expectations import (
+            ResolvedTestExpectations,
+        )
+
+        expectations = ResolvedTestExpectations(
+            expected_fail_refs=set(),
+            expected_pass_refs=set(),
+            missing_test_refs=["P1-T1"],
+        )
+
+        def mock_run(
+            *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            """Return success for non-pytest steps."""
+            cmd = args[0]
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="OK", stderr=""
+            )
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+
+        assert result.success is False
+        assert result.failed_step == "pytest-collect"
+        assert "missing test reference" in result.output.lower()
+
+
 class TestRunCopilot:
     """Tests for run_copilot() function."""
 

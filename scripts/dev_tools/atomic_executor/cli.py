@@ -42,6 +42,11 @@ from scripts.dev_tools.atomic_executor.plan_parser import (
     PlanTask,
 )
 from scripts.dev_tools.atomic_executor.prompt_builder import PromptBuilder
+from scripts.dev_tools.atomic_executor.pytest_expectations import (
+    ResolvedTestExpectations,
+    parse_pytest_failure_output,
+    resolve_checked_test_expectations,
+)
 from scripts.dev_tools.atomic_executor.qc_runner import QCLoopResult, QCRunner
 
 DEFAULT_PROMPT_TEMPLATE = ".github/prompts/execute-plan-template.md"
@@ -1259,7 +1264,58 @@ class PreflightQCResult:
     failed_step: str | None = None
 
 
-def _run_preflight_qc_with_capture(workspace: Path) -> PreflightQCResult:
+def _resolve_plan_expectations(
+    parser: PlanParser,
+) -> ResolvedTestExpectations | None:
+    """
+    Resolve checked plan expectations for preflight gating.
+
+    Purpose:
+        Determine if the active plan includes checked expectation tasks.
+
+    Args:
+        parser (PlanParser): Plan parser for the current plan file.
+
+    Returns:
+        ResolvedTestExpectations | None: Resolved expectations, or None when empty.
+    """
+    plan = parser.parse()
+    expectations = resolve_checked_test_expectations(plan)
+    if (
+        not expectations.expected_fail_refs
+        and not expectations.expected_pass_refs
+        and not expectations.missing_test_refs
+    ):
+        return None
+    return expectations
+
+
+def _matches_expected_ref(nodeid: str, expected_refs: set[str]) -> bool:
+    """
+    Check whether a failing nodeid matches any expected ref prefix.
+
+    Purpose:
+        Support prefix matching to handle parameterized pytest nodeids.
+
+    Args:
+        nodeid (str): Failing pytest nodeid.
+        expected_refs (set[str]): Expected nodeid prefixes to match against.
+
+    Returns:
+        bool: True when a prefix match is found.
+    """
+    # Scan the expected refs to allow prefix matching for parametrized tests.
+    for expected_ref in expected_refs:
+        if nodeid.startswith(expected_ref):
+            return True
+    return False
+
+
+def _run_preflight_qc_with_capture(
+    workspace: Path,
+    *,
+    expectations: ResolvedTestExpectations | None = None,
+) -> PreflightQCResult:
     """
     Run full QC toolchain and capture combined output.
 
@@ -1283,6 +1339,7 @@ def _run_preflight_qc_with_capture(workspace: Path) -> PreflightQCResult:
                 "poetry",
                 "run",
                 "pytest",
+                "--color=no",
                 "--cov=src/lexile_corpus_tuner",
                 "--cov=scripts/dev_tools",
                 "--cov-report=term-missing",
@@ -1291,9 +1348,56 @@ def _run_preflight_qc_with_capture(workspace: Path) -> PreflightQCResult:
     ]
 
     all_output: list[str] = []
+    expected_refs: set[str] = set()
+
+    if expectations is not None:
+        expected_refs = (
+            expectations.expected_fail_refs | expectations.expected_pass_refs
+        )
+        if expectations.missing_test_refs:
+            missing_refs = ", ".join(expectations.missing_test_refs)
+            message = (
+                "Missing test reference for expectation-tagged tasks: "
+                f"{missing_refs}"
+            )
+            return PreflightQCResult(
+                success=False,
+                output=message,
+                failed_step="pytest-collect",
+            )
 
     for step_name, cmd in steps:
         all_output.append(f"=== {step_name.upper()} ===")
+
+        if step_name == "pytest" and expectations is not None and expected_refs:
+            all_output.append("=== PYTEST COLLECT ===")
+            collect_cmd = [
+                "poetry",
+                "run",
+                "pytest",
+                "--collect-only",
+                "--color=no",
+                *sorted(expected_refs),
+            ]
+            collect_result = subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
+                collect_cmd,
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+            )
+            collect_output = (collect_result.stdout or "") + (
+                collect_result.stderr or ""
+            )
+            all_output.append(
+                collect_output.strip() if collect_output else "(no output)"
+            )
+            if collect_result.returncode != 0:
+                return PreflightQCResult(
+                    success=False,
+                    output="\n\n".join(all_output),
+                    failed_step="pytest-collect",
+                )
+
         # Commands are static hardcoded constants (poetry run black/ruff/pyright/pytest)
         result = subprocess.run(  # noqa: S603 - static analysis can't verify runtime validation
             cmd,
@@ -1305,10 +1409,53 @@ def _run_preflight_qc_with_capture(workspace: Path) -> PreflightQCResult:
         all_output.append(combined.strip() if combined else "(no output)")
 
         if result.returncode != 0:
-            return PreflightQCResult(
-                success=False,
-                output="\n\n".join(all_output),
-                failed_step=step_name,
+            if step_name != "pytest" or expectations is None:
+                return PreflightQCResult(
+                    success=False,
+                    output="\n\n".join(all_output),
+                    failed_step=step_name,
+                )
+
+            summary = parse_pytest_failure_output(combined)
+            if summary.has_collection_error:
+                all_output.append(
+                    "Pytest collection/import errors detected; failing QC."
+                )
+                return PreflightQCResult(
+                    success=False,
+                    output="\n\n".join(all_output),
+                    failed_step=step_name,
+                )
+
+            unexpected_failures: list[str] = []
+            expected_pass_hits: list[str] = []
+
+            # Compare failing nodeids against expected refs with prefix matching.
+            for nodeid in summary.failed_nodeids:
+                if _matches_expected_ref(nodeid, expectations.expected_pass_refs):
+                    expected_pass_hits.append(nodeid)
+                    unexpected_failures.append(nodeid)
+                elif _matches_expected_ref(nodeid, expectations.expected_fail_refs):
+                    continue
+                else:
+                    unexpected_failures.append(nodeid)
+
+            if unexpected_failures:
+                all_output.append("Unexpected pytest failures detected.")
+                if expected_pass_hits:
+                    all_output.append(
+                        "Expected-pass override applied to: "
+                        + ", ".join(expected_pass_hits)
+                    )
+                return PreflightQCResult(
+                    success=False,
+                    output="\n\n".join(all_output),
+                    failed_step=step_name,
+                )
+
+            all_output.append(
+                "Expected pytest failures allowed: "
+                + ", ".join(sorted(summary.failed_nodeids))
             )
 
     return PreflightQCResult(
@@ -1374,6 +1521,7 @@ def _run_preflight_qc_fix_loop(
     copilot_allow_all_urls: bool,
     copilot_trust_workspace: bool,
     max_fix_attempts: int,
+    expectations: ResolvedTestExpectations | None,
 ) -> int:
     """
     Run the pre-flight QC fix loop until baseline passes or attempts exhausted.
@@ -1406,6 +1554,7 @@ def _run_preflight_qc_fix_loop(
         copilot_allow_all_urls: Allow all URLs without approval.
         copilot_trust_workspace: Add workspace to trusted folders.
         max_fix_attempts: Max number of fix attempts (0 = infinite).
+        expectations: Optional resolved plan expectations for pytest gating.
 
     Returns:
         int: 0 on success, 6 on failure.
@@ -1424,7 +1573,9 @@ def _run_preflight_qc_fix_loop(
         print("Running pre-flight QC check...")
         _log_msg(log_file, "INFO: Running pre-flight QC check")
 
-        preflight_check = _run_preflight_qc_with_capture(workspace)
+        preflight_check = _run_preflight_qc_with_capture(
+            workspace, expectations=expectations
+        )
         if preflight_check.success:
             # QC passed - we're done
             print("Pre-flight QC passed.")
@@ -2101,6 +2252,7 @@ def main(argv: list[str] | None = None) -> int:
             preferred_model=args.preferred_model,
         )
         qc_runner = QCRunner(workspace)
+        preflight_expectations = _resolve_plan_expectations(parser)
 
         # Per-run throttling controls. The limiter must persist across tasks to
         # regulate overall call cadence.
@@ -2134,6 +2286,7 @@ def main(argv: list[str] | None = None) -> int:
                 copilot_allow_all_urls=args.copilot_allow_all_urls,
                 copilot_trust_workspace=args.copilot_trust_workspace,
                 max_fix_attempts=args.max_fix_attempts,
+                expectations=preflight_expectations,
             )
             if preflight_result != 0:
                 return preflight_result
@@ -2202,7 +2355,8 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     print(f"Phase {cur.phase} complete -> running full toolchain...")
                     try:
-                        qc_runner.run_full()
+                        phase_expectations = _resolve_plan_expectations(parser)
+                        qc_runner.run_full(expectations=phase_expectations)
                     except subprocess.CalledProcessError as e:
                         print(
                             f"Full QC failed after completing Phase {cur.phase}: {e}",

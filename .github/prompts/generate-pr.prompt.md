@@ -55,7 +55,14 @@ Prioritize these sections (when present), in this order:
 
 ## Output Format (GitHub-flavored Markdown only)
 
-Output ONLY the PR body with EXACTLY this section order:
+### Output wrapper (required)
+
+- Your output MUST be a **single fenced code block** using the language tag `markdown`.
+- The code block must contain ONLY the pull request message.
+- Do not include any other text outside the code block.
+- This is required so the pull request message can be copied cleanly.
+
+### Output ONLY the PR body with EXACTLY this section order:
 
 - Suggested title: ...
 - ## Summary

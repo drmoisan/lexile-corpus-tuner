@@ -28,6 +28,9 @@ class TestPlanTask:
             title="Example task",
             checked=True,
             line_index=10,
+            expect_fail=False,
+            expect_pass=True,
+            test_ref="tests/sample.py::test_example",
         )
         assert task.task_id == "P1-T2"
         assert task.phase == 1
@@ -35,6 +38,9 @@ class TestPlanTask:
         assert task.title == "Example task"
         assert task.checked is True
         assert task.line_index == 10
+        assert task.expect_fail is False
+        assert task.expect_pass is True
+        assert task.test_ref == "tests/sample.py::test_example"
 
     def test_plan_task_immutability_frozen(self) -> None:
         """PlanTask is frozen and cannot be modified after creation."""
@@ -127,6 +133,66 @@ class TestPlanParserParse:
 
         assert model.tasks[0].expect_fail is True
         assert model.tasks[0].title == "Add failing regression test"
+
+    def test_parse_sets_expect_pass_true_and_strips_tag(self) -> None:
+        """
+        PlanParser.parse should detect and strip the [expect-pass] tag.
+
+        Purpose:
+            Ensure expect-pass tasks are recognized and stored as plan metadata.
+
+        Side Effects:
+            Reads a committed fixture file from tests/fixtures (no temp files).
+        """
+        parser = PlanParser(Path("tests/fixtures/atomic_executor/plan_expect_pass.md"))
+        model = parser.parse()
+
+        assert model.tasks[0].expect_pass is True
+        assert model.tasks[0].expect_fail is False
+        assert (
+            model.tasks[0].title
+            == "pytest tests/bugs/2026/test_issue_98.py::test_expected_pass"
+        )
+
+    def test_parse_extracts_test_ref_from_pytest_form(self) -> None:
+        """
+        PlanParser.parse should extract a test_ref from the pytest form.
+
+        Purpose:
+            Validate that "pytest <nodeid>" forms are parsed into test_ref.
+
+        Side Effects:
+            Reads a committed fixture file from tests/fixtures (no temp files).
+        """
+        parser = PlanParser(
+            Path("tests/fixtures/atomic_executor/plan_expect_fail_with_pytest_ref.md")
+        )
+        model = parser.parse()
+
+        assert (
+            model.tasks[0].test_ref
+            == "tests/bugs/2026/test_issue_98.py::test_expected_fail"
+        )
+
+    def test_parse_extracts_test_ref_from_prose_ref_form(self) -> None:
+        """
+        PlanParser.parse should extract a test_ref from the prose form.
+
+        Purpose:
+            Ensure "Add pytest `name` in `path`" yields a stable nodeid prefix.
+
+        Side Effects:
+            Reads a committed fixture file from tests/fixtures (no temp files).
+        """
+        parser = PlanParser(
+            Path("tests/fixtures/atomic_executor/plan_expect_fail_with_prose_ref.md")
+        )
+        model = parser.parse()
+
+        assert (
+            model.tasks[0].test_ref
+            == "tests/bugs/2026/test_issue_98.py::test_expected_fail"
+        )
 
     def test_parse_defaults_expect_fail_false_when_tag_missing(
         self, tmp_path: Path
