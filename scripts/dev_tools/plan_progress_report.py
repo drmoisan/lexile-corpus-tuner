@@ -23,6 +23,7 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,7 @@ class PlanProgressRow:
         feature: The resolved feature folder name.
         issue: The issue reference, e.g. "#77", when present.
         plan_type: "base" or a version folder name like "v2".
+        plan_path: Path to the plan file referenced by this row.
         unchecked: Count of unchecked checkboxes.
         total: Total count of checkboxes.
     """
@@ -43,6 +45,7 @@ class PlanProgressRow:
     feature: str
     issue: str
     plan_type: str
+    plan_path: Path
     unchecked: int
     total: int
 
@@ -214,6 +217,7 @@ def build_report_rows(
                 feature=feature,
                 issue=issue,
                 plan_type=plan_type,
+                plan_path=plan_path,
                 unchecked=unchecked,
                 total=total,
             )
@@ -223,7 +227,35 @@ def build_report_rows(
     return sorted(rows, key=lambda r: (r.feature, r.plan_type))
 
 
-def render_markdown_table(rows: list[PlanProgressRow]) -> str:
+def _format_plan_link(plan_path: Path, *, report_path: Path | None) -> str:
+    """Format a plan path as a markdown link.
+
+    Purpose:
+        Provide a clickable plan link in the report that works when the report is
+        stored under `artifacts/` and rendered by GitHub.
+
+    Args:
+        plan_path: Absolute or relative path to the plan file.
+        report_path: Output report file path. When provided, the link target is
+            rendered relative to `report_path.parent`.
+
+    Returns:
+        A markdown link string, e.g. `[plan](../docs/features/active/.../plan.md)`.
+    """
+
+    if report_path is None:
+        return f"[plan]({plan_path.as_posix()})"
+
+    # Compute a relative link so GitHub renders it correctly when browsing the
+    # report in-repo (e.g., artifacts/active_plan_progress.md).
+    rel = os.path.relpath(plan_path, start=report_path.parent)
+    rel_posix = rel.replace(os.sep, "/")
+    return f"[plan]({rel_posix})"
+
+
+def render_markdown_table(
+    rows: list[PlanProgressRow], *, report_path: Path | None = None
+) -> str:
     """Render report rows as a markdown table.
 
     Args:
@@ -233,7 +265,10 @@ def render_markdown_table(rows: list[PlanProgressRow]) -> str:
         Markdown content.
     """
 
-    header = "| feature | issue | type | remaining |\n| --- | --- | --- | --- |"
+    header = (
+        "| feature | issue | type | remaining | plan |\n"
+        "| --- | --- | --- | --- | --- |"
+    )
     if not rows:
         return header + "\n"
 
@@ -242,7 +277,11 @@ def render_markdown_table(rows: list[PlanProgressRow]) -> str:
     # Format each row as unchecked/total for quick scanning.
     for row in rows:
         remaining = f"{row.unchecked}/{row.total}"
-        lines.append(f"| {row.feature} | {row.issue} | {row.plan_type} | {remaining} |")
+        plan_link = _format_plan_link(row.plan_path, report_path=report_path)
+        lines.append(
+            f"| {row.feature} | {row.issue} | {row.plan_type} |"
+            f" {remaining} | {plan_link} |"
+        )
 
     return "\n".join(lines) + "\n"
 
@@ -266,11 +305,15 @@ def read_plan_docs(plan_paths: list[Path]) -> list[tuple[Path, str]]:
     return docs
 
 
-def generate_plan_progress_report(*, active_root: Path) -> str:
+def generate_plan_progress_report(
+    *, active_root: Path, report_path: Path | None = None
+) -> str:
     """Generate the markdown report for incomplete plan checkboxes.
 
     Args:
         active_root: Root directory (docs/features/active).
+        report_path: Optional output report path. When provided, plan links are
+            rendered relative to `report_path.parent`.
 
     Returns:
         Markdown content for the report.
@@ -279,7 +322,7 @@ def generate_plan_progress_report(*, active_root: Path) -> str:
     plan_paths = discover_plan_files(active_root)
     plan_docs = read_plan_docs(plan_paths)
     rows = build_report_rows(plan_docs, active_root=active_root)
-    return render_markdown_table(rows)
+    return render_markdown_table(rows, report_path=report_path)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -330,7 +373,9 @@ def main(argv: list[str] | None = None) -> int:
     """
 
     args = _parse_args(argv)
-    report = generate_plan_progress_report(active_root=args.active_root)
+    report = generate_plan_progress_report(
+        active_root=args.active_root, report_path=args.out
+    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report, encoding="utf-8")

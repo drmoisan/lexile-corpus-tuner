@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -262,6 +263,64 @@ def _cleanup_kcov_runs_dir(runs_dir: Path) -> None:
     shutil.rmtree(runs_dir, ignore_errors=True)
 
 
+def _extract_cobertura_line_rate(cov_xml_path: Path) -> float | None:
+    """Extract the line-rate attribute from a Cobertura XML coverage report.
+
+    Purpose:
+        Parse the top-level `line-rate` attribute from a kcov-generated cov.xml
+        to enable a deterministic stdout summary.
+
+    Args:
+        cov_xml_path (Path): Path to the Cobertura XML file (cov.xml).
+
+    Returns:
+        float | None: The line-rate as a float (0.0-1.0), or None if the file
+            does not exist or the attribute cannot be parsed.
+
+    Notes:
+        Uses regex to avoid XML parsing overhead; kcov output is well-formed
+        and the line-rate attribute appears early in the file.
+    """
+
+    if not cov_xml_path.exists():
+        return None
+
+    try:
+        content = cov_xml_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+    # Match line-rate="0.75" or line-rate='0.75' at the coverage element level.
+    match = re.search(r'line-rate=["\']([0-9.]+)["\']', content)
+    if not match:
+        return None
+
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _print_coverage_summary(cov_xml_path: Path) -> None:
+    """Print a concise Bash coverage summary to stdout.
+
+    Purpose:
+        Emit a single-line summary of Bash coverage after kcov completes,
+        suitable for CI logs and developer feedback.
+
+    Args:
+        cov_xml_path (Path): Path to the Cobertura XML file (cov.xml).
+
+    Side Effects:
+        Prints to stdout. No-op if cov.xml is missing or unparseable.
+    """
+
+    line_rate = _extract_cobertura_line_rate(cov_xml_path)
+    if line_rate is not None:
+        percent = line_rate * 100
+        print(f"Bash coverage (lines): {percent:.1f}%")
+
+
 def run_test_with_options(
     root: Path | None = None,
     *,
@@ -347,6 +406,12 @@ def run_test_with_options(
         exit_code = _run_tool("kcov", merge_args)
 
     _cleanup_kcov_runs_dir(runs_dir)
+
+    # Emit a concise coverage summary after all kcov operations complete.
+    if coverage and exit_code == 0:
+        cov_xml_path = merged_output_dir / "cov.xml"
+        _print_coverage_summary(cov_xml_path)
+
     return exit_code
 
 

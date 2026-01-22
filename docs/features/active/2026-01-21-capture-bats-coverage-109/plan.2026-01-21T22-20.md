@@ -3,14 +3,14 @@ issue: 109
 parent: none
 owner: drmoisan
 last_updated: 2026-01-21T22-20
-status: Planned
-status_color: blue
+status: Complete
+status_color: green
 version: 0.2
 ---
 
 # 2026-01-21-capture-bats-coverage - Plan
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-green)
 
 - **Issue:** #109
 - **Parent (optional):** none
@@ -130,13 +130,13 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 3 — Add minimal Bats tests + coverage demo scripts
 
-- [ ] [P3-T1] Add a minimal shell library under `scripts/bash/coverage_lib.sh` with at least two functions (one called by tests, one intentionally unused)
+- [x] [P3-T1] Add a minimal shell library under `scripts/bash/coverage_lib.sh` with at least two functions (one called by tests, one intentionally unused)
   - Acceptance: File exists at `scripts/bash/coverage_lib.sh` and passes Shell QC discovery (will be included by `discover_shell_scripts`).
 
-- [ ] [P3-T2] Add a minimal shell entry point under `scripts/bash/coverage_demo.sh` that sources `coverage_lib.sh` and invokes the covered function
+- [x] [P3-T2] Add a minimal shell entry point under `scripts/bash/coverage_demo.sh` that sources `coverage_lib.sh` and invokes the covered function
   - Acceptance: File exists at `scripts/bash/coverage_demo.sh` and runs successfully under `bash scripts/bash/coverage_demo.sh`.
 
-- [ ] [P3-T3] Add a Bats test under `tests/shell/test_coverage_demo.bats` that executes `scripts/bash/coverage_demo.sh`
+- [x] [P3-T3] Add a Bats test under `tests/shell/test_coverage_demo.bats` that executes `scripts/bash/coverage_demo.sh`
   - Acceptance: `poetry run shell-qc test` exits with code 0.
 
 ### Phase 4 — Implement `shell-qc test --coverage`
@@ -164,7 +164,7 @@ Requirements Traceability (REQ → tasks)
     - If more than one test directory is present, run each into a deterministic per-dir output (e.g., `<out_dir>/run_0`, `<out_dir>/run_1`) and then merge into `<out_dir>` using `kcov --merge`.
   - Acceptance: `poetry run shell-qc test --coverage` exits with code 0 in the devcontainer and writes `artifacts/pester/bash/cov.xml`.
 
-- [ ] [P4-T4] Add a deterministic stdout summary emitted after coverage generation by parsing the generated `cov.xml` line-rate
+- [x] [P4-T4] Add a deterministic stdout summary emitted after coverage generation by parsing the generated `cov.xml` line-rate
   - Implementation details:
     - Add a helper function `extract_cobertura_line_rate(cov_xml: str) -> float` that reads `cov.xml` as text and extracts the first `line-rate="..."` attribute.
     - Print a single-line summary: `Bash coverage (lines): <percent>%`.
@@ -172,19 +172,19 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 5 — CI integration (artifact upload)
 
-- [ ] [P5-T1] Update `.github/workflows/ci.yml` to add a new Linux job `shell-coverage` that runs `poetry run shell-qc test --coverage`
+- [x] [P5-T1] Update `.github/workflows/ci.yml` to add a new Linux job `shell-coverage` that runs `poetry run shell-qc test --coverage`
   - Implementation details:
     - Install required OS tools (at minimum): `shellcheck`, `shfmt`, `bats`.
     - Install `kcov` in the job using the upstream build-from-source dependencies from `docs/features/active/2026-01-21-capture-bats-coverage-109/research.md`.
     - Run `poetry install --no-interaction` before invoking `shell-qc`.
   - Acceptance: The workflow contains a `shell-coverage` job and the job includes a step that runs `poetry run shell-qc test --coverage`.
 
-- [ ] [P5-T2] Update `.github/workflows/ci.yml` to upload `artifacts/pester/bash/**` using `actions/upload-artifact@v4`
+- [x] [P5-T2] Update `.github/workflows/ci.yml` to upload `artifacts/pester/bash/**` using `actions/upload-artifact@v4`
   - Acceptance: The `shell-coverage` job includes an upload step with `path: artifacts/pester/bash/**` and `if-no-files-found: error`.
 
 ### Phase 6 — Documentation
 
-- [ ] [P6-T1] Update `docs/developer-tooling.md` to document the Bash coverage workflow
+- [x] [P6-T1] Update `docs/developer-tooling.md` to document the Bash coverage workflow
   - Implementation details:
     - Document the command: `poetry run shell-qc test --coverage`.
     - Document output locations: `artifacts/pester/bash/` and `artifacts/pester/bash/cov.xml`.
@@ -193,22 +193,22 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 7 — Final QA (toolchain loop)
 
-- [ ] [P7-T1] Run formatting and confirm no changes are required
+- [x] [P7-T1] Run formatting and confirm no changes are required
   - Acceptance: `poetry run black .` exits with code 0 and does not modify files.
 
-- [ ] [P7-T2] Run Ruff linting and confirm no errors
+- [x] [P7-T2] Run Ruff linting and confirm no errors
   - Acceptance: `poetry run ruff check` exits with code 0.
 
-- [ ] [P7-T3] Run Pyright strict type checking and confirm no errors
+- [x] [P7-T3] Run Pyright strict type checking and confirm no errors
   - Acceptance: `poetry run pyright` exits with code 0.
 
-- [ ] [P7-T4] Run Pytest (with coverage) and confirm all tests pass
+- [x] [P7-T4] Run Pytest (with coverage) and confirm all tests pass
   - Acceptance: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing` exits with code 0.
 
-- [ ] [P7-T5] Re-run `poetry run shell-qc test --coverage` and confirm artifacts are generated
+- [x] [P7-T5] Re-run `poetry run shell-qc test --coverage` and confirm artifacts are generated
   - Acceptance: Command exits with code 0 and `artifacts/pester/bash/cov.xml` exists.
 
-- [ ] [P7-T6] Run actionlint and confirm workflow changes remain valid
+- [x] [P7-T6] Run actionlint and confirm workflow changes remain valid
   - Acceptance: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-actionlint.ps1` exits with code 0.
 
 ## Test Plan

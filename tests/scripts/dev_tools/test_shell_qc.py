@@ -361,3 +361,166 @@ def test_main_test_wrapper(monkeypatch: MonkeyPatch) -> None:
 
     assert shell_qc.main_test() == 0
     assert called["hit"] is True
+
+
+# ---------------------------------------------------------------------------
+# Tests for _extract_cobertura_line_rate and _print_coverage_summary
+# ---------------------------------------------------------------------------
+
+
+class MockPath:
+    """Mock Path that returns controlled content without filesystem access."""
+
+    def __init__(self, content: str | None, exists: bool = True) -> None:
+        self._content = content
+        self._exists = exists
+
+    def exists(self) -> bool:
+        return self._exists
+
+    def read_text(self, encoding: str = "utf-8", errors: str = "strict") -> str:
+        if self._content is None:
+            raise OSError("Mock read_text failure")
+        return self._content
+
+
+def test_extract_cobertura_line_rate_parses_double_quotes() -> None:
+    """Extracts line-rate from double-quoted attribute."""
+    content = '<?xml version="1.0"?><coverage line-rate="0.75">'
+    mock_path = MockPath(content)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result == 0.75
+
+
+def test_extract_cobertura_line_rate_parses_single_quotes() -> None:
+    """Extracts line-rate from single-quoted attribute."""
+    content = "<?xml version='1.0'?><coverage line-rate='0.5'>"
+    mock_path = MockPath(content)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result == 0.5
+
+
+def test_extract_cobertura_line_rate_returns_none_when_missing_file() -> None:
+    """Returns None when the file does not exist."""
+    mock_path = MockPath(content=None, exists=False)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result is None
+
+
+def test_extract_cobertura_line_rate_returns_none_when_read_fails() -> None:
+    """Returns None when read_text raises OSError."""
+    mock_path = MockPath(content=None, exists=True)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result is None
+
+
+def test_extract_cobertura_line_rate_returns_none_when_no_match() -> None:
+    """Returns None when line-rate attribute is not present."""
+    content = '<?xml version="1.0"?><coverage>'
+    mock_path = MockPath(content)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result is None
+
+
+def test_extract_cobertura_line_rate_returns_none_when_invalid_value() -> None:
+    """Returns None when line-rate value is not a valid float."""
+    content = '<?xml version="1.0"?><coverage line-rate="invalid">'
+    mock_path = MockPath(content)
+
+    result = shell_qc._extract_cobertura_line_rate(mock_path)  # type: ignore[arg-type]
+
+    assert result is None
+
+
+def test_print_coverage_summary_outputs_percentage(
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Prints formatted percentage when line-rate is available."""
+
+    def _extract(path: Path) -> float | None:
+        return 0.85
+
+    monkeypatch.setattr(shell_qc, "_extract_cobertura_line_rate", _extract)
+
+    # Private function access is expected for unit testing internal helpers.
+    shell_qc._print_coverage_summary(  # pyright: ignore[reportPrivateUsage]
+        Path("cov.xml")
+    )
+
+    output = capsys.readouterr().out
+    assert "Bash coverage (lines): 85.0%" in output
+
+
+def test_print_coverage_summary_silent_when_none(
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No output when line-rate cannot be extracted."""
+
+    def _extract(path: Path) -> float | None:
+        return None
+
+    monkeypatch.setattr(shell_qc, "_extract_cobertura_line_rate", _extract)
+
+    # Private function access is expected for unit testing internal helpers.
+    shell_qc._print_coverage_summary(  # pyright: ignore[reportPrivateUsage]
+        Path("cov.xml")
+    )
+
+    output = capsys.readouterr().out
+    assert output == ""
+
+
+def test_run_test_with_coverage_prints_summary(
+    monkeypatch: MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Coverage mode should print summary after successful run."""
+
+    def _find(_: Path | None = None) -> list[Path]:
+        return [Path("tests/shell")]
+
+    def _which(tool: str) -> str | None:
+        if tool in {"bats", "kcov"}:
+            return f"/usr/bin/{tool}"
+        return "/usr/bin/tool"
+
+    monkeypatch.setattr(shell_qc, "find_bats_test_dirs", _find)
+    monkeypatch.setattr(shell_qc.shutil, "which", _which)
+
+    def _prepare(repo_root: Path, out_dir: Path) -> tuple[Path, Path]:
+        return Path("artifacts/pester/kcov"), Path("artifacts/pester/kcov/.kcov_runs")
+
+    def _cleanup(_: Path) -> None:
+        return None
+
+    monkeypatch.setattr(shell_qc, "_prepare_kcov_output_dirs", _prepare)
+    monkeypatch.setattr(shell_qc, "_cleanup_kcov_runs_dir", _cleanup)
+
+    def _run(command: list[str], *args: Any, **kwargs: Any) -> SimpleNamespace:
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(shell_qc.subprocess, "run", _run)
+
+    # Mock the summary print to verify it's called with correct path.
+    printed: dict[str, Path | None] = {"path": None}
+
+    def _print_summary(cov_xml_path: Path) -> None:
+        printed["path"] = cov_xml_path
+        print("Bash coverage (lines): 80.0%")
+
+    monkeypatch.setattr(shell_qc, "_print_coverage_summary", _print_summary)
+
+    exit_code = shell_qc.run_test_with_options(coverage=True)
+
+    assert exit_code == 0
+    assert printed["path"] == Path("artifacts/pester/kcov/cov.xml")
+    assert "Bash coverage (lines):" in capsys.readouterr().out

@@ -124,13 +124,14 @@ class TestBuildReportRows:
         assert rows[0].feature == "2026-01-07-atomic-executor-77"
         assert rows[0].issue == "#77"
         assert rows[0].plan_type == "base"
+        assert rows[0].plan_path == plan_path
         assert (rows[0].unchecked, rows[0].total) == (1, 2)
 
 
 class TestRenderMarkdownTable:
     def test_renders_header_only_when_empty(self) -> None:
         table = render_markdown_table([])
-        assert "| feature | issue | type | remaining |" in table
+        assert "| feature | issue | type | remaining | plan |" in table
         assert table.count("\n") >= 1
 
     def test_renders_rows(self) -> None:
@@ -139,12 +140,29 @@ class TestRenderMarkdownTable:
                 feature="feat",
                 issue="#1",
                 plan_type="base",
+                plan_path=Path("/repo/docs/features/active/feat/plan.md"),
                 unchecked=2,
                 total=5,
             )
         ]
         table = render_markdown_table(rows)
-        assert "| feat | #1 | base | 2/5 |" in table
+        assert "| feat | #1 | base | 2/5 | [plan]" in table
+
+    def test_renders_relative_plan_links_when_report_path_provided(self) -> None:
+        rows = [
+            PlanProgressRow(
+                feature="feat",
+                issue="#1",
+                plan_type="base",
+                plan_path=Path("/repo/docs/features/active/feat/plan.md"),
+                unchecked=2,
+                total=5,
+            )
+        ]
+        report_path = Path("/repo/artifacts/active_plan_progress.md")
+
+        table = render_markdown_table(rows, report_path=report_path)
+        assert "[plan](../docs/features/active/feat/plan.md)" in table
 
 
 class TestDiscoverPlanFiles:
