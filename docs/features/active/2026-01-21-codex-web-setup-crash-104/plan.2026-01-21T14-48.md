@@ -34,32 +34,41 @@ last_updated: 2026-01-21
 
 ### Phase 0 — Context & Inputs
 
-- [ ] [P0-T1] Read `.github/copilot-instructions.md` and record policy precedence note in this plan
+- [x] [P0-T1] Read `.github/copilot-instructions.md` and record policy precedence note in this plan
 	- Acceptance: Add a single sentence under this task stating the policy precedence order.
+	- **Result:** Policy precedence order is: general instructions first, then language-specific instructions, then unit-test addenda; developer-tooling.md and CI docs are operational guidance layered underneath.
 
-- [ ] [P0-T2] Read `.github/instructions/general-code-change.instructions.md` and record the required QC loop order
+- [x] [P0-T2] Read `.github/instructions/general-code-change.instructions.md` and record the required QC loop order
 	- Acceptance: Add a single sentence under this task stating the loop order is Black → Ruff → Pyright → Pytest and must restart on changes/failures.
+	- **Result:** The QC loop order is Formatting (Black) → Linting (Ruff) → Type checking (Pyright) → Testing (Pytest), and must restart from step 1 (Formatting) if any step changes code or fails.
 
-- [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and record the “no external deps / no temp files” constraints
+- [x] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and record the "no external deps / no temp files" constraints
 	- Acceptance: Add a single sentence under this task stating tests must be deterministic, offline, and must not create temp files.
+	- **Result:** Tests must be deterministic, must not depend on external services (networks, APIs, databases), and creation/use of temporary files on the local filesystem is expressly prohibited unless explicitly authorized.
 
-- [ ] [P0-T4] Record exact current branch name and HEAD SHA in this plan
+- [x] [P0-T4] Record exact current branch name and HEAD SHA in this plan
 	- Inputs: `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD`
 	- Acceptance: This plan file contains the branch name and commit SHA as literal text (no placeholders).
+	- **Result:** Branch: `codex-web-setup-crash-#104`, HEAD SHA: `0ce5c2a69087279736bff5ace08ac39e4dace25a`
 
-- [ ] [P0-T5] Capture baseline shell QC status before changes (shell-specific gates)
+- [x] [P0-T5] Capture baseline shell QC status before changes (shell-specific gates)
 	- Commands (record exit code for each):
 		- `poetry run python -m scripts.dev_tools.shell_qc format`
 		- `poetry run python -m scripts.dev_tools.shell_qc check`
 		- `poetry run python -m scripts.dev_tools.shell_qc test`
 	- Acceptance: This plan file contains a 3-line exit-code summary with the exact command strings.
+	- **Result:**
+		- `poetry run python -m scripts.dev_tools.shell_qc format` → exit 0 (passed)
+		- `poetry run python -m scripts.dev_tools.shell_qc check` → exit 0 (passed)
+		- `poetry run python -m scripts.dev_tools.shell_qc test` → exit 0 (no shell test directories found; skipping)
 
 ### Phase 1 — TDD Red: source-safety seam
 
-- [ ] [P1-T1] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_source_safety.bats` asserting the script contains a `main()` guard
+- [x] [P1-T1] [expect-fail] Add Bats test `tests/shell/test_codex_web_setup_source_safety.bats` asserting the script contains a `main()` guard
 	- Code under test: `.github/codex/codex-web-setup.sh`
 	- Assertion: `grep -n` must find a line exactly matching `if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then main "$@"; fi`
 	- Acceptance: `poetry run python -m scripts.dev_tools.shell_qc test` fails and output includes `test_codex_web_setup_source_safety.bats` as failing.
+	- **Result:** Test created at `tests/shell/test_codex_web_setup_source_safety.bats`. Shell QC test fails as expected (TDD Red confirmed).
 
 ### Phase 2 — Implement source-safety seam (enables real Bats unit tests)
 
