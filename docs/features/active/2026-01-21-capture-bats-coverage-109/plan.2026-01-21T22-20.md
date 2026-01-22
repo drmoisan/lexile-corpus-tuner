@@ -61,25 +61,25 @@ Requirements Traceability (REQ → tasks)
 
 ### Phase 0 — Context & Baseline
 
-- [ ] [P0-T1] Read `.github/copilot-instructions.md`
+- [x] [P0-T1] Read `.github/copilot-instructions.md`
   - Acceptance: `test -s .github/copilot-instructions.md` exits with code 0.
 
-- [ ] [P0-T2] Read `.github/instructions/general-code-change.instructions.md`
+- [x] [P0-T2] Read `.github/instructions/general-code-change.instructions.md`
   - Acceptance: `test -s .github/instructions/general-code-change.instructions.md` exits with code 0.
 
-- [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md`
+- [x] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md`
   - Acceptance: `test -s .github/instructions/general-unit-test.instructions.md` exits with code 0.
 
-- [ ] [P0-T4] Read `.github/instructions/python-code-change.instructions.md`
+- [x] [P0-T4] Read `.github/instructions/python-code-change.instructions.md`
   - Acceptance: `test -s .github/instructions/python-code-change.instructions.md` exits with code 0.
 
-- [ ] [P0-T5] Read `.github/instructions/python-unit-test.instructions.md`
+- [x] [P0-T5] Read `.github/instructions/python-unit-test.instructions.md`
   - Acceptance: `test -s .github/instructions/python-unit-test.instructions.md` exits with code 0.
 
-- [ ] [P0-T6] Read `.github/instructions/github-actions.instructions.md`
+- [x] [P0-T6] Read `.github/instructions/github-actions.instructions.md`
   - Acceptance: `test -s .github/instructions/github-actions.instructions.md` exits with code 0.
 
-- [ ] [P0-T7] Create `artifacts/capture-bats-coverage-109_policy_ack.txt` documenting policy files reviewed
+- [x] [P0-T7] Create `artifacts/capture-bats-coverage-109_policy_ack.txt` documenting policy files reviewed
   - Preconditions: [P0-T1]–[P0-T6] completed.
   - Implementation details:
     - The file must contain the exact relative paths of:
@@ -92,16 +92,16 @@ Requirements Traceability (REQ → tasks)
     - The file must include an ISO-8601 timestamp line prefixed with `ReviewedAt:`.
   - Acceptance: `test -s artifacts/capture-bats-coverage-109_policy_ack.txt` exits with code 0.
 
-- [ ] [P0-T8] Capture baseline Ruff results to `artifacts/capture-bats-coverage-109_baseline_ruff.txt`
+- [x] [P0-T8] Capture baseline Ruff results to `artifacts/capture-bats-coverage-109_baseline_ruff.txt`
   - Acceptance: `poetry run ruff check | tee artifacts/capture-bats-coverage-109_baseline_ruff.txt` exits with code 0.
 
-- [ ] [P0-T9] Capture baseline Pyright results to `artifacts/capture-bats-coverage-109_baseline_pyright.txt`
+- [x] [P0-T9] Capture baseline Pyright results to `artifacts/capture-bats-coverage-109_baseline_pyright.txt`
   - Acceptance: `poetry run pyright | tee artifacts/capture-bats-coverage-109_baseline_pyright.txt` exits with code 0.
 
-- [ ] [P0-T10] Capture baseline Pytest results to `artifacts/capture-bats-coverage-109_baseline_pytest.txt`
+- [x] [P0-T10] Capture baseline Pytest results to `artifacts/capture-bats-coverage-109_baseline_pytest.txt`
   - Acceptance: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing | tee artifacts/capture-bats-coverage-109_baseline_pytest.txt` exits with code 0.
 
-- [ ] [P0-T11] Capture baseline actionlint results to `artifacts/capture-bats-coverage-109_baseline_actionlint.txt`
+- [x] [P0-T11] Capture baseline actionlint results to `artifacts/capture-bats-coverage-109_baseline_actionlint.txt`
   - Acceptance: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-actionlint.ps1 | tee artifacts/capture-bats-coverage-109_baseline_actionlint.txt` exits with code 0.
 
 ### Phase 1 — Devcontainer support (kcov install)

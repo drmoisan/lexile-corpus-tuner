@@ -20,12 +20,6 @@
       "type": "promptString"
     },
     {
-      "default": "docs/features/potential/2025-12-01-new-feature.md",
-      "description": "Path to potential feature file",
-      "id": "PotentialFilePath",
-      "type": "promptString"
-    },
-    {
       "default": "feature",
       "description": "Promotion type / label to apply",
       "id": "PotentialPromotionType",
@@ -580,12 +574,12 @@
         "-m",
         "scripts.dev_tools.potential_to_issue",
         "--potential-path",
-        "${input:PotentialFilePath}",
+        "${relativeFile}",
         "--promotion-type",
         "${input:PotentialPromotionType}"
       ],
       "command": "poetry",
-      "detail": "Creates a feature issue from a potential file using gh issue create (non-interactive) via Python.",
+      "detail": "Creates a feature issue from the active editor file (workspace-relative) using gh issue create (non-interactive) via Python.",
       "label": "Dev: 2 Promote Potential to GitHub Issue",
       "options": {
         "cwd": "${workspaceFolder}"
