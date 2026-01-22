@@ -12,6 +12,11 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from scripts.dev_tools.atomic_executor.pytest_expectations import (
+    ResolvedTestExpectations,
+    parse_pytest_failure_output,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
@@ -57,6 +62,7 @@ class QCRunner:
         "poetry",
         "run",
         "pytest",
+        "--color=no",
         "--cov=src/lexile_corpus_tuner",
         "--cov-report=xml",
         "--cov-report=term-missing",
@@ -108,12 +114,16 @@ class QCRunner:
                 env=self._merge_env(self._lock_bypass_env()),
             )
 
-    def run_full(self) -> None:
+    def run_full(self, *, expectations: ResolvedTestExpectations | None = None) -> None:
         """
         Run full toolchain on entire codebase (phase gate).
 
         Purpose:
             Comprehensive QC verification after a phase completes.
+
+        Args:
+            expectations (ResolvedTestExpectations | None): Optional expected
+                pytest failures derived from the active plan.
 
         Raises:
             CalledProcessError: If any QC command fails.
@@ -124,10 +134,73 @@ class QCRunner:
         self._run(self.FULL_FMT)
         self._run(self.FULL_LINT)
         self._run(self.FULL_TYPE)
-        self._run(
+        self._run_pytest_with_expectations(expectations)
+
+    def _run_pytest_with_expectations(
+        self,
+        expectations: ResolvedTestExpectations | None,
+    ) -> None:
+        """
+        Run pytest and apply expectation filtering to failures.
+
+        Purpose:
+            Allow expected-fail tests to fail while still failing on unexpected
+            errors or expected-pass overrides.
+
+        Args:
+            expectations (ResolvedTestExpectations | None): Optional expected
+                pytest failures derived from the active plan.
+
+        Raises:
+            CalledProcessError: If pytest fails unexpectedly.
+        """
+        env = self._merge_env(self._lock_bypass_env())
+        if expectations is None:
+            self._run(self.FULL_TEST, env=env)
+            return
+
+        if expectations.missing_test_refs:
+            missing_refs = ", ".join(expectations.missing_test_refs)
+            raise RuntimeError(
+                "Missing test reference for expectation-tagged tasks: "
+                f"{missing_refs}"
+            )
+
+        result = subprocess.run(  # noqa: S603 - argv constructed from trusted constants
             self.FULL_TEST,
-            env=self._merge_env(self._lock_bypass_env()),
+            cwd=self.workspace,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
         )
+        combined = (result.stdout or "") + (result.stderr or "")
+        if result.returncode == 0:
+            return
+
+        summary = parse_pytest_failure_output(combined)
+        if summary.has_collection_error:
+            raise subprocess.CalledProcessError(
+                result.returncode, self.FULL_TEST, output=combined
+            )
+
+        unexpected_failures: list[str] = []
+        expected_pass_hits: list[str] = []
+
+        # Compare failing nodeids against expected refs with prefix matching.
+        for nodeid in summary.failed_nodeids:
+            if _matches_expected_ref(nodeid, expectations.expected_pass_refs):
+                expected_pass_hits.append(nodeid)
+                unexpected_failures.append(nodeid)
+            elif _matches_expected_ref(nodeid, expectations.expected_fail_refs):
+                continue
+            else:
+                unexpected_failures.append(nodeid)
+
+        if unexpected_failures or expected_pass_hits:
+            raise subprocess.CalledProcessError(
+                result.returncode, self.FULL_TEST, output=combined
+            )
 
     def run_full_loop_with_artifacts(
         self,
@@ -552,3 +625,24 @@ class QCLoopResult:
     success: bool
     failure: QCLoopFailure | None
     loop_count: int
+
+
+def _matches_expected_ref(nodeid: str, expected_refs: set[str]) -> bool:
+    """
+    Check whether a failing nodeid matches any expected ref prefix.
+
+    Purpose:
+        Support prefix matching to handle parameterized pytest nodeids.
+
+    Args:
+        nodeid (str): Failing pytest nodeid.
+        expected_refs (set[str]): Expected nodeid prefixes to match against.
+
+    Returns:
+        bool: True when a prefix match is found.
+    """
+    # Scan the expected refs to allow prefix matching for parametrized tests.
+    for expected_ref in expected_refs:
+        if nodeid.startswith(expected_ref):
+            return True
+    return False
