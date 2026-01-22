@@ -21,7 +21,7 @@ import pytest
 from scripts.dev_tools.atomic_executor import cli
 from scripts.dev_tools.atomic_executor.cli import main
 from scripts.dev_tools.atomic_executor.copilot_runner import CopilotRunResult
-from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
+from scripts.dev_tools.atomic_executor.plan_parser import PlanModel, PlanTask
 
 
 @pytest.fixture
@@ -59,6 +59,7 @@ def mock_dependencies() -> Generator[dict[str, Any], None, None]:
         parser_instance.next_unchecked_task.return_value = task
         parser_instance.find_task_by_id.return_value = task
         parser_instance.phase_complete.return_value = False
+        parser_instance.parse.return_value = PlanModel(tasks=[], phases=[])
 
         resolver_instance = MockResolver.return_value
         resolver_instance.resolve.return_value = (Mock(), Path("/mock/feature/dir"))
