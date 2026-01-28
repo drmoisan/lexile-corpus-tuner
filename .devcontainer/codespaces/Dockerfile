@@ -1,6 +1,9 @@
 # Use Python 3.13 base image with Debian Bookworm
 FROM mcr.microsoft.com/devcontainers/python:3.13-bookworm
 
+# Remove Yarn apt repository (inherited from base image; GPG key expired and we don't use Yarn)
+RUN rm -f /etc/apt/sources.list.d/yarn.list
+
 # Install PowerShell
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
