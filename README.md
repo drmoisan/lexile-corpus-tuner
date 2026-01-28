@@ -217,7 +217,7 @@ Requires external tools: `shfmt`, `shellcheck`, `bats-core` (optional, only for 
 Optional coverage:
 
 - `--coverage` runs `bats` under `kcov` and writes a Cobertura report to:
-  `artifacts/pester/kcov/cov.xml`
+  `artifacts/pester/kcov/kcov-merged/cov.xml`
 - This is intended to be auto-discovered by the VS Code Coverage Gutters extension.
 
 Coverage requires the additional tool: `kcov`.

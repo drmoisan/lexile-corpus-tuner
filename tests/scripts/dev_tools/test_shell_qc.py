@@ -241,10 +241,11 @@ def test_run_test_with_coverage_requires_bats(monkeypatch: MonkeyPatch) -> None:
 def test_run_test_with_coverage_invokes_kcov_and_merge(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """Coverage mode should run bats under kcov and then merge into one report."""
+    """Coverage mode with multiple test dirs should merge results."""
 
     def _find(_: Path | None = None) -> list[Path]:
-        return [Path("tests/shell")]
+        # Return multiple test directories to trigger merge behavior.
+        return [Path("tests/shell"), Path("tests/other")]
 
     def _which(tool: str) -> str | None:
         if tool in {"bats", "kcov"}:
@@ -278,12 +279,79 @@ def test_run_test_with_coverage_invokes_kcov_and_merge(
     exit_code = shell_qc.run_test_with_options(coverage=True)
 
     assert exit_code == 0
+    # First two calls should be kcov running bats for each test directory.
     assert calls[0][0] == "/usr/bin/kcov"
     assert "--cobertura-only" in calls[0]
-    assert calls[0][-2:] == ["/usr/bin/bats", str(Path("tests/shell"))]
+    assert calls[1][0] == "/usr/bin/kcov"
+    assert "--cobertura-only" in calls[1]
 
-    # Merge should be the last call.
+    # Merge should be the last call when multiple test directories exist.
     assert calls[-1][:2] == ["/usr/bin/kcov", "--merge"]
+
+
+def test_run_test_with_coverage_single_dir_skips_merge(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Coverage mode with single test dir should copy cov.xml directly, not merge.
+
+    kcov --merge with --cobertura-only produces empty results for a single
+    input directory. When there's only one test directory, we skip the merge
+    and copy the coverage file directly.
+    """
+
+    def _find(_: Path | None = None) -> list[Path]:
+        return [Path("tests/shell")]
+
+    def _which(tool: str) -> str | None:
+        if tool in {"bats", "kcov"}:
+            return f"/usr/bin/{tool}"
+        return "/usr/bin/tool"
+
+    monkeypatch.setattr(shell_qc, "find_bats_test_dirs", _find)
+    monkeypatch.setattr(shell_qc.shutil, "which", _which)
+
+    # Set up realistic paths for the test.
+    merged_output_dir = tmp_path / "kcov"
+    runs_dir = merged_output_dir / ".kcov_runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = runs_dir / "shell"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    def _prepare(repo_root: Path, out_dir: Path) -> tuple[Path, Path]:
+        return merged_output_dir, runs_dir
+
+    def _cleanup(_: Path) -> None:
+        return None
+
+    monkeypatch.setattr(shell_qc, "_prepare_kcov_output_dirs", _prepare)
+    monkeypatch.setattr(shell_qc, "_cleanup_kcov_runs_dir", _cleanup)
+
+    calls: list[list[str]] = []
+
+    def _run(command: list[str], *args: Any, **kwargs: Any) -> SimpleNamespace:
+        calls.append(list(command))
+        # Simulate kcov creating a cov.xml in the run directory.
+        cov_xml = run_dir / "cov.xml"
+        cov_xml.write_text('<coverage line-rate="0.5"/>')
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(shell_qc.subprocess, "run", _run)
+
+    exit_code = shell_qc.run_test_with_options(coverage=True)
+
+    assert exit_code == 0
+
+    # Should only have ONE kcov call (no merge).
+    assert len(calls) == 1
+    assert calls[0][0] == "/usr/bin/kcov"
+    assert "--cobertura-only" in calls[0]
+    assert "--merge" not in calls[0]
+
+    # The cov.xml should have been copied to the kcov-merged directory.
+    copied_cov = merged_output_dir / "kcov-merged" / "cov.xml"
+    assert copied_cov.exists()
+    assert copied_cov.read_text() == '<coverage line-rate="0.5"/>'
 
 
 def test_parse_args_accepts_commands() -> None:
@@ -522,5 +590,6 @@ def test_run_test_with_coverage_prints_summary(
     exit_code = shell_qc.run_test_with_options(coverage=True)
 
     assert exit_code == 0
-    assert printed["path"] == Path("artifacts/pester/kcov/cov.xml")
+    # kcov --merge creates a 'kcov-merged' subdirectory inside the output dir.
+    assert printed["path"] == Path("artifacts/pester/kcov/kcov-merged/cov.xml")
     assert "Bash coverage (lines):" in capsys.readouterr().out

@@ -17,6 +17,9 @@ if TYPE_CHECKING:
 
 EXCLUDED_DIRS = {".venv", ".git", "node_modules", "dist", "build"}
 SEARCH_DIRS = ("tools", "scripts")
+# Directories containing bash scripts to track for subprocess coverage.
+# kcov needs --bash-parse-files-in-dir for scripts invoked via `bash script.sh`.
+BASH_SCRIPT_DIRS = ("scripts/bash",)
 TEST_DIR_CANDIDATES = (Path("tests") / "shell", Path("tests") / "bash")
 
 # kcov writes a fixed Cobertura filename (cov.xml) when using --cobertura-only.
@@ -385,8 +388,14 @@ def run_test_with_options(
         # Capture Bash coverage. We scope coverage to repo scripts/tools and
         # exclude test sources themselves.
         include_patterns = ",".join(str(repo_root / folder) for folder in SEARCH_DIRS)
+        # Tell kcov to parse bash scripts in the designated bash-only directories
+        # so it can track coverage of scripts invoked as subprocesses.
+        bash_parse_dirs = ",".join(
+            str(repo_root / folder) for folder in BASH_SCRIPT_DIRS
+        )
         cmd = [
             "--cobertura-only",
+            f"--bash-parse-files-in-dir={bash_parse_dirs}",
             f"--include-pattern={include_patterns}",
             f"--exclude-pattern={repo_root / 'tests'}",
             str(run_dir),
@@ -399,17 +408,28 @@ def run_test_with_options(
             break
 
     if exit_code == 0 and run_dirs:
-        # Merge per-directory runs into one report directory containing a single
-        # cov.xml.
-        run_dir_args = [str(path) for path in run_dirs]
-        merge_args = ["--merge", str(merged_output_dir), *run_dir_args]
-        exit_code = _run_tool("kcov", merge_args)
+        # When there's only one run directory, kcov --merge with --cobertura-only
+        # produces empty results (a kcov limitation). In this common case, we
+        # simply copy the cov.xml to the expected location directly.
+        if len(run_dirs) == 1:
+            # Copy the single run's cov.xml to the expected merged location.
+            src_cov = run_dirs[0] / "cov.xml"
+            dst_dir = merged_output_dir / "kcov-merged"
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            if src_cov.exists():
+                shutil.copy2(src_cov, dst_dir / "cov.xml")
+        else:
+            # Merge multiple per-directory runs into one report directory.
+            run_dir_args = [str(path) for path in run_dirs]
+            merge_args = ["--merge", str(merged_output_dir), *run_dir_args]
+            exit_code = _run_tool("kcov", merge_args)
 
     _cleanup_kcov_runs_dir(runs_dir)
 
     # Emit a concise coverage summary after all kcov operations complete.
+    # kcov --merge creates a 'kcov-merged' subdirectory inside the output dir.
     if coverage and exit_code == 0:
-        cov_xml_path = merged_output_dir / "cov.xml"
+        cov_xml_path = merged_output_dir / "kcov-merged" / "cov.xml"
         _print_coverage_summary(cov_xml_path)
 
     return exit_code
