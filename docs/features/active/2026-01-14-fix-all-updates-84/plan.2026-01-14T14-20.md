@@ -5,14 +5,14 @@ repo: drmoisan/lexile-corpus-tuner
 default_branch: main
 working_branch: development
 owner: drmoisan
-status: Planned
-status_color: blue
-last_updated: 2026-01-14
+status: Complete
+status_color: green
+last_updated: 2026-01-28
 ---
 
 # 2026-01-14-fix-all-updates - Plan
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Complete](https://img.shields.io/badge/status-Complete-green)
 
 This plan updates `scripts/dev_tools/fix_all.py` to provide (1) live per-branch status while the parallel branches run, (2) default fail-fast semantics, and (3) an opt-in `--complete-all` flag to restore run-to-completion behavior, while preserving the existing per-branch buffered logs and final “Branch Results” summary.
 
@@ -56,126 +56,126 @@ All tasks are designed to be executable without human interpretation by locating
 > - **Self-Validating Phases:** Include necessary test creation/update tasks *within* the phase that implements the code. Do not defer verification to a final "Testing" phase.
 
 ### Phase 0 — Context & Inputs
-- [ ] [P0-T1] (REQ-COMPLIANCE-001) Create `artifacts/qa/policy_ack_84.txt` that contains the ordered list of policy files read: `.github/copilot-instructions.md` → `.github/instructions/general-code-change.instructions.md` → `.github/instructions/general-unit-test.instructions.md` → `.github/instructions/python-code-change.instructions.md` → `.github/instructions/python-unit-test.instructions.md`
+- [x] [P0-T1] (REQ-COMPLIANCE-001) Create `artifacts/qa/policy_ack_84.txt` that contains the ordered list of policy files read: `.github/copilot-instructions.md` → `.github/instructions/general-code-change.instructions.md` → `.github/instructions/general-unit-test.instructions.md` → `.github/instructions/python-code-change.instructions.md` → `.github/instructions/python-unit-test.instructions.md`
   - Acceptance: `artifacts/qa/policy_ack_84.txt` exists and contains all five paths in the exact order above.
-- [ ] [P0-T2] (REQ-BASELINE-001) Capture baseline quality gate outputs (no code changes) into `artifacts/qa/fix_all_84_baseline.txt` by running commands in this exact order: `poetry run black .` → `poetry run ruff check` → `poetry run pyright` → `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
+- [x] [P0-T2] (REQ-BASELINE-001) Capture baseline quality gate outputs (no code changes) into `artifacts/qa/fix_all_84_baseline.txt` by running commands in this exact order: `poetry run black .` → `poetry run ruff check` → `poetry run pyright` → `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`
   - Acceptance: `artifacts/qa/fix_all_84_baseline.txt` exists and contains each command string verbatim at least once.
 
 ### Phase 1 — TDD: CLI flag (`--complete-all`) surface
-- [ ] [P1-T1] (REQ-CLI-001) Add Pytest unit test `test_help_includes_complete_all_flag` in `tests/scripts/dev_tools/test_fix_all.py` that captures `--help` output and asserts it contains the substring `--complete-all`
+- [x] [P1-T1] (REQ-CLI-001) Add Pytest unit test `test_help_includes_complete_all_flag` in `tests/scripts/dev_tools/test_fix_all.py` that captures `--help` output and asserts it contains the substring `--complete-all`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_help_includes_complete_all_flag` exits non-zero before any implementation changes.
-- [ ] [P1-T2] (REQ-CLI-001) Add Pytest unit test `test_parse_args_complete_all_sets_true` in `tests/scripts/dev_tools/test_fix_all.py` asserting `fix_all.parse_args(["--complete-all"]).complete_all is True`
+- [x] [P1-T2] (REQ-CLI-001) Add Pytest unit test `test_parse_args_complete_all_sets_true` in `tests/scripts/dev_tools/test_fix_all.py` asserting `fix_all.parse_args(["--complete-all"]).complete_all is True`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_parse_args_complete_all_sets_true` exits non-zero before any implementation changes.
-- [ ] [P1-T3] (REQ-CLI-001) Update `scripts/dev_tools/fix_all.py:parse_args` to add `--complete-all` with `action="store_true"` and default `False`
+- [x] [P1-T3] (REQ-CLI-001) Update `scripts/dev_tools/fix_all.py:parse_args` to add `--complete-all` with `action="store_true"` and default `False`
   - Acceptance: Running both `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_help_includes_complete_all_flag` and `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_parse_args_complete_all_sets_true` exits 0.
 
 ### Phase 2 — TDD: Fail-fast cancellation vs `--complete-all`
-- [ ] [P2-T1] (REQ-EXEC-001) Add Pytest unit test `test_fail_fast_cancels_json_before_validate` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P2-T1] (REQ-EXEC-001) Add Pytest unit test `test_fail_fast_cancels_json_before_validate` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Test setup requirements (deterministic):
     - Configure `python` responses so it fails at step name `Pyright: type-check`.
     - Configure `json` responses with `JSON: format` success only (omit `JSON: validate` so a call would raise AssertionError).
   - Assertion requirements: `fix_all.run_fix_all(...)` exits non-zero AND json runner calls do not include `JSON: validate`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_fail_fast_cancels_json_before_validate` exits non-zero before cancellation is implemented.
-- [ ] [P2-T2] (REQ-EXEC-002) Add Pytest unit test `test_complete_all_allows_json_validate_after_python_failure` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P2-T2] (REQ-EXEC-002) Add Pytest unit test `test_complete_all_allows_json_validate_after_python_failure` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Test setup requirements (deterministic):
     - Same as [P2-T1] but provide `JSON: validate` success response.
     - Invoke `fix_all.run_fix_all(..., complete_all=True, ...)`.
   - Assertion requirements: json runner calls include `JSON: validate` even though python fails.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_complete_all_allows_json_validate_after_python_failure` exits non-zero before `complete_all` is wired through.
 
-- [ ] [P2-T3] (REQ-EXEC-002) Add Pytest unit test `test_run_fix_all_accepts_complete_all_parameter` in `tests/scripts/dev_tools/test_fix_all.py` that calls `fix_all.run_fix_all(..., complete_all=True, ...)` with a runner factory configured for immediate success in all branches
+- [x] [P2-T3] (REQ-EXEC-002) Add Pytest unit test `test_run_fix_all_accepts_complete_all_parameter` in `tests/scripts/dev_tools/test_fix_all.py` that calls `fix_all.run_fix_all(..., complete_all=True, ...)` with a runner factory configured for immediate success in all branches
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_run_fix_all_accepts_complete_all_parameter` exits non-zero before `run_fix_all` accepts the keyword argument.
 
 ### Phase 3 — TDD: Status formatting + rendering mode selection
-- [ ] [P3-T1] (REQ-UI-002) Add Pytest unit test `test_format_status_transition_line_exact_format` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.format_status_transition_line(branch: str, status: str) -> str` returning exactly `STATUS|branch=<branch>|status=<status>`
+- [x] [P3-T1] (REQ-UI-002) Add Pytest unit test `test_format_status_transition_line_exact_format` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.format_status_transition_line(branch: str, status: str) -> str` returning exactly `STATUS|branch=<branch>|status=<status>`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_format_status_transition_line_exact_format` exits non-zero before implementation.
-- [ ] [P3-T2] (REQ-UI-001) Add Pytest unit test `test_render_status_board_line_count_and_trailing_newline` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.render_status_board(lines: list[str], *, width: int) -> str`:
+- [x] [P3-T2] (REQ-UI-001) Add Pytest unit test `test_render_status_board_line_count_and_trailing_newline` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.render_status_board(lines: list[str], *, width: int) -> str`:
   - Assertion requirements: output contains `len(lines)` newline characters and endswith `\n`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_render_status_board_line_count_and_trailing_newline` exits non-zero before implementation.
-- [ ] [P3-T3] (REQ-WIN-001) Add Pytest unit test `test_should_use_interactive_board_requires_isatty_and_vt` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.should_use_interactive_board(*, isatty: bool, vt_enabled: bool) -> bool`:
+- [x] [P3-T3] (REQ-WIN-001) Add Pytest unit test `test_should_use_interactive_board_requires_isatty_and_vt` in `tests/scripts/dev_tools/test_fix_all.py` for new function `fix_all.should_use_interactive_board(*, isatty: bool, vt_enabled: bool) -> bool`:
   - Assertion requirements: only returns True when both inputs are True.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_should_use_interactive_board_requires_isatty_and_vt` exits non-zero before implementation.
 
 ### Phase 4 — Implement fail-fast cancellation (make Phase 2 tests pass)
-- [ ] [P4-T1] (REQ-EXEC-002) Update `scripts/dev_tools/fix_all.py:run_fix_all` signature to accept `complete_all: bool = False` and create a shared `cancel_event = threading.Event()` inside `run_fix_all`
+- [x] [P4-T1] (REQ-EXEC-002) Update `scripts/dev_tools/fix_all.py:run_fix_all` signature to accept `complete_all: bool = False` and create a shared `cancel_event = threading.Event()` inside `run_fix_all`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_run_fix_all_accepts_complete_all_parameter` exits 0.
-- [ ] [P4-T2] (REQ-EXEC-001) Update `scripts/dev_tools/fix_all.py` thread wrapper `_runner(...)` inside `run_fix_all` so that when a branch returns `success=False` and `complete_all is False`, it sets `cancel_event.set()` immediately
+- [x] [P4-T2] (REQ-EXEC-001) Update `scripts/dev_tools/fix_all.py` thread wrapper `_runner(...)` inside `run_fix_all` so that when a branch returns `success=False` and `complete_all is False`, it sets `cancel_event.set()` immediately
   - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_fail_fast_cancels_json_before_validate` still exits non-zero until json step-boundary check is implemented.
-- [ ] [P4-T3] (REQ-EXEC-001) Add step-boundary cancellation check to `run_json_branch` so `JSON: validate` is not started when `cancel_event.is_set()`
+- [x] [P4-T3] (REQ-EXEC-001) Add step-boundary cancellation check to `run_json_branch` so `JSON: validate` is not started when `cancel_event.is_set()`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_fail_fast_cancels_json_before_validate` exits 0.
-- [ ] [P4-T4] (REQ-EXEC-002) Gate cancellation behavior behind `complete_all` so that when `complete_all=True`, `run_json_branch` does not stop due to `cancel_event` and `_runner(...)` does not set cancellation
+- [x] [P4-T4] (REQ-EXEC-002) Gate cancellation behavior behind `complete_all` so that when `complete_all=True`, `run_json_branch` does not stop due to `cancel_event` and `_runner(...)` does not set cancellation
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_complete_all_allows_json_validate_after_python_failure` exits 0.
-- [ ] [P4-T5] (REQ-CLI-001) Update `scripts/dev_tools/fix_all.py:main` so it passes `complete_all=args.complete_all` into `run_fix_all`
+- [x] [P4-T5] (REQ-CLI-001) Update `scripts/dev_tools/fix_all.py:main` so it passes `complete_all=args.complete_all` into `run_fix_all`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_parse_args_complete_all_sets_true` exits 0 and `poetry run python -m scripts.dev_tools.fix_all --help` output contains `--complete-all`.
 
 ### Phase 5 — Implement status formatting + mode selection (make Phase 3 tests pass)
-- [ ] [P5-T1] (REQ-UI-002) Implement `scripts/dev_tools/fix_all.py:format_status_transition_line(branch: str, status: str) -> str` returning exactly `STATUS|branch=<branch>|status=<status>`
+- [x] [P5-T1] (REQ-UI-002) Implement `scripts/dev_tools/fix_all.py:format_status_transition_line(branch: str, status: str) -> str` returning exactly `STATUS|branch=<branch>|status=<status>`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_format_status_transition_line_exact_format` exits 0.
-- [ ] [P5-T2] (REQ-UI-001) Implement `scripts/dev_tools/fix_all.py:render_status_board(lines: list[str], *, width: int) -> str` so it returns a string with `len(lines)` newline characters and a trailing newline
+- [x] [P5-T2] (REQ-UI-001) Implement `scripts/dev_tools/fix_all.py:render_status_board(lines: list[str], *, width: int) -> str` so it returns a string with `len(lines)` newline characters and a trailing newline
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_render_status_board_line_count_and_trailing_newline` exits 0.
-- [ ] [P5-T3] (REQ-WIN-001) Implement `scripts/dev_tools/fix_all.py:should_use_interactive_board(*, isatty: bool, vt_enabled: bool) -> bool` returning True only when both inputs are True
+- [x] [P5-T3] (REQ-WIN-001) Implement `scripts/dev_tools/fix_all.py:should_use_interactive_board(*, isatty: bool, vt_enabled: bool) -> bool` returning True only when both inputs are True
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_should_use_interactive_board_requires_isatty_and_vt` exits 0.
 
 ### Phase 6 — Implement status emission at step boundaries (non-interactive first)
-- [ ] [P6-T1] (REQ-UI-002) Add Pytest unit test `test_non_interactive_emits_status_transitions_without_ansi` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P6-T1] (REQ-UI-002) Add Pytest unit test `test_non_interactive_emits_status_transitions_without_ansi` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Test setup requirements: run `fix_all.run_fix_all(...)` with non-interactive detection based on `logger.stream.isatty()` returning False by using `StepLogger(stream=StringIO())`.
   - Assertion requirements: the captured log contains at least one substring starting with `STATUS|branch=` and contains no `\x1b[`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_non_interactive_emits_status_transitions_without_ansi` exits non-zero before implementation.
-- [ ] [P6-T2] (REQ-UI-002) Update `scripts/dev_tools/fix_all.py` so each branch emits status transitions at step boundaries when not using interactive board:
+- [x] [P6-T2] (REQ-UI-002) Update `scripts/dev_tools/fix_all.py` so each branch emits status transitions at step boundaries when not using interactive board:
   - Exact format: use `format_status_transition_line(branch, status)` and write it via the provided `StepLogger.stream`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_non_interactive_emits_status_transitions_without_ansi` exits 0.
 
 ### Phase 7 — Interactive status board redraw (TTY mode)
-- [ ] [P7-T1] (REQ-UI-001) Add Pytest unit test `test_format_ansi_redraw_contains_only_erase_and_cursor_up` in `tests/scripts/dev_tools/test_fix_all.py` for new pure helper `fix_all.format_ansi_redraw(board: str, *, line_count: int) -> str`:
+- [x] [P7-T1] (REQ-UI-001) Add Pytest unit test `test_format_ansi_redraw_contains_only_erase_and_cursor_up` in `tests/scripts/dev_tools/test_fix_all.py` for new pure helper `fix_all.format_ansi_redraw(board: str, *, line_count: int) -> str`:
   - Assertion requirements: output contains `\x1b[2K` and `\x1b[1A`, and does not contain any other `\x1b[` sequence besides those two.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_format_ansi_redraw_contains_only_erase_and_cursor_up` exits non-zero before implementation.
-- [ ] [P7-T2] (REQ-UI-001) Implement `scripts/dev_tools/fix_all.py:format_ansi_redraw(board: str, *, line_count: int) -> str` using only line erase (`\x1b[2K`) and cursor-up (`\x1b[1A`) sequences
+- [x] [P7-T2] (REQ-UI-001) Implement `scripts/dev_tools/fix_all.py:format_ansi_redraw(board: str, *, line_count: int) -> str` using only line erase (`\x1b[2K`) and cursor-up (`\x1b[1A`) sequences
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_format_ansi_redraw_contains_only_erase_and_cursor_up` exits 0.
-- [ ] [P7-T3] (REQ-WIN-001) Add Pytest unit test `test_is_vt_enabled_for_stream_true_on_non_windows` in `tests/scripts/dev_tools/test_fix_all.py` for new helper `fix_all.is_vt_enabled_for_stream(stream: TextIO) -> bool`:
+- [x] [P7-T3] (REQ-WIN-001) Add Pytest unit test `test_is_vt_enabled_for_stream_true_on_non_windows` in `tests/scripts/dev_tools/test_fix_all.py` for new helper `fix_all.is_vt_enabled_for_stream(stream: TextIO) -> bool`:
   - Test setup requirements: monkeypatch `sys.platform` to a non-Windows value.
   - Assertion requirements: returns True.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_is_vt_enabled_for_stream_true_on_non_windows` exits non-zero before implementation.
-- [ ] [P7-T4] (REQ-WIN-001) Implement `scripts/dev_tools/fix_all.py:is_vt_enabled_for_stream(stream: TextIO) -> bool` so it returns True on non-Windows platforms and attempts best-effort VT enablement on Windows
+- [x] [P7-T4] (REQ-WIN-001) Implement `scripts/dev_tools/fix_all.py:is_vt_enabled_for_stream(stream: TextIO) -> bool` so it returns True on non-Windows platforms and attempts best-effort VT enablement on Windows
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_is_vt_enabled_for_stream_true_on_non_windows` exits 0.
-- [ ] [P7-T5] (REQ-UI-001) Add Pytest unit test `test_interactive_mode_emits_ansi_redraw_not_status_lines` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P7-T5] (REQ-UI-001) Add Pytest unit test `test_interactive_mode_emits_ansi_redraw_not_status_lines` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Test setup requirements: call `fix_all.run_fix_all(...)` with a logger stream that reports `isatty() == True` and with VT enabled forced True by monkeypatching `fix_all.is_vt_enabled_for_stream`.
   - Assertion requirements: captured output contains `\x1b[2K` and does not contain the substring `STATUS|branch=`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_interactive_mode_emits_ansi_redraw_not_status_lines` exits non-zero before implementation.
-- [ ] [P7-T6] (REQ-UI-001) Update `scripts/dev_tools/fix_all.py:run_fix_all` so it selects interactive rendering when `should_use_interactive_board(isatty=logger.stream.isatty(), vt_enabled=is_vt_enabled_for_stream(logger.stream))` is True and uses `format_ansi_redraw(...)` for redraw output
+- [x] [P7-T6] (REQ-UI-001) Update `scripts/dev_tools/fix_all.py:run_fix_all` so it selects interactive rendering when `should_use_interactive_board(isatty=logger.stream.isatty(), vt_enabled=is_vt_enabled_for_stream(logger.stream))` is True and uses `format_ansi_redraw(...)` for redraw output
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_interactive_mode_emits_ansi_redraw_not_status_lines` exits 0.
 
 ### Phase 8 — Shell “SKIP tests” detection
-- [ ] [P8-T1] (REQ-SHELL-001) Add Pytest unit test `test_shell_test_was_skipped_no_test_dirs_message` in `tests/scripts/dev_tools/test_fix_all.py` for new helper `fix_all._shell_test_was_skipped(output: str) -> bool`:
+- [x] [P8-T1] (REQ-SHELL-001) Add Pytest unit test `test_shell_test_was_skipped_no_test_dirs_message` in `tests/scripts/dev_tools/test_fix_all.py` for new helper `fix_all._shell_test_was_skipped(output: str) -> bool`:
   - Input: output contains exact substring `No shell test directories found; skipping.`
   - Assertion: returns True.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_shell_test_was_skipped_no_test_dirs_message` exits non-zero before implementation.
-- [ ] [P8-T2] (REQ-SHELL-001) Add Pytest unit test `test_shell_test_was_skipped_bats_missing_message` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P8-T2] (REQ-SHELL-001) Add Pytest unit test `test_shell_test_was_skipped_bats_missing_message` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Input: output contains exact substring `bats not installed; skipping shell tests.`
   - Assertion: returns True.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_shell_test_was_skipped_bats_missing_message` exits non-zero before implementation.
-- [ ] [P8-T3] (REQ-SHELL-001) Implement `scripts/dev_tools/fix_all.py:_shell_test_was_skipped(output: str) -> bool` so it returns True when either skip substring is present
+- [x] [P8-T3] (REQ-SHELL-001) Implement `scripts/dev_tools/fix_all.py:_shell_test_was_skipped(output: str) -> bool` so it returns True when either skip substring is present
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_shell_test_was_skipped_no_test_dirs_message` exits 0.
-- [ ] [P8-T4] (REQ-SHELL-001) Add Pytest unit test `test_shell_branch_emits_skip_tests_status_on_skip_output` in `tests/scripts/dev_tools/test_fix_all.py`:
+- [x] [P8-T4] (REQ-SHELL-001) Add Pytest unit test `test_shell_branch_emits_skip_tests_status_on_skip_output` in `tests/scripts/dev_tools/test_fix_all.py`:
   - Test setup requirements: configure shell runner so `Shell: test` returns exit code 0 and output includes one of the skip substrings.
   - Assertion requirements: captured status output includes `STATUS|branch=shell|status=SKIP tests`.
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_shell_branch_emits_skip_tests_status_on_skip_output` exits non-zero before implementation.
-- [ ] [P8-T5] (REQ-SHELL-001) Update `scripts/dev_tools/fix_all.py:run_shell_branch` so that when step `Shell: test` returns exit code 0 and `_shell_test_was_skipped(result.output)` is True, it emits the status `SKIP tests` (while keeping the branch overall `success=True`)
+- [x] [P8-T5] (REQ-SHELL-001) Update `scripts/dev_tools/fix_all.py:run_shell_branch` so that when step `Shell: test` returns exit code 0 and `_shell_test_was_skipped(result.output)` is True, it emits the status `SKIP tests` (while keeping the branch overall `success=True`)
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_shell_branch_emits_skip_tests_status_on_skip_output` exits 0.
 
 ### Phase 9 — Preserve end-of-run logs + final summary shape
-- [ ] [P9-T1] (REQ-OUTPUT-001) Add Pytest regression test `test_final_summary_framing_lines_present` in `tests/scripts/dev_tools/test_fix_all.py` asserting the main logger output contains the exact summary framing lines:
+- [x] [P9-T1] (REQ-OUTPUT-001) Add Pytest regression test `test_final_summary_framing_lines_present` in `tests/scripts/dev_tools/test_fix_all.py` asserting the main logger output contains the exact summary framing lines:
   - `========== Branch Results ==========`
   - `====================================`
   - Acceptance: Running `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k test_final_summary_framing_lines_present` exits 0.
 
 ### Phase 10 — Final QA toolchain loop (mandatory)
-- [ ] [P10-T1] (REQ-QA-001) Run formatter: `poetry run black .` and restart this phase if formatting changes occur
+- [x] [P10-T1] (REQ-QA-001) Run formatter: `poetry run black .` and restart this phase if formatting changes occur
   - Acceptance: Black completes with no changes in the final pass.
-- [ ] [P10-T2] (REQ-QA-002) Run linter: `poetry run ruff check` and if Ruff reports issues or applies fixes, restart at [P10-T1]
+- [x] [P10-T2] (REQ-QA-002) Run linter: `poetry run ruff check` and if Ruff reports issues or applies fixes, restart at [P10-T1]
   - Acceptance: Ruff completes with exit code 0 in the final pass.
-- [ ] [P10-T3] (REQ-QA-003) Run type checker: `poetry run pyright` and if it fails, fix and restart at [P10-T1]
+- [x] [P10-T3] (REQ-QA-003) Run type checker: `poetry run pyright` and if it fails, fix and restart at [P10-T1]
   - Acceptance: Pyright completes with exit code 0 in the final pass.
-- [ ] [P10-T4] (REQ-QA-004) Run tests with coverage: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing` and if tests fail, fix and restart at [P10-T1]
+- [x] [P10-T4] (REQ-QA-004) Run tests with coverage: `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing` and if tests fail, fix and restart at [P10-T1]
   - Acceptance: Pytest completes with exit code 0 in the final pass.
 
 ## Test Plan
