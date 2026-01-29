@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stub poetry for scripts/bash/agent_mvp.sh unit tests.
+# The script invokes commands like:
+#   poetry run black --check .
+#   poetry run ruff check
+#   poetry run pyright
+#   poetry run pytest ...
+# Control exit codes via environment variables:
+#   POETRY_EXIT_BLACK, POETRY_EXIT_RUFF, POETRY_EXIT_PYRIGHT, POETRY_EXIT_PYTEST
+
+if [[ "${1:-}" != "run" ]]; then
+	exit 0
+fi
+
+tool="${2:-}"
+case "${tool}" in
+	black)
+		exit "${POETRY_EXIT_BLACK:-0}"
+		;;
+	ruff)
+		exit "${POETRY_EXIT_RUFF:-0}"
+		;;
+	pyright)
+		exit "${POETRY_EXIT_PYRIGHT:-0}"
+		;;
+	pytest)
+		exit "${POETRY_EXIT_PYTEST:-0}"
+		;;
+	*)
+		exit 0
+		;;
+esac

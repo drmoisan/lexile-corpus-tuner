@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stub copilot CLI for scripts/bash/agent_mvp.sh unit tests.
+# Control exit via COPILOT_EXIT (default 0).
+
+printf "%s\n" "copilot-stub"
+exit "${COPILOT_EXIT:-0}"

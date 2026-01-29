@@ -213,6 +213,85 @@ jobs:
             artifacts/pester/powershell-coverage.koverage.xml
           if-no-files-found: ignore
 
+  shell-coverage:
+    name: Shell Coverage (Bats + kcov)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.13-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Install project
+        run: poetry install --no-interaction
+
+      - name: Install shell tooling (shellcheck, shfmt, bats)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck bats
+          # shfmt is not available in apt; install via go or from binary
+          SHFMT_VERSION="3.8.0"
+          curl -sL "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_amd64" -o /tmp/shfmt
+          chmod +x /tmp/shfmt
+          sudo mv /tmp/shfmt /usr/local/bin/shfmt
+
+      - name: Cache kcov build
+        id: cache-kcov
+        uses: actions/cache@v4
+        with:
+          path: /tmp/kcov-install
+          key: kcov-v44-ubuntu-latest
+
+      - name: Build kcov from source
+        if: steps.cache-kcov.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y binutils-dev build-essential cmake \
+            libssl-dev libcurl4-openssl-dev libelf-dev libstdc++-12-dev \
+            zlib1g-dev libdw-dev libiberty-dev
+          KCOV_VERSION="v44"
+          git clone --depth 1 --branch "${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git /tmp/kcov-src
+          mkdir /tmp/kcov-src/build && cd /tmp/kcov-src/build
+          cmake -DCMAKE_INSTALL_PREFIX=/tmp/kcov-install ..
+          make -j"$(nproc)"
+          make install
+
+      - name: Install kcov from cache
+        run: |
+          sudo cp -r /tmp/kcov-install/bin/* /usr/local/bin/
+          kcov --version
+
+      - name: Run shell-qc test with coverage
+        run: poetry run shell-qc test --coverage
+
+      - name: Upload shell coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shell-coverage
+          path: artifacts/pester/kcov/**
+          if-no-files-found: error
+
 
 
 

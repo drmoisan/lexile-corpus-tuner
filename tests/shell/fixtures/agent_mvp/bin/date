@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stub date for scripts/bash/agent_mvp.sh unit tests.
+# The script under test uses: date +%Y-%m-%d_%H%M%S
+
+if [[ "${1:-}" == "+%Y-%m-%d_%H%M%S" ]]; then
+	echo "${DATE_STUB:-2000-01-01_000000}"
+	exit 0
+fi
+
+# Fallback to a stable value for any other format.
+echo "${DATE_STUB_FALLBACK:-2000-01-01}"

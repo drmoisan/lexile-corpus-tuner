@@ -142,6 +142,27 @@ Prefer these commands instead of the `QC: 4 Pytest: run tests` / `QC: 4 Pytest: 
 - **Run tests**: `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`
 - Prefer the command above instead of the `QC: PowerShell: test (Pester)` task.
 
+### Shell QC (Bash)
+
+```bash
+poetry run shell-qc check
+poetry run shell-qc format
+poetry run shell-qc test
+poetry run shell-qc test --coverage
+```
+
+Requires external tools: `shfmt`, `shellcheck`, `bats-core` (optional, only for tests).
+
+Optional coverage:
+
+- `--coverage` runs `bats` under `kcov` and writes a Cobertura report to:
+  `artifacts/pester/kcov/kcov-merged/cov.xml`
+- This is intended to be auto-discovered by the VS Code Coverage Gutters extension.
+
+Coverage requires the additional tool: `kcov`.
+In the devcontainer these tools are installed by the container image (once you add them).
+Outside the devcontainer, install them on your OS or use WSL on Windows for best results.
+
 ## Integrated Workflows
 
 ### Run All Checks (Sequential)
