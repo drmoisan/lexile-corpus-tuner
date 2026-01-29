@@ -13,7 +13,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path  # - Path required at runtime for I/O
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H-%M"
 
