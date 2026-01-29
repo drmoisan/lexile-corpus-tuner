@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path  # - Path required at runtime for I/O
 from typing import TYPE_CHECKING, Protocol
 
 from scripts.dev_tools.atomic_executor.plan_discovery import (
@@ -20,6 +19,7 @@ from scripts.dev_tools.atomic_executor.plan_parser import TASK_LINE_RE
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from scripts.dev_tools.atomic_executor.plan_parser import PlanTask
 

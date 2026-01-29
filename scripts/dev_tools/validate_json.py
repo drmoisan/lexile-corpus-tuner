@@ -75,6 +75,25 @@ class ValidateResult:
 
 
 def _cache_path(cache_dir: Path, uri: str) -> Path:
+    """
+    Build a deterministic cache path for a schema URI.
+
+    Purpose:
+        Convert schema URLs into stable filenames so cached schemas can be reused.
+
+    Args:
+        cache_dir (Path): Directory where cached schema files live.
+        uri (str): Schema URI used to generate the cache key.
+
+    Returns:
+        Path: Full path for the cached schema file.
+
+    Raises:
+        None.
+
+    Side Effects:
+        None.
+    """
     digest = hashlib.sha256(uri.encode("utf-8")).hexdigest()
     return cache_dir / f"{digest}.json"
 
@@ -130,8 +149,32 @@ def _collect_schema_errors(
 def _load_schema(
     uri: str, cache_dir: Path, base_path: Path | None = None
 ) -> dict[str, Any]:
+    """
+    Resolve a JSON schema from local paths or trusted remote endpoints.
+
+    Purpose:
+        Load a JSON schema from a relative path, file URI, or a remote HTTPS
+        endpoint while caching downloads for repeatable validation runs.
+
+    Args:
+        uri (str): Schema URI or relative path to resolve.
+        cache_dir (Path): Directory used to store cached schema downloads.
+        base_path (Path | None): Optional base file path for relative schemas.
+
+    Returns:
+        dict[str, Any]: Parsed JSON schema payload.
+
+    Raises:
+        ValueError: When the schema URI cannot be resolved or uses an unsupported
+            scheme.
+        FileNotFoundError: When a local schema file cannot be found.
+
+    Side Effects:
+        May create cache directories and write cached schema files to disk.
+    """
     parsed = urlparse(uri)
 
+    # Treat missing schemes as relative paths scoped to the referring file.
     if not parsed.scheme:
         if base_path is None:
             raise ValueError("Unsupported schema URI scheme: missing")
@@ -142,6 +185,7 @@ def _load_schema(
 
         return json.loads(local_path.read_text())
 
+    # Resolve explicit file:// URIs directly from disk.
     if parsed.scheme == "file":
         local_path = Path(parsed.path)
         if not local_path.is_file():
@@ -149,15 +193,30 @@ def _load_schema(
 
         return json.loads(local_path.read_text())
 
+    # Only allow HTTP/S for remote schema lookups.
     if parsed.scheme not in {"http", "https"}:
         raise ValueError(f"Unsupported schema URI scheme: {parsed.scheme or 'missing'}")
 
+    # Normalize the json-schema.org endpoint to HTTPS for strict transport safety.
+    if parsed.scheme == "http" and parsed.netloc == "json-schema.org":
+        uri = parsed._replace(scheme="https", fragment="").geturl()
+
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_file = _cache_path(cache_dir, uri)
+    # Reuse cached schema payloads to avoid repeat network calls.
     if cache_file.exists():
         return json.loads(cache_file.read_text())
 
-    resp = urllib.request.urlopen(uri)  # noqa: S310 - fetching trusted schema URL
+    request = (
+        urllib.request.Request(  # noqa: S310 - trusted HTTPS endpoint: json-schema.org
+            uri, headers={"User-Agent": "lexile-corpus-tuner-json-validator"}
+        )
+    )
+    resp = (
+        urllib.request.urlopen(  # noqa: S310 - trusted HTTPS endpoint: json-schema.org
+            request, timeout=30
+        )
+    )
     with resp:
         content = resp.read().decode("utf-8")
     cache_file.write_text(content)

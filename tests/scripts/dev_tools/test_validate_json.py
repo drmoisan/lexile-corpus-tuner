@@ -89,7 +89,13 @@ def test_load_schema_fetch_and_cache(tmp_path: Path, monkeypatch: MonkeyPatch) -
     mock_response.__enter__ = lambda self: self  # type: ignore[reportUnknownLambdaType]
     mock_response.__exit__ = lambda self, *args: None  # type: ignore[reportUnknownLambdaType]
 
-    def mock_urlopen(url: str) -> MagicMock:
+    def mock_urlopen(request: object, *_args: object, **_kwargs: object) -> MagicMock:
+        assert isinstance(request, val.urllib.request.Request)
+        assert request.full_url == uri
+        header_value = request.headers.get("User-Agent") or request.headers.get(
+            "User-agent"
+        )
+        assert header_value == "lexile-corpus-tuner-json-validator"
         return mock_response
 
     monkeypatch.setattr(val.urllib.request, "urlopen", mock_urlopen)

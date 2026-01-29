@@ -9,7 +9,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts.dev_tools.atomic_executor.cli import LOG_DIR
 from scripts.dev_tools.atomic_executor.copilot_execution import log_msg, run_copilot
@@ -19,16 +19,17 @@ from scripts.dev_tools.atomic_executor.copilot_throttling import (
     FailureKind,
     classify_copilot_failure,
 )
-from scripts.dev_tools.atomic_executor.plan_parser import (
-    AutoQCPhase,
-    PlanParser,
-)
 from scripts.dev_tools.atomic_executor.pytest_expectations import (
     ResolvedTestExpectations,
     parse_pytest_failure_output,
     resolve_checked_test_expectations,
 )
-from scripts.dev_tools.atomic_executor.qc_runner import QCLoopResult, QCRunner
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from scripts.dev_tools.atomic_executor.plan_parser import AutoQCPhase, PlanParser
+    from scripts.dev_tools.atomic_executor.qc_runner import QCLoopResult, QCRunner
 
 
 def build_qc_fix_prompt(

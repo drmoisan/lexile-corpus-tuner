@@ -9,14 +9,11 @@ from __future__ import annotations
 
 import re
 import signal
-from pathlib import (
-    Path,  # - Path required at runtime for variable annotations
-)
+from pathlib import Path  # noqa: TCH003 - Path required at runtime for tests
+from typing import TYPE_CHECKING
 
-from scripts.dev_tools.atomic_executor.plan_parser import (
-    PlanParser,
-    PlanTask,
-)
+if TYPE_CHECKING:
+    from scripts.dev_tools.atomic_executor.plan_parser import PlanParser, PlanTask
 from scripts.dev_tools.atomic_executor.workspace_helpers import (
     release_executor_lock,
 )
