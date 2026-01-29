@@ -851,6 +851,21 @@
       },
       "problemMatcher": [],
       "type": "shell"
+    },
+    {
+      "command": "poetry run python -m scripts.dev_tools.plan_progress_report --out \"artifacts/active_plan_progress_$(date +%Y%m%d-%H%M%S).md\"",
+      "detail": "Scans docs/features/active for unchecked plan tasks and writes a timestamped markdown report.",
+      "label": "Report: Plan Progress",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "panel": "new",
+        "reveal": "always",
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "type": "shell"
     }
   ],
   "version": "2.0.0"
