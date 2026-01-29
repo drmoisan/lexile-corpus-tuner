@@ -148,10 +148,12 @@ def test_executor_terminates_after_max_throttle_retries(
 ) -> None:
     """Always-throttled Copilot calls must stop after max retries."""
 
-    from scripts.dev_tools.atomic_executor import cli
+    from scripts.dev_tools.atomic_executor import task_execution as cli
+    from scripts.dev_tools.atomic_executor import task_retry as retry_mod
 
     # Patch logging helper to avoid writing log files during tests.
-    monkeypatch.setattr(cli, "_log_msg", _noop_log)
+    # log_msg is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "log_msg", _noop_log)
 
     copilot_calls: list[int] = []
 
@@ -161,7 +163,8 @@ def test_executor_terminates_after_max_throttle_retries(
         copilot_calls.append(1)
         return CopilotRunResult(exit_code=1, output_tail="429 too many requests")
 
-    monkeypatch.setattr(cli, "run_copilot", _fake_run_copilot)
+    # run_copilot is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "run_copilot", _fake_run_copilot)
 
     cur = PlanTask(
         task_id="P3-T2",

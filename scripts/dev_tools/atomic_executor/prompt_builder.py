@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
+from pathlib import Path  # - Path required at runtime for I/O
 from typing import TYPE_CHECKING, Protocol
 
 from scripts.dev_tools.atomic_executor.plan_discovery import (
@@ -231,7 +231,7 @@ Preferred Model: {self.preferred_model}
 This execution uses model "{self.preferred_model}" for task completion.
 
 ---- END Preferred Model ----
-"""  # noqa: S608 - template text for user instructions, not SQL
+"""  # - template text for user instructions, not SQL
 
         # Basic token replacement for template variables
         agent_name = "GitHub Copilot"

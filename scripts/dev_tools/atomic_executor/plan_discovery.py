@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path  # noqa: TCH003 - Path required at runtime for I/O
+from pathlib import Path  # - Path required at runtime for I/O
 
 _TIMESTAMP_FORMAT = "%Y-%m-%dT%H-%M"
 

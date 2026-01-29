@@ -16,10 +16,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from scripts.dev_tools.atomic_executor.cli import (
-    copy_to_clipboard,
+from scripts.dev_tools.atomic_executor.arg_parser import parse_args
+from scripts.dev_tools.atomic_executor.clipboard_helpers import copy_to_clipboard
+from scripts.dev_tools.atomic_executor.workspace_helpers import (
     ensure_clean_tree,
-    parse_args,
     refuse_protected_branch,
     resolve_workspace,
 )
@@ -116,10 +116,14 @@ class TestResolveWorkspace:
         self, monkeypatch: "MonkeyPatch"
     ) -> None:
         """resolve_workspace() infers from __file__ location when no arg."""
-        # Mock __file__ to be at repo/scripts/dev_tools/atomic_executor/cli.py
-        fake_file = Path("/fake/repo/scripts/dev_tools/atomic_executor/cli.py")
+        # Mock __file__ to be at:
+        # repo/scripts/dev_tools/atomic_executor/workspace_helpers.py
+        fake_file = Path(
+            "/fake/repo/scripts/dev_tools/atomic_executor/workspace_helpers.py"
+        )
         monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli.__file__", str(fake_file)
+            "scripts.dev_tools.atomic_executor.workspace_helpers.__file__",
+            str(fake_file),
         )
 
         result = resolve_workspace(None)
@@ -406,7 +410,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() exits early with --print-prompt without running copilot."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup minimal feature folder
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -463,7 +467,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() exits early with --copy-prompt without running copilot."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup minimal feature folder
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -496,7 +500,8 @@ class TestMainEdgeCases:
 
         # Mock clipboard to succeed
         monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli.copy_to_clipboard", lambda x: True  # type: ignore[arg-type,misc]
+            "scripts.dev_tools.atomic_executor.task_execution.copy_to_clipboard",
+            lambda x: True,  # type: ignore[arg-type,misc]
         )
 
         exit_code = main(
@@ -521,7 +526,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() returns error code when plan.md missing."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup feature folder without plan.md
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -557,7 +562,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() returns 0 when all tasks already checked."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup feature folder with all tasks checked
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -608,7 +613,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() returns error code when prompt template missing."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup feature folder with plan.md
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -655,7 +660,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() prints prompt when --copy-prompt fails."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup minimal feature folder
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -688,7 +693,7 @@ class TestMainEdgeCases:
 
         # Mock clipboard to fail
         monkeypatch.setattr(
-            "scripts.dev_tools.atomic_executor.cli.copy_to_clipboard",
+            "scripts.dev_tools.atomic_executor.task_execution.copy_to_clipboard",
             lambda x: False,  # type: ignore[arg-type,misc]
         )
 
@@ -715,7 +720,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() executes with --start flag to begin at specific task."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup feature folder with multiple tasks
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -773,7 +778,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() exits when execute subcommand finds no unchecked tasks."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         # Setup feature folder with all tasks checked
         feature_dir = tmp_path / "docs" / "features" / "active" / "my-feature"
@@ -824,7 +829,7 @@ class TestMainEdgeCases:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """main() successfully executes task with scoped QC."""
-        from scripts.dev_tools.atomic_executor.cli import main
+        from scripts.dev_tools.atomic_executor.task_execution import main
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
 
@@ -921,7 +926,7 @@ class TestPreflightQC:
 
     def test_preflight_qc_result_dataclass(self) -> None:
         """PreflightQCResult stores success status and output."""
-        from scripts.dev_tools.atomic_executor.cli import PreflightQCResult
+        from scripts.dev_tools.atomic_executor.qc_orchestration import PreflightQCResult
 
         # Success case
         result = PreflightQCResult(success=True, output="All passed")
@@ -937,14 +942,16 @@ class TestPreflightQC:
         assert result.output == "Ruff failed"
         assert result.failed_step == "ruff"
 
-    def test_build_preflight_qc_fix_prompt_includes_workspace(
+    def testbuild_preflight_qc_fix_prompt_includes_workspace(
         self,
         tmp_path: Path,
     ) -> None:
-        """_build_preflight_qc_fix_prompt includes workspace in prompt."""
-        from scripts.dev_tools.atomic_executor.cli import _build_preflight_qc_fix_prompt
+        """build_preflight_qc_fix_prompt includes workspace in prompt."""
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            build_preflight_qc_fix_prompt,
+        )
 
-        prompt = _build_preflight_qc_fix_prompt(
+        prompt = build_preflight_qc_fix_prompt(
             workspace=tmp_path, qc_output="Black failed: file.py"
         )
 
@@ -958,14 +965,14 @@ class TestPreflightQC:
         assert "poetry run pytest" in prompt
         assert "Do NOT end your turn until all QC steps pass" in prompt
 
-    def test_run_preflight_qc_with_capture_returns_success(
+    def testrun_preflight_qc_with_capture_returns_success(
         self,
         tmp_path: Path,
         monkeypatch: "MonkeyPatch",
     ) -> None:
-        """_run_preflight_qc_with_capture returns success when all steps pass."""
-        from scripts.dev_tools.atomic_executor.cli import (
-            _run_preflight_qc_with_capture,
+        """run_preflight_qc_with_capture returns success when all steps pass."""
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            run_preflight_qc_with_capture,
         )
 
         # Mock subprocess.run to always succeed
@@ -981,7 +988,7 @@ class TestPreflightQC:
 
         monkeypatch.setattr("subprocess.run", mock_run)
 
-        result = _run_preflight_qc_with_capture(tmp_path)
+        result = run_preflight_qc_with_capture(tmp_path)
 
         assert result.success is True
         assert result.failed_step is None
@@ -990,14 +997,14 @@ class TestPreflightQC:
         assert "=== PYRIGHT ===" in result.output
         assert "=== PYTEST ===" in result.output
 
-    def test_run_preflight_qc_with_capture_returns_failure(
+    def testrun_preflight_qc_with_capture_returns_failure(
         self,
         tmp_path: Path,
         monkeypatch: "MonkeyPatch",
     ) -> None:
-        """_run_preflight_qc_with_capture returns failure when a step fails."""
-        from scripts.dev_tools.atomic_executor.cli import (
-            _run_preflight_qc_with_capture,
+        """run_preflight_qc_with_capture returns failure when a step fails."""
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            run_preflight_qc_with_capture,
         )
 
         call_count = 0
@@ -1019,7 +1026,7 @@ class TestPreflightQC:
 
         monkeypatch.setattr("subprocess.run", mock_run)
 
-        result = _run_preflight_qc_with_capture(tmp_path)
+        result = run_preflight_qc_with_capture(tmp_path)
 
         assert result.success is False
         assert result.failed_step == "ruff"
@@ -1052,7 +1059,7 @@ class TestPhaseEndQC:
         Purpose:
             Ensure phase completion forwards plan expectations into run_full().
         """
-        from scripts.dev_tools.atomic_executor import cli
+        from scripts.dev_tools.atomic_executor import cli, task_execution
         from scripts.dev_tools.atomic_executor.plan_parser import PlanModel, PlanTask
 
         plan_task = PlanTask(
@@ -1078,17 +1085,23 @@ class TestPhaseEndQC:
         resolver.resolve.return_value = (Mock(), Path.cwd())
         qc_runner = Mock()
 
-        monkeypatch.setattr(cli, "PlanParser", lambda _path: parser)
-        monkeypatch.setattr(cli, "FeatureResolver", Mock(return_value=resolver))
-        monkeypatch.setattr(cli, "QCRunner", Mock(return_value=qc_runner))
-        monkeypatch.setattr(cli, "resolve_workspace", lambda _workspace: Path.cwd())
+        monkeypatch.setattr(task_execution, "PlanParser", lambda _path: parser)
         monkeypatch.setattr(
-            cli,
+            task_execution, "FeatureResolver", Mock(return_value=resolver)
+        )
+        monkeypatch.setattr(task_execution, "QCRunner", Mock(return_value=qc_runner))
+        monkeypatch.setattr(
+            task_execution, "resolve_workspace", lambda _workspace: Path.cwd()
+        )
+        monkeypatch.setattr(
+            task_execution,
             "resolve_feature_plan",
             lambda _dir: Mock(path=Path("docs/features/active/README.md")),
         )
-        monkeypatch.setattr(cli, "refuse_protected_branch", lambda _workspace: None)
-        monkeypatch.setattr(cli, "execute_one_task", lambda **_kwargs: 0)
+        monkeypatch.setattr(
+            task_execution, "refuse_protected_branch", lambda _workspace: None
+        )
+        monkeypatch.setattr(task_execution, "execute_one_task", lambda **_kwargs: 0)
 
         exit_code = cli.main(["execute", "feature", "--skip-preflight-qc"])
 
@@ -1111,11 +1124,11 @@ class TestPhaseEndQC:
         Purpose:
             Ensure expected-fail refs suppress baseline fix behavior for pytest.
         """
-        from scripts.dev_tools.atomic_executor.cli import (
-            _run_preflight_qc_with_capture,
-        )
         from scripts.dev_tools.atomic_executor.pytest_expectations import (
             ResolvedTestExpectations,
+        )
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            run_preflight_qc_with_capture,
         )
 
         expectations = ResolvedTestExpectations(
@@ -1147,7 +1160,7 @@ class TestPhaseEndQC:
 
         monkeypatch.setattr("subprocess.run", mock_run)
 
-        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+        result = run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
 
         assert result.success is True
         assert result.failed_step is None
@@ -1163,11 +1176,11 @@ class TestPhaseEndQC:
         Purpose:
             Ensure expected-pass entries cause the pytest gate to fail.
         """
-        from scripts.dev_tools.atomic_executor.cli import (
-            _run_preflight_qc_with_capture,
-        )
         from scripts.dev_tools.atomic_executor.pytest_expectations import (
             ResolvedTestExpectations,
+        )
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            run_preflight_qc_with_capture,
         )
 
         expectations = ResolvedTestExpectations(
@@ -1199,7 +1212,7 @@ class TestPhaseEndQC:
 
         monkeypatch.setattr("subprocess.run", mock_run)
 
-        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+        result = run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
 
         assert result.success is False
         assert result.failed_step == "pytest"
@@ -1215,11 +1228,11 @@ class TestPhaseEndQC:
         Purpose:
             Provide actionable feedback when expectation tasks lack test refs.
         """
-        from scripts.dev_tools.atomic_executor.cli import (
-            _run_preflight_qc_with_capture,
-        )
         from scripts.dev_tools.atomic_executor.pytest_expectations import (
             ResolvedTestExpectations,
+        )
+        from scripts.dev_tools.atomic_executor.qc_orchestration import (
+            run_preflight_qc_with_capture,
         )
 
         expectations = ResolvedTestExpectations(
@@ -1239,7 +1252,7 @@ class TestPhaseEndQC:
 
         monkeypatch.setattr("subprocess.run", mock_run)
 
-        result = _run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
+        result = run_preflight_qc_with_capture(Path.cwd(), expectations=expectations)
 
         assert result.success is False
         assert result.failed_step == "pytest-collect"
@@ -1253,7 +1266,7 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() raises FileNotFoundError when copilot not found."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Set PATH to empty so no copilot executable can be found
@@ -1278,7 +1291,7 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() skips VS Code shim and finds no other copilot."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create shim directory structure that matches the detection pattern
@@ -1322,7 +1335,7 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() rejects the VS Code Remote/Devcontainer shim path."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # VS Code Remote (including devcontainers) stores its shim under a Linux
@@ -1372,7 +1385,7 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() creates log directory if missing."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Setup fake copilot on PATH
@@ -1428,14 +1441,15 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() invokes copilot with correct arguments."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create a fake copilot executable on PATH
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
-        fake_copilot = fake_bin / "copilot.exe"
+        fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("@echo fake copilot")
+        fake_copilot.chmod(0o755)  # Make executable for shutil.which()
         monkeypatch.setenv("PATH", str(fake_bin))
 
         captured_argv: list[str] = []
@@ -1530,14 +1544,15 @@ class TestRunCopilot:
     ) -> None:
         """run_copilot() raises promptly when Copilot reports a permission denial."""
 
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         # Create a fake copilot executable on PATH.
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
-        fake_copilot = fake_bin / "copilot.exe"
+        fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("@echo fake copilot")
+        fake_copilot.chmod(0o755)  # Make executable for shutil.which()
         monkeypatch.setenv("PATH", str(fake_bin))
 
         captured_argv: list[str] = []
@@ -1569,6 +1584,9 @@ class TestRunCopilot:
 
             def wait(self, timeout: float | None = None) -> int:
                 return 1
+
+            def kill(self) -> None:
+                pass
 
         monkeypatch.setattr("subprocess.Popen", MockPopen)
 
@@ -1602,13 +1620,15 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() adds --continue when resume_session=True."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor import copilot_execution
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
         fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("#!/bin/sh\necho copilot")
+        fake_copilot.chmod(0o755)  # Make executable for shutil.which()
         monkeypatch.setenv("PATH", str(fake_bin))
 
         captured_argv: list[str] = []
@@ -1631,7 +1651,8 @@ class TestRunCopilot:
             def wait(self) -> int:
                 return 0
 
-        monkeypatch.setattr("subprocess.Popen", MockPopen)
+        # Patch subprocess.Popen where it's looked up (in the module under test).
+        monkeypatch.setattr(copilot_execution.subprocess, "Popen", MockPopen)
 
         log_file = tmp_path / "log" / "test.log"
 
@@ -1652,7 +1673,8 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() writes workspace to trusted_folders when enabled."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor import copilot_execution
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         # Route Copilot config to a temp directory for isolation.
         config_root = tmp_path / "config-root"
@@ -1662,6 +1684,7 @@ class TestRunCopilot:
         fake_bin.mkdir()
         fake_copilot = fake_bin / "copilot"
         fake_copilot.write_text("#!/bin/sh\necho copilot")
+        fake_copilot.chmod(0o755)  # Make executable for shutil.which()
         monkeypatch.setenv("PATH", str(fake_bin))
 
         class MockStdout:
@@ -1681,7 +1704,8 @@ class TestRunCopilot:
             def wait(self) -> int:
                 return 0
 
-        monkeypatch.setattr("subprocess.Popen", MockPopen)
+        # Patch subprocess.Popen where it's looked up (in the module under test).
+        monkeypatch.setattr(copilot_execution.subprocess, "Popen", MockPopen)
 
         log_file = tmp_path / "log" / "test.log"
 
@@ -1707,7 +1731,8 @@ class TestRunCopilot:
         self, tmp_path: Path, monkeypatch: "MonkeyPatch"
     ) -> None:
         """run_copilot() terminates when Copilot CLI produces no output."""
-        from scripts.dev_tools.atomic_executor.cli import run_copilot
+        from scripts.dev_tools.atomic_executor import copilot_execution
+        from scripts.dev_tools.atomic_executor.copilot_execution import run_copilot
 
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config-root"))
         bin_dir = tmp_path / "bin"
@@ -1748,7 +1773,8 @@ class TestRunCopilot:
             hung_process_holder["proc"] = proc
             return proc
 
-        monkeypatch.setattr("subprocess.Popen", fake_popen)
+        # Patch subprocess.Popen where it's looked up (in the module under test).
+        monkeypatch.setattr(copilot_execution.subprocess, "Popen", fake_popen)
 
         log_file = tmp_path / "log" / "test.log"
 

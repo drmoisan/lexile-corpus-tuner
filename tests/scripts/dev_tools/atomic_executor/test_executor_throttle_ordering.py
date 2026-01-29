@@ -166,12 +166,14 @@ def test_executor_does_not_flip_checkbox_until_throttle_resolves(
 ) -> None:
     """A throttled Copilot call must not advance the plan until success."""
 
-    from scripts.dev_tools.atomic_executor import cli
+    from scripts.dev_tools.atomic_executor import task_execution as cli
+    from scripts.dev_tools.atomic_executor import task_retry as retry_mod
 
     call_log: list[str] = []
 
     # Patch logging helper to avoid writing log files during tests.
-    monkeypatch.setattr(cli, "_log_msg", _noop_log)
+    # log_msg is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "log_msg", _noop_log)
 
     # Arrange a fake Copilot outcome sequence: throttle -> success.
     outcomes = [
@@ -185,7 +187,8 @@ def test_executor_does_not_flip_checkbox_until_throttle_resolves(
         call_log.append("copilot")
         return outcomes.pop(0)
 
-    monkeypatch.setattr(cli, "run_copilot", _fake_run_copilot)
+    # run_copilot is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "run_copilot", _fake_run_copilot)
 
     # Build a minimal task model.
     cur = PlanTask(

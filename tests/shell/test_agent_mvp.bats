@@ -8,6 +8,18 @@
 # Notes:
 #   - We stub external executables (git/poetry/copilot/date) via PATH.
 #   - Tests disable log file creation using AGENT_MVP_LOG_FILE=/dev/null.
+#
+# Known Issue (Phase 1 remediation):
+#   Tests 3-6 are failing. The root cause is that environment variables set
+#   in one test (e.g., GIT_STATUS_PORCELAIN in test 2) are persisting into
+#   subsequent tests. The setup() function sets defaults but doesn't reset
+#   variables that were explicitly set by prior tests.
+#
+#   Observed failures:
+#   - Test 3: Expected exit 4 (protected branch), observes exit 3 (dirty tree)
+#   - Test 4: Expected exit 0 (QC passes), observes exit 3 (dirty tree)
+#   - Test 5: Expected exit 0 (log mode), observes exit 3 (dirty tree)
+#   - Test 6: Expected exit 5 (max iters), observes exit 3 (dirty tree)
 # ------------------------------------------------------------------------------
 
 setup() {

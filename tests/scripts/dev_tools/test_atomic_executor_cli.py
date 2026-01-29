@@ -18,26 +18,40 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from scripts.dev_tools.atomic_executor import cli
-from scripts.dev_tools.atomic_executor.cli import main
+from scripts.dev_tools.atomic_executor import cli, copilot_execution, workspace_helpers
 from scripts.dev_tools.atomic_executor.copilot_runner import CopilotRunResult
 from scripts.dev_tools.atomic_executor.plan_parser import PlanModel, PlanTask
+from scripts.dev_tools.atomic_executor.task_execution import main
 
 
 @pytest.fixture
 def mock_dependencies() -> Generator[dict[str, Any], None, None]:
     """Mock external dependencies for CLI integration tests."""
     with (
-        patch("scripts.dev_tools.atomic_executor.cli.PlanParser") as MockParser,
-        patch("scripts.dev_tools.atomic_executor.cli.FeatureResolver") as MockResolver,
-        patch("scripts.dev_tools.atomic_executor.cli.QCRunner") as MockQCRunner,
-        patch("scripts.dev_tools.atomic_executor.cli.PromptBuilder") as MockBuilder,
-        patch("scripts.dev_tools.atomic_executor.cli.copy_to_clipboard") as MockClip,
-        patch("scripts.dev_tools.atomic_executor.cli.run_copilot") as MockRunCopilot,
-        patch("scripts.dev_tools.atomic_executor.cli.ensure_clean_tree"),
-        patch("scripts.dev_tools.atomic_executor.cli.refuse_protected_branch"),
         patch(
-            "scripts.dev_tools.atomic_executor.cli._run_preflight_qc_fix_loop",
+            "scripts.dev_tools.atomic_executor.task_execution.PlanParser"
+        ) as MockParser,
+        patch(
+            "scripts.dev_tools.atomic_executor.task_execution.FeatureResolver"
+        ) as MockResolver,
+        patch(
+            "scripts.dev_tools.atomic_executor.task_execution.QCRunner"
+        ) as MockQCRunner,
+        patch(
+            "scripts.dev_tools.atomic_executor.task_execution.PromptBuilder"
+        ) as MockBuilder,
+        patch(
+            "scripts.dev_tools.atomic_executor.clipboard_helpers.copy_to_clipboard"
+        ) as MockClip,
+        patch(
+            "scripts.dev_tools.atomic_executor.task_retry.run_copilot"
+        ) as MockRunCopilot,
+        patch("scripts.dev_tools.atomic_executor.workspace_helpers.ensure_clean_tree"),
+        patch(
+            "scripts.dev_tools.atomic_executor.workspace_helpers.refuse_protected_branch"
+        ),
+        patch(
+            "scripts.dev_tools.atomic_executor.task_execution.run_preflight_qc_fix_loop",
             return_value=0,
         ),
         patch("pathlib.Path.is_file") as MockIsFile,
@@ -95,19 +109,6 @@ def _setup_run_copilot_capture(
 
     captured_argv: list[str] = []
 
-    def _fake_exists(path: Path) -> bool:
-        """
-        Pretend the fake copilot executable exists on PATH.
-
-        Args:
-            path (Path): Path to check.
-
-        Returns:
-            bool: True for the fake copilot path, False otherwise.
-        """
-
-        return path.as_posix() == "/fake/bin/copilot"
-
     def _fake_open(_self: Path, *_args: object, **_kwargs: object):
         """
         Return an in-memory file handle for log writes.
@@ -157,14 +158,24 @@ def _setup_run_copilot_capture(
         return Mock()
 
     monkeypatch.setenv("PATH", "/fake/bin")
-    monkeypatch.setattr(cli.Path, "exists", _fake_exists)
+    monkeypatch.setattr(
+        copilot_execution.shutil, "which", lambda _cmd: "/fake/bin/copilot"
+    )
     monkeypatch.setattr(cli.Path, "open", _fake_open)
     monkeypatch.setattr(cli.Path, "write_text", _fake_write_text)
     monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
     monkeypatch.setattr(cli.Path, "touch", _fake_touch)
-    monkeypatch.setattr(cli.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(cli, "_stream_copilot_output", lambda **_kwargs: (0, ""))
-    monkeypatch.setattr(cli, "_clean_session_file", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(copilot_execution.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(
+        copilot_execution, "_stream_copilot_output", lambda **_kwargs: (0, "")
+    )
+    monkeypatch.setattr(
+        copilot_execution, "_clean_session_file", lambda *_args, **_kwargs: None
+    )
+    # Mock _ensure_trusted_workspace to avoid reading config file from disk.
+    monkeypatch.setattr(
+        copilot_execution, "_ensure_trusted_workspace", lambda **_kwargs: None
+    )
     # Note: _copilot_supports_session was never implemented; session support
     # is determined by whether --continue is added in run_copilot.
 
@@ -332,7 +343,9 @@ def test_execute_all_aborts_with_exit_code_5_on_persistent_failure(
     mocks["parser"].phase_complete.return_value = False
 
     # Mock execute_one_task to return 0 (Task1 success) then 5 (Task2 recurring fail)
-    with patch("scripts.dev_tools.atomic_executor.cli.execute_one_task") as mock_exec:
+    with patch(
+        "scripts.dev_tools.atomic_executor.task_execution.execute_one_task"
+    ) as mock_exec:
         mock_exec.side_effect = [0, 5]
 
         # In execute-all mode
@@ -357,7 +370,7 @@ def test_copilot_argv_includes_agent_flag(monkeypatch: pytest.MonkeyPatch) -> No
     """run_copilot() should include the atomic executor agent flag."""
     captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=False)
 
-    cli.run_copilot(
+    copilot_execution.run_copilot(
         workspace=Path("/workspace"),
         prompt_text="test prompt",
         log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
@@ -373,7 +386,7 @@ def test_first_task_omits_continue_flag(monkeypatch: pytest.MonkeyPatch) -> None
     """run_copilot() should omit --continue for the first task."""
     captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=True)
 
-    cli.run_copilot(
+    copilot_execution.run_copilot(
         workspace=Path("/workspace"),
         prompt_text="test prompt",
         log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
@@ -392,7 +405,7 @@ def test_subsequent_task_includes_continue_flag(
     """run_copilot() should add --continue after the first task."""
     captured_argv = _setup_run_copilot_capture(monkeypatch, supports_sessions=True)
 
-    cli.run_copilot(
+    copilot_execution.run_copilot(
         workspace=Path("/workspace"),
         prompt_text="test prompt",
         log_file=Path("/workspace/.agent_logs/atomic_executor_test.log"),
@@ -456,9 +469,9 @@ def test_single_run_lock_acquired_on_start(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(cli.Path, "write_text", _fake_write_text)
     monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
 
-    lock_path = cli.acquire_executor_lock(Path("/workspace"))
+    lock_path = workspace_helpers.acquire_executor_lock(Path("/workspace"))
 
-    if os.getenv(cli.EXECUTOR_LOCK_BYPASS_ENV) == "1":
+    if os.getenv(workspace_helpers.EXECUTOR_LOCK_BYPASS_ENV) == "1":
         assert lock_exists is False
     else:
         assert lock_exists is True
@@ -502,13 +515,13 @@ def test_single_run_lock_blocks_concurrent_run(
     monkeypatch.setattr(cli.Path, "exists", _fake_exists)
     monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
 
-    if os.getenv(cli.EXECUTOR_LOCK_BYPASS_ENV) == "1":
-        lock_path = cli.acquire_executor_lock(Path("/workspace"))
+    if os.getenv(workspace_helpers.EXECUTOR_LOCK_BYPASS_ENV) == "1":
+        lock_path = workspace_helpers.acquire_executor_lock(Path("/workspace"))
         assert lock_path.as_posix().endswith(lock_file_name)
         return
 
     with pytest.raises(RuntimeError, match="executor lock already exists"):
-        cli.acquire_executor_lock(Path("/workspace"))
+        workspace_helpers.acquire_executor_lock(Path("/workspace"))
 
 
 def test_single_run_lock_allows_bypass_env(
@@ -546,9 +559,9 @@ def test_single_run_lock_allows_bypass_env(
 
     monkeypatch.setattr(cli.Path, "exists", _fake_exists)
     monkeypatch.setattr(cli.Path, "mkdir", _fake_mkdir)
-    monkeypatch.setenv(cli.EXECUTOR_LOCK_BYPASS_ENV, "1")
+    monkeypatch.setenv(workspace_helpers.EXECUTOR_LOCK_BYPASS_ENV, "1")
 
-    lock_path = cli.acquire_executor_lock(Path("/workspace"))
+    lock_path = workspace_helpers.acquire_executor_lock(Path("/workspace"))
 
     assert lock_path.as_posix().endswith(lock_file_name)
 
@@ -587,7 +600,9 @@ def test_single_run_lock_released_on_completion(
     monkeypatch.setattr(cli.Path, "exists", _fake_exists)
     monkeypatch.setattr(cli.Path, "unlink", _fake_unlink)
 
-    cli.release_executor_lock(Path("/workspace/.agent_logs/executor.lock"))
+    workspace_helpers.release_executor_lock(
+        Path("/workspace/.agent_logs/executor.lock")
+    )
 
     assert lock_exists is False
 

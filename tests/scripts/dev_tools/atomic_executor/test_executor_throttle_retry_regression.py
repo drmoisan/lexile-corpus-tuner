@@ -174,10 +174,12 @@ def test_execute_one_task_retries_on_throttle_then_succeeds(
         This regression originally failed before issue #80 was implemented.
     """
 
-    from scripts.dev_tools.atomic_executor import cli as cli_mod
+    from scripts.dev_tools.atomic_executor import task_execution as cli_mod
+    from scripts.dev_tools.atomic_executor import task_retry as retry_mod
 
     # Arrange: prevent all filesystem writes from the code under test.
-    monkeypatch.setattr(cli_mod, "_log_msg", _noop_log)
+    # log_msg is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "log_msg", _noop_log)
 
     # Arrange: create a task that is already checked so checkbox-flipping is not needed.
     task = PlanTask(
@@ -212,7 +214,8 @@ def test_execute_one_task_retries_on_throttle_then_succeeds(
             )
         return CopilotRunResult(exit_code=0, output_tail="")
 
-    monkeypatch.setattr(cli_mod, "run_copilot", _fake_run_copilot)
+    # run_copilot is called from task_retry, so patch it there.
+    monkeypatch.setattr(retry_mod, "run_copilot", _fake_run_copilot)
 
     # Arrange: throttling policy inputs (fully deterministic; no real sleeps).
     copilot_rate_limiter = CallRateLimiter(
