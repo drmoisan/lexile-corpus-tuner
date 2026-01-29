@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stub git for scripts/bash/agent_mvp.sh unit tests.
+# Behavior is controlled via environment variables:
+# - GIT_STATUS_PORCELAIN: printed for `git status --porcelain`
+# - GIT_BRANCH: printed for `git rev-parse --abbrev-ref HEAD`
+
+if [[ "${1:-}" == "status" && "${2:-}" == "--porcelain" ]]; then
+	echo "${GIT_STATUS_PORCELAIN-}"
+	exit 0
+fi
+
+if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--abbrev-ref" && "${3:-}" == "HEAD" ]]; then
+	echo "${GIT_BRANCH:-feature/test}"
+	exit 0
+fi
+
+# Default: succeed silently for any other git invocation.
+exit 0

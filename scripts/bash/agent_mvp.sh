@@ -24,13 +24,27 @@ TYPE_CMD="poetry run pyright"
 TEST_CMD="poetry run pytest --cov=src/lexile_corpus_tuner --cov-report=xml --cov-report=term-missing"
 
 MAX_ITERS="${MAX_ITERS:-4}"
-LOG_DIR=".agent_logs"
-mkdir -p "${LOG_DIR}"
+LOG_DIR="${AGENT_MVP_LOG_DIR:-.agent_logs}"
 
-RUN_ID="$(date +%Y-%m-%d_%H%M%S)"
-LOG_FILE="${LOG_DIR}/agent_${RUN_ID}.log"
+RUN_ID="${AGENT_MVP_RUN_ID:-$(date +%Y-%m-%d_%H%M%S)}"
+LOG_FILE="${AGENT_MVP_LOG_FILE:-${LOG_DIR}/agent_${RUN_ID}.log}"
 
-say() { printf "%s\n" "$*" | tee -a "${LOG_FILE}"; }
+LOG_ENABLED=1
+if [[ "${LOG_FILE}" == "/dev/null" ]]; then
+	LOG_ENABLED=0
+fi
+
+if ((LOG_ENABLED)); then
+	mkdir -p "${LOG_DIR}"
+fi
+
+say() {
+	if ((LOG_ENABLED)); then
+		printf "%s\n" "$*" | tee -a "${LOG_FILE}"
+	else
+		printf "%s\n" "$*"
+	fi
+}
 
 # ---- Safety checks -----------------------------------------------------------
 
@@ -52,13 +66,37 @@ refuse_protected_branch() {
 
 run_qc() {
 	say "== Black =="
-	eval "${FMT_CMD}"
+	eval "${FMT_CMD}" || return $?
 	say "== Ruff =="
-	eval "${LINT_CMD}"
+	eval "${LINT_CMD}" || return $?
 	say "== Pyright =="
-	eval "${TYPE_CMD}"
+	eval "${TYPE_CMD}" || return $?
 	say "== Pytest =="
-	eval "${TEST_CMD}"
+	eval "${TEST_CMD}" || return $?
+}
+
+build_copilot_prompt() {
+	printf '%s\n' \
+		"You are executing a change in the lexile-corpus-tuner repository." \
+		"" \
+		"Authoritative constraints:" \
+		"- Follow all policies under .github/instructions/." \
+		"- Do NOT replan or expand scope." \
+		"- Make the minimum change necessary to satisfy the task." \
+		"" \
+		"Task:" \
+		"${TASK}" \
+		"" \
+		"Hard requirement:" \
+		"Run and satisfy the following toolchain in this exact order." \
+		"If a step fails, fix the root cause and restart the sequence." \
+		"" \
+		"1) ${FMT_CMD}" \
+		"2) ${LINT_CMD}" \
+		"3) ${TYPE_CMD}" \
+		"4) ${TEST_CMD}" \
+		"" \
+		"Stop only when all steps pass or you are blocked by missing information."
 }
 
 # ---- Preconditions -----------------------------------------------------------
@@ -78,28 +116,7 @@ for ((i = 1; i <= MAX_ITERS; i++)); do
 	say ""
 	say "================ Iteration ${i}/${MAX_ITERS} ================"
 
-	copilot -p "
-You are executing a change in the lexile-corpus-tuner repository.
-
-Authoritative constraints:
-- Follow all policies under .github/instructions/.
-- Do NOT replan or expand scope.
-- Make the minimum change necessary to satisfy the task.
-
-Task:
-${TASK}
-
-Hard requirement:
-Run and satisfy the following toolchain in this exact order.
-If a step fails, fix the root cause and restart the sequence.
-
-1) ${FMT_CMD}
-2) ${LINT_CMD}
-3) ${TYPE_CMD}
-4) ${TEST_CMD}
-
-Stop only when all steps pass or you are blocked by missing information.
-" \
+	copilot -p "$(build_copilot_prompt)" \
 		--allow-tool 'write' \
 		--allow-tool 'shell(poetry)' \
 		--allow-tool 'shell(python)' \
