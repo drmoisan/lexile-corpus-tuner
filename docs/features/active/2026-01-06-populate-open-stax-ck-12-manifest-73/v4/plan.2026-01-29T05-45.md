@@ -41,48 +41,80 @@ This plan remediates the audit blockers for feature #73: failing Bash tests, Pyt
 ### Phase 2 — Reduce file sizes to ≤500 lines (policy compliance)
 - [x] [P2-T1] Split `scripts/dev_tools/atomic_executor/cli.py` into cohesive modules by extracting argument parsing into a new module under `scripts/dev_tools/atomic_executor/` and update imports
   - Acceptance: `scripts/dev_tools/atomic_executor/cli.py` is ≤500 lines and unit tests still import the new module successfully.
-- [ ] [P2-T2] Split `scripts/dev_tools/atomic_executor/cli.py` further by extracting execution orchestration helpers into a new module under `scripts/dev_tools/atomic_executor/` and update imports
+- [x] [P2-T2] Split `scripts/dev_tools/atomic_executor/cli.py` further by extracting execution orchestration helpers into a new module under `scripts/dev_tools/atomic_executor/` and update imports
   - Acceptance: `scripts.dev_tools/atomic_executor/cli.py` remains ≤500 lines and existing tests pass for the extracted helpers.
-- [ ] [P2-T3] Split `scripts/dev_tools/fix_all.py` by extracting status-board rendering helpers into a new module under `scripts/dev_tools/` and update imports
-  - Acceptance: `scripts/dev_tools/fix_all.py` is ≤500 lines and tests in `tests/scripts/dev_tools/test_fix_all.py` continue to pass.
-- [ ] [P2-T4] Split `scripts/dev_tools/fix_all.py` further by extracting branch runner logic into a new module under `scripts/dev_tools/` and update imports
-  - Acceptance: `scripts/dev_tools/fix_all.py` remains ≤500 lines and tests in `tests/scripts/dev_tools/test_fix_all.py` continue to pass.
-- [ ] [P2-T5] Split `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py` into cohesive modules (request/parse helpers separated from CLI)
-  - Acceptance: `ck12_enrichment.py` is ≤500 lines and `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py` still passes.
-- [ ] [P2-T6] Split `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py` into cohesive modules (API fetch/parsing separated from CLI)
-  - Acceptance: `ck12_catalog.py` is ≤500 lines and `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py` still passes.
+- [ ] [P2-T3] Create `scripts/dev_tools/fix_all_status_board.py` containing the status-board helpers currently defined in `scripts/dev_tools/fix_all.py`
+  - Preconditions: `scripts/dev_tools/fix_all.py` still defines `format_status_transition_line`, `render_status_board`, `format_ansi_redraw`, `should_use_interactive_board`, and `is_vt_enabled_for_stream`.
+  - Acceptance: `python -c "from scripts.dev_tools.fix_all_status_board import render_status_board"` exits 0.
+- [ ] [P2-T4] Refactor `scripts/dev_tools/fix_all.py` to import + re-export the status-board helpers from `scripts/dev_tools/fix_all_status_board.py`
+  - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_fix_all.py -k "format_status_transition_line|render_status_board|should_use_interactive_board|format_ansi_redraw|is_vt_enabled_for_stream"` exits 0.
+- [ ] [P2-T5] Create `scripts/dev_tools/fix_all_runner.py` containing the branch-orchestration logic currently implemented in `scripts/dev_tools/fix_all.py`
+  - Preconditions: The orchestration includes `run_fix_all` plus any helper functions/classes it requires for branch execution.
+  - Acceptance: `python -c "from scripts.dev_tools.fix_all_runner import run_fix_all"` exits 0.
+- [ ] [P2-T6] Refactor `scripts/dev_tools/fix_all.py` to import + re-export `run_fix_all` (and required public types) from `scripts/dev_tools/fix_all_runner.py`
+  - Acceptance: `poetry run pytest tests/scripts/dev_tools/test_fix_all.py` exits 0.
+- [ ] [P2-T7] Reduce `scripts/dev_tools/fix_all.py` to ≤500 lines by leaving it as a façade module (re-exports + CLI entry points only)
+  - Acceptance: `python -c "import pathlib; print(sum(1 for _ in pathlib.Path('scripts/dev_tools/fix_all.py').open(encoding='utf-8')))"` prints a value `<= 500`.
+- [ ] [P2-T8] Create `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog_cli.py` and move the Typer CLI (`app`, `build_ck12_catalog`, `__main__` dispatch) out of `ck12_catalog.py`
+  - Acceptance: `python -c "from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog_cli import app"` exits 0.
+- [ ] [P2-T9] Update `ck12_catalog.py` to delegate `python -m ...ck12_catalog` execution to `ck12_catalog_cli.app()` without changing the public parsing API
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py` exits 0.
+- [ ] [P2-T10] Verify `ck12_catalog.py` is ≤500 lines after extracting the CLI
+  - Acceptance: `python -c "import pathlib; print(sum(1 for _ in pathlib.Path('src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py').open(encoding='utf-8')))"` prints a value `<= 500`.
+- [ ] [P2-T11] Create `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment_core.py` and move revision-extraction helpers into it (`extract_revision_download_candidates`, `collect_revision_candidates_with_skip_reason`)
+  - Acceptance: `python -c "from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment_core import extract_revision_download_candidates"` exits 0.
+- [ ] [P2-T12] Refactor `ck12_enrichment.py` to import + re-export revision-extraction helpers from `ck12_enrichment_core.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k "revision"` exits 0.
+- [ ] [P2-T13] Move HTTP Perma retrieval helpers into `ck12_enrichment_core.py` (`PERMA_REQUEST_HEADERS`, `REQUEST_TIMEOUT_SECONDS`, `fetch_perma_metadata`) and keep `ck12_enrichment.py` importing them
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k "fetch_perma_metadata"` exits 0.
+- [ ] [P2-T14] Move HTML parsing helpers into `ck12_enrichment_core.py` (`REQUEST_HEADERS`, `fetch_flexbook_html`, `parse_flexbook_metadata`, `extract_pdf_url`) and keep `ck12_enrichment.py` importing them
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k "fetch_flexbook_html|parse_flexbook_metadata|extract_pdf_url"` exits 0.
+- [ ] [P2-T15] Refactor `enrich_ck12_catalog` CLI implementation to depend on `ck12_enrichment_core.py` helpers without changing CLI flags/behavior
+  - Acceptance: `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment --help` exits 0.
+- [ ] [P2-T16] Update `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py` ordering test so it asserts the CLI dispatch block remains at EOF after refactor
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k "cli_dispatch"` exits 0.
+- [ ] [P2-T17] Verify `ck12_enrichment.py` is ≤500 lines after extracting core helpers
+  - Acceptance: `python -c "import pathlib; print(sum(1 for _ in pathlib.Path('src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py').open(encoding='utf-8')))"` prints a value `<= 500`.
+- [ ] [P2-T18] Verify `ck12_enrichment_core.py` is ≤500 lines
+  - Acceptance: `python -c "import pathlib; print(sum(1 for _ in pathlib.Path('src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment_core.py').open(encoding='utf-8')))"` prints a value `<= 500`.
 
 ### Phase 3 — Coverage improvements for OER/CK-12 modules (scenario-specific)
-- [ ] [P3-T1] Add a test scenario for `oer_catalog.build_catalog_rows` handling empty IA search results in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
-  - Acceptance: The focused scenario `test_build_catalog_rows_empty_results` passes in the target test module.
-- [ ] [P3-T2] Add a test scenario for `oer_catalog.select_text_candidates` preferring `_djvu.txt` over other text candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
-  - Acceptance: The focused scenario `test_select_text_candidates_prefers_djvu_txt` passes in the target test module.
-- [ ] [P3-T3] Add a test scenario for `oer_enrichment.enrich_row` when IA metadata lacks text files in `tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py`
-  - Acceptance: The focused scenario `test_enrich_row_no_text_files` passes in the target test module.
-- [ ] [P3-T4] Add a test scenario for `oer_curation.curate_rows` recording skip reasons for missing candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
-  - Acceptance: The focused scenario `test_curate_rows_records_skip_reason` passes in the target test module.
-- [ ] [P3-T5] Add a test scenario for `oer_manifest.validate_manifest_entry` rejecting non-text OpenStax content types in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
-  - Acceptance: The focused scenario `test_validate_manifest_entry_rejects_non_text_openstax` passes in the target test module.
-- [ ] [P3-T6] Add a test scenario for `ck12_catalog.parse_browse_response` handling missing `handle` with clear skip reason in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
-  - Acceptance: The focused scenario `test_parse_browse_response_missing_handle_skips` passes in the target test module.
-- [ ] [P3-T7] Add a test scenario for `ck12_enrichment.resolve_revision_ids` when perma response lacks revisions in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
-  - Acceptance: The focused scenario `test_resolve_revision_ids_no_revisions` passes in the target test module.
+- [ ] [P3-T1] Add `test_build_catalog_rows_empty_results` covering `oer_catalog.build_catalog_rows` returning an empty list when IA search results are empty in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -k test_build_catalog_rows_empty_results` exits 0.
+- [ ] [P3-T2] Add `test_select_text_candidates_prefers_djvu_txt` covering `oer_catalog.select_text_candidates` preferring `_djvu.txt` over other candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -k test_select_text_candidates_prefers_djvu_txt` exits 0.
+- [ ] [P3-T3] Add `test_enrich_row_no_text_files` covering `oer_enrichment.enrich_row` behavior when IA metadata contains no text file candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py -k test_enrich_row_no_text_files` exits 0.
+- [ ] [P3-T4] Add `test_curate_rows_records_skip_reason` covering `oer_curation.curate_rows` recording a skip reason when required candidates are missing in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py -k test_curate_rows_records_skip_reason` exits 0.
+- [ ] [P3-T5] Add `test_validate_manifest_entry_rejects_non_text_openstax` covering `oer_manifest.validate_manifest_entry` rejecting non-text OpenStax content types in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k test_validate_manifest_entry_rejects_non_text_openstax` exits 0.
+- [ ] [P3-T6] Add `test_parse_catalog_json_missing_handle_skips` covering CK-12 Browse entries missing `handle` being skipped deterministically in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py -k test_parse_catalog_json_missing_handle_skips` exits 0.
+- [ ] [P3-T7] Add `test_collect_revision_candidates_reports_skip_when_no_revisions` covering CK-12 perma payloads with no revisions producing a structured skip reason in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
+  - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k test_collect_revision_candidates_reports_skip_when_no_revisions` exits 0.
 
 ### Phase 4 — Verify v4 acceptance criteria (end-to-end commands)
-- [ ] [P4-T1] Run OpenStax catalog build and enrichment commands from remediation inputs and capture logs in `artifacts/qa/remediation_73_openstax_catalog.log`
-  - Acceptance: Log file exists and contains the command outputs for catalog and enrichment.
-- [ ] [P4-T2] Run CK-12 catalog build and enrichment commands from remediation inputs and capture logs in `artifacts/qa/remediation_73_ck12_catalog.log`
-  - Acceptance: Log file exists and contains the command outputs for catalog and enrichment.
-- [ ] [P4-T3] Run OER curation commands for OpenStax and CK-12 from remediation inputs and capture logs in `artifacts/qa/remediation_73_curation.log`
-  - Acceptance: Log file exists and contains the command outputs for both curation runs.
-- [ ] [P4-T4] Run manifest generation with URL validation from remediation inputs and capture logs in `artifacts/qa/remediation_73_manifest.log`
-  - Acceptance: Log file exists and `oer_sources.json` is written successfully with validation output.
-- [ ] [P4-T5] Run `lexile-scoring-model-pipeline corpus download --sources "openstax,ck12"` and capture logs in `artifacts/qa/remediation_73_download.log`
-  - Acceptance: Log file exists and download command exits 0.
-- [ ] [P4-T6] Run CK-12 text extraction command and capture logs in `artifacts/qa/remediation_73_extract.log`
-  - Acceptance: Log file exists and extraction command exits 0.
-- [ ] [P4-T7] Run `lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12"` and capture logs in `artifacts/qa/remediation_73_normalize.log`
-  - Acceptance: Log file exists and normalize command exits 0.
+- [ ] [P4-T1] Run OpenStax catalog build command and capture logs in `artifacts/qa/remediation_73_openstax_catalog.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog --sources "openstax" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_openstax_catalog.log'` exits 0.
+- [ ] [P4-T2] Run OpenStax catalog enrichment command and append logs to `artifacts/qa/remediation_73_openstax_catalog.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment --catalog-file data/meta/catalogs/openstax_catalog.jsonl --output data/meta/catalogs/openstax_enriched.jsonl 2>&1 | tee -a artifacts/qa/remediation_73_openstax_catalog.log'` exits 0.
+- [ ] [P4-T3] Run CK-12 catalog build command and capture logs in `artifacts/qa/remediation_73_ck12_catalog.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_ck12_catalog.log'` exits 0.
+- [ ] [P4-T4] Run CK-12 catalog enrichment command and append logs to `artifacts/qa/remediation_73_ck12_catalog.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment --catalog-file data/meta/catalogs/ck12_catalog.jsonl --output data/meta/catalogs/ck12_enriched.jsonl 2>&1 | tee -a artifacts/qa/remediation_73_ck12_catalog.log'` exits 0.
+- [ ] [P4-T5] Run OpenStax OER curation command and capture logs in `artifacts/qa/remediation_73_curation_openstax.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-text --sources "openstax" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_curation_openstax.log'` exits 0.
+- [ ] [P4-T6] Run CK-12 OER curation command and capture logs in `artifacts/qa/remediation_73_curation_ck12.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-json --sources "ck12" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_curation_ck12.log'` exits 0.
+- [ ] [P4-T7] Run manifest generation + URL validation and capture logs in `artifacts/qa/remediation_73_manifest.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls 2>&1 | tee artifacts/qa/remediation_73_manifest.log'` exits 0.
+- [ ] [P4-T8] Run corpus download for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_download.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run lexile-scoring-model-pipeline corpus download --sources "openstax,ck12" 2>&1 | tee artifacts/qa/remediation_73_download.log'` exits 0.
+- [ ] [P4-T9] Run CK-12 text extraction and capture logs in `artifacts/qa/remediation_73_extract.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_ck12_text --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12 2>&1 | tee artifacts/qa/remediation_73_extract.log'` exits 0.
+- [ ] [P4-T10] Run corpus normalization for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_normalize.log`
+  - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12" 2>&1 | tee artifacts/qa/remediation_73_normalize.log'` exits 0.
 
 ### Phase 5 — Final QA toolchain loop (mandatory)
 - [ ] [P5-T1] Run formatter `poetry run black .`; if it changes files, restart Phase 5 from P5-T1
