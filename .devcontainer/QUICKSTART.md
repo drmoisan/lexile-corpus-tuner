@@ -3,11 +3,21 @@
 ## Starting the Dev Container
 
 ### First Time Setup
+
+**For GitHub Codespaces:**
+1. Go to repository on GitHub
+2. Click **Code** → **Codespaces** → **Create codespace**
+3. Wait for build (~3-5 minutes)
+4. Verify setup: `bash .devcontainer/verify-container.sh`
+
+**For Local Docker:**
 1. Ensure Docker Desktop is running
 2. In VS Code, press `F1` (or `Ctrl+Shift+P`)
 3. Type and select: **Dev Containers: Reopen in Container**
-4. Wait for the build process (~5-10 minutes)
-5. Container will automatically run post-create setup
+4. When prompted, choose the **Local** configuration
+5. Wait for the build process (~5-10 minutes)
+6. Container will automatically run post-create setup
+7. Verify setup: `bash .devcontainer/verify-container.sh`
 
 ### Subsequent Uses
 - Just open the workspace - VS Code will prompt to reopen in container

@@ -2,17 +2,40 @@
 
 This directory contains the Docker Dev Container configuration for the Lexile Corpus Tuner project.
 
+> **Important**: This repo uses **separate configurations** for GitHub Codespaces and local Docker. Both require **manual selection** to avoid conflicts.
+
 ## Prerequisites
 
-- **Docker Desktop** installed and running
-- **VS Code** with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed
+- **Docker Desktop** installed and running (for local development)
+- **VS Code** with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed (for local development)
+- **OR** use **GitHub Codespaces** (no local setup needed)
 
 ## Quick Start
 
-1. Open this workspace in VS Code
-2. Press `F1` and select **Dev Containers: Reopen in Container**
-3. Wait for the container to build and configure (first time ~5-10 minutes)
-4. Once complete, you'll have a fully configured development environment!
+### GitHub Codespaces
+
+**⚠️ You must manually select the Codespaces configuration:**
+
+1. Go to repository on GitHub
+2. Click **Code** → **Codespaces** → **... (three dots)**
+3. Select **"Configure and create codespace"**
+4. Choose dev container: **`.devcontainer/codespaces/devcontainer.json`**
+5. Click **"Create codespace"**
+6. Wait for build (~5-10 minutes first time)
+7. Verify: `bash .devcontainer/verify-container.sh`
+
+**📖 Detailed instructions:** See [CODESPACES-SETUP.md](CODESPACES-SETUP.md)
+
+### Local Docker Development
+
+1. Ensure Docker Desktop is running
+2. Open this workspace in VS Code
+3. Press `F1` → **Dev Containers: Open Folder in Container**
+4. Navigate to and select: **`.devcontainer/local/devcontainer.json`**
+5. Wait for build (~5-10 minutes first time)
+6. Verify: `bash .devcontainer/verify-container.sh`
+
+**Why manual selection?** To prevent one environment's config from interfering with the other, we keep both as non-standard filenames that require explicit selection.
 
 ## What's Included
 
