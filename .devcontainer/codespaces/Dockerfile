@@ -1,5 +1,12 @@
 # Use Python 3.13 base image with Debian Bookworm
+# Stage 1: Get kcov binary from official image (kcov is not available via apt in Bookworm)
+FROM kcov/kcov:latest AS kcov
+
+# Stage 2: Main devcontainer image
 FROM mcr.microsoft.com/devcontainers/python:3.13-bookworm
+
+# Copy kcov binaries from the kcov stage
+COPY --from=kcov /usr/local/bin/kcov* /usr/local/bin/
 
 # Remove Yarn apt repository (inherited from base image; GPG key expired and we don't use Yarn)
 RUN rm -f /etc/apt/sources.list.d/yarn.list
@@ -15,6 +22,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     # Shell QC tooling
     shellcheck \
     shfmt \
+    bats \
     # Bash debugger build dependencies
     autoconf \
     automake \
@@ -76,6 +84,12 @@ RUN mkdir -p ~/.config/powershell
 USER root
 RUN wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
     | bash -s -- latest /usr/local/bin
+
+# Install GitHub Copilot CLI (real agentic CLI, not the VS Code extension shim).
+# Pinned to a known-good release for repeatable devcontainer builds.
+ARG COPILOT_CLI_VERSION=0.0.377
+RUN wget -qO- https://gh.io/copilot-install \
+    | VERSION="${COPILOT_CLI_VERSION}" PREFIX="/usr/local" bash
 USER vscode
 
 # Set default shell to PowerShell for convenience
