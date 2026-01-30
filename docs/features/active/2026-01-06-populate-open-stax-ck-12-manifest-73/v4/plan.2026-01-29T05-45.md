@@ -79,61 +79,61 @@ This plan remediates the audit blockers for feature #73: failing Bash tests, Pyt
   - Acceptance: `python -c "import pathlib; print(sum(1 for _ in pathlib.Path('src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment_core.py').open(encoding='utf-8')))"` prints a value `<= 500`.
 
 ### Phase 3 — Coverage improvements for OER/CK-12 modules (scenario-specific)
-- [ ] [P3-T1] Add `test_build_catalog_rows_empty_results` covering `oer_catalog.build_catalog_rows` returning an empty list when IA search results are empty in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
+- [x] [P3-T1] Add `test_build_catalog_rows_empty_results` covering `oer_catalog.build_catalog_rows` returning an empty list when IA search results are empty in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -k test_build_catalog_rows_empty_results` exits 0.
-- [ ] [P3-T2] Add `test_select_text_candidates_prefers_djvu_txt` covering `oer_catalog.select_text_candidates` preferring `_djvu.txt` over other candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
+- [x] [P3-T2] Add `test_select_text_candidates_prefers_djvu_txt` covering `oer_catalog.select_text_candidates` preferring `_djvu.txt` over other candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py -k test_select_text_candidates_prefers_djvu_txt` exits 0.
-- [ ] [P3-T3] Add `test_enrich_row_no_text_files` covering `oer_enrichment.enrich_row` behavior when IA metadata contains no text file candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py`
+- [x] [P3-T3] Add `test_enrich_row_no_text_files` covering `oer_enrichment.enrich_row` behavior when IA metadata contains no text file candidates in `tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py -k test_enrich_row_no_text_files` exits 0.
-- [ ] [P3-T4] Add `test_curate_rows_records_skip_reason` covering `oer_curation.curate_rows` recording a skip reason when required candidates are missing in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
+- [x] [P3-T4] Add `test_curate_rows_records_skip_reason` covering `oer_curation.curate_rows` recording a skip reason when required candidates are missing in `tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py -k test_curate_rows_records_skip_reason` exits 0.
-- [ ] [P3-T5] Add `test_validate_manifest_entry_rejects_non_text_openstax` covering `oer_manifest.validate_manifest_entry` rejecting non-text OpenStax content types in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
+- [x] [P3-T5] Add `test_validate_manifest_entry_rejects_non_text_openstax` covering `oer_manifest.validate_manifest_entry` rejecting non-text OpenStax content types in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k test_validate_manifest_entry_rejects_non_text_openstax` exits 0.
-- [ ] [P3-T6] Add `test_parse_catalog_json_missing_handle_skips` covering CK-12 Browse entries missing `handle` being skipped deterministically in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
+- [x] [P3-T6] Add `test_parse_catalog_json_missing_handle_skips` covering CK-12 Browse entries missing `handle` being skipped deterministically in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py -k test_parse_catalog_json_missing_handle_skips` exits 0.
-- [ ] [P3-T7] Add `test_collect_revision_candidates_reports_skip_when_no_revisions` covering CK-12 perma payloads with no revisions producing a structured skip reason in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
+- [x] [P3-T7] Add `test_collect_revision_candidates_reports_skip_when_no_revisions` covering CK-12 perma payloads with no revisions producing a structured skip reason in `tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py`
   - Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py -k test_collect_revision_candidates_reports_skip_when_no_revisions` exits 0.
 
 ### Phase 4 — Verify v4 acceptance criteria (end-to-end commands)
-- [ ] [P4-T1] Run OpenStax catalog build command and capture logs in `artifacts/qa/remediation_73_openstax_catalog.log`
+- [x] [P4-T1] Run OpenStax catalog build command and capture logs in `artifacts/qa/remediation_73_openstax_catalog.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_catalog --sources "openstax" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_openstax_catalog.log'` exits 0.
-- [ ] [P4-T2] Run OpenStax catalog enrichment command and append logs to `artifacts/qa/remediation_73_openstax_catalog.log`
+- [x] [P4-T2] Run OpenStax catalog enrichment command and append logs to `artifacts/qa/remediation_73_openstax_catalog.log`
   - Acceptance: `bash -lc 'set -euo pipefail; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_enrichment --catalog-file data/meta/catalogs/openstax_catalog.jsonl --output data/meta/catalogs/openstax_enriched.jsonl 2>&1 | tee -a artifacts/qa/remediation_73_openstax_catalog.log'` exits 0.
 - [ ] [P4-T3] Run CK-12 catalog build command and capture logs in `artifacts/qa/remediation_73_ck12_catalog.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_catalog --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_ck12_catalog.log'` exits 0.
 - [ ] [P4-T4] Run CK-12 catalog enrichment command and append logs to `artifacts/qa/remediation_73_ck12_catalog.log`
   - Acceptance: `bash -lc 'set -euo pipefail; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.ck12_enrichment --catalog-file data/meta/catalogs/ck12_catalog.jsonl --output data/meta/catalogs/ck12_enriched.jsonl 2>&1 | tee -a artifacts/qa/remediation_73_ck12_catalog.log'` exits 0.
-- [ ] [P4-T5] Run OpenStax OER curation command and capture logs in `artifacts/qa/remediation_73_curation_openstax.log`
+- [x] [P4-T5] Run OpenStax OER curation command and capture logs in `artifacts/qa/remediation_73_curation_openstax.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-text --sources "openstax" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_curation_openstax.log'` exits 0.
-- [ ] [P4-T6] Run CK-12 OER curation command and capture logs in `artifacts/qa/remediation_73_curation_ck12.log`
+- [x] [P4-T6] Run CK-12 OER curation command and capture logs in `artifacts/qa/remediation_73_curation_ck12.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation --catalog-dir data/meta/catalogs --require-json --sources "ck12" --out-dir data/meta/catalogs 2>&1 | tee artifacts/qa/remediation_73_curation_ck12.log'` exits 0.
-- [ ] [P4-T7] Run manifest generation + URL validation and capture logs in `artifacts/qa/remediation_73_manifest.log`
+- [x] [P4-T7] Run manifest generation + URL validation and capture logs in `artifacts/qa/remediation_73_manifest.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls 2>&1 | tee artifacts/qa/remediation_73_manifest.log'` exits 0.
-- [ ] [P4-T8] Run corpus download for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_download.log`
+- [x] [P4-T8] Run corpus download for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_download.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run lexile-scoring-model-pipeline corpus download --sources "openstax,ck12" 2>&1 | tee artifacts/qa/remediation_73_download.log'` exits 0.
-- [ ] [P4-T9] Run CK-12 text extraction and capture logs in `artifacts/qa/remediation_73_extract.log`
+- [x] [P4-T9] Run CK-12 text extraction and capture logs in `artifacts/qa/remediation_73_extract.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.extract_ck12_text --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12 2>&1 | tee artifacts/qa/remediation_73_extract.log'` exits 0.
-- [ ] [P4-T10] Run corpus normalization for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_normalize.log`
+- [x] [P4-T10] Run corpus normalization for OpenStax + CK-12 and capture logs in `artifacts/qa/remediation_73_normalize.log`
   - Acceptance: `bash -lc 'set -euo pipefail; mkdir -p artifacts/qa; poetry run lexile-scoring-model-pipeline corpus normalize --sources "openstax,ck12" 2>&1 | tee artifacts/qa/remediation_73_normalize.log'` exits 0.
 
 ### Phase 5 — Final QA toolchain loop (mandatory)
-- [ ] [P5-T1] Run formatter `poetry run black .`; if it changes files, restart Phase 5 from P5-T1
+- [x] [P5-T1] Run formatter `poetry run black .`; if it changes files, restart Phase 5 from P5-T1
   - Acceptance: Black completes with no changes in the final pass.
-- [ ] [P5-T2] Run linter `poetry run ruff check`; if it fails or fixes, restart Phase 5 from P5-T1
+- [x] [P5-T2] Run linter `poetry run ruff check`; if it fails or fixes, restart Phase 5 from P5-T1
   - Acceptance: Ruff completes with exit code 0 in the final pass.
-- [ ] [P5-T3] Run type checker `poetry run pyright`; if it fails, restart Phase 5 from P5-T1
+- [x] [P5-T3] Run type checker `poetry run pyright`; if it fails, restart Phase 5 from P5-T1
   - Acceptance: Pyright completes with exit code 0 in the final pass.
-- [ ] [P5-T4] Run tests `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`; if tests fail, restart Phase 5 from P5-T1
+- [x] [P5-T4] Run tests `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`; if tests fail, restart Phase 5 from P5-T1
   - Acceptance: Pytest completes with exit code 0 in the final pass.
-- [ ] [P5-T5] Run shell lint `poetry run shell-qc check`; if it fails, restart Phase 5 from P5-T1
+- [x] [P5-T5] Run shell lint `poetry run shell-qc check`; if it fails, restart Phase 5 from P5-T1
   - Acceptance: shell-qc check completes with exit code 0 in the final pass.
-- [ ] [P5-T6] Run shell tests `poetry run shell-qc test`; if they fail, restart Phase 5 from P5-T1
+- [x] [P5-T6] Run shell tests `poetry run shell-qc test`; if they fail, restart Phase 5 from P5-T1
   - Acceptance: shell-qc test completes with exit code 0 in the final pass.
-- [ ] [P5-T7] Run PowerShell analyzer `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`; if it fails, restart Phase 5 from P5-T1
+- [x] [P5-T7] Run PowerShell analyzer `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-psscriptanalyzer.ps1`; if it fails, restart Phase 5 from P5-T1
   - Acceptance: PSScriptAnalyzer completes with no findings in the final pass.
-- [ ] [P5-T8] Run Pester `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`; if it fails, restart Phase 5 from P5-T1
+- [x] [P5-T8] Run Pester `pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/dev-tools/run-pester.ps1`; if it fails, restart Phase 5 from P5-T1
   - Acceptance: Pester completes with all tests passing in the final pass.
-- [ ] [P5-T9] Run JSON formatting `poetry run python -m scripts.dev_tools.format_json`; if it changes files, restart Phase 5 from P5-T1
+- [x] [P5-T9] Run JSON formatting `poetry run python -m scripts.dev_tools.format_json`; if it changes files, restart Phase 5 from P5-T1
   - Acceptance: JSON formatting completes with no changes in the final pass.
-- [ ] [P5-T10] Run JSON validation `poetry run python -m scripts.dev_tools.validate_json`; if it fails, restart Phase 5 from P5-T1
+- [x] [P5-T10] Run JSON validation `poetry run python -m scripts.dev_tools.validate_json`; if it fails, restart Phase 5 from P5-T1
   - Acceptance: JSON validation completes with exit code 0 in the final pass.
