@@ -109,7 +109,7 @@ def test_command_runner_accepts_stderr_when_exit_code_zero(
 
         return Result()
 
-    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+    monkeypatch.setattr(fix_all.fix_all_runner, "subprocess_run", fake_run)
     runner = fix_all.SubprocessCommandRunner(logger)
     result = runner.run(["demo"], step_name="Black: format")
     assert result.returncode == 0
@@ -138,7 +138,7 @@ def test_command_runner_captures_output_on_failure(
 
         return Result()
 
-    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+    monkeypatch.setattr(fix_all.fix_all_runner, "subprocess_run", fake_run)
     runner = fix_all.SubprocessCommandRunner(logger)
     result = runner.run(["demo"], step_name="Black: format")
     assert result.returncode == 1
@@ -582,7 +582,7 @@ def test_subprocess_runner_returns_immediately_when_already_cancelled(
 
         return Result()
 
-    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+    monkeypatch.setattr(fix_all.fix_all_runner, "subprocess_run", fake_run)
 
     runner = fix_all.SubprocessCommandRunner(logger, cancel_event=cancel_event)
     result = runner.run(["should-not-run"], step_name="Test: pre-cancel")
@@ -612,7 +612,7 @@ def test_subprocess_runner_runs_normally_with_cancel_event_not_set(
 
         return Result()
 
-    monkeypatch.setattr(fix_all, "subprocess_run", fake_run)
+    monkeypatch.setattr(fix_all.fix_all_runner, "subprocess_run", fake_run)
 
     runner = fix_all.SubprocessCommandRunner(logger, cancel_event=cancel_event)
     result = runner.run(["some-command"], step_name="Test: normal")
