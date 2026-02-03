@@ -7,6 +7,7 @@ from typing import cast
 import pytest  # noqa: TCH002 - pytest required at runtime for fixtures
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts import (
     ck12_enrichment,
+    ck12_enrichment_core,
 )
 from lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_models import (
     DownloadCandidate,
@@ -43,7 +44,7 @@ def test_fetch_flexbook_html_success(monkeypatch: pytest.MonkeyPatch) -> None:
         captured["timeout"] = timeout
         return _FakeResponse()
 
-    monkeypatch.setattr(ck12_enrichment.requests, "get", _fake_get)
+    monkeypatch.setattr(ck12_enrichment_core.requests, "get", _fake_get)
 
     result = ck12_enrichment.fetch_flexbook_html("https://example.com/flexbook")
 
@@ -111,33 +112,26 @@ def test_extract_pdf_url_prefers_flexbook_pdf() -> None:
 
 def test_ck12_enrichment_cli_dispatch_happens_after_helper_definitions() -> None:
     """
-    `ck12_enrichment` should define helpers before invoking Typer CLI dispatch.
+    `ck12_enrichment` should keep the CLI dispatch block at EOF.
 
     Purpose:
         Prevent a regression where `python -m ...ck12_enrichment` executes
-        `app()` before defining helper functions (like `_read_catalog`,
-        `_normalize_text`, etc.). That ordering causes runtime `NameError` when
-        the CLI command invokes those helpers.
+        `app()` should remain at the end of the module so helper definitions
+        are always available before CLI dispatch.
 
     Notes:
         This test intentionally checks source ordering rather than executing the
         CLI, to avoid network and filesystem side effects during unit tests.
-        We check for `_extract_field` as it's the last helper defined before
-        the dispatch block.
+        We check that the final non-empty lines are the __main__ dispatch block.
     """
 
     source = Path(ck12_enrichment.__file__).read_text(encoding="utf-8")
 
-    # Find the last helper function definition (the one closest to EOF before dispatch).
-    last_helper_index = source.find("def _extract_field")
-    assert last_helper_index != -1, "_extract_field helper not found in source"
-
-    dispatch_index = source.rfind('if __name__ == "__main__":')
-    assert dispatch_index != -1, "__main__ dispatch block not found in source"
-
-    assert (
-        dispatch_index > last_helper_index
-    ), "CLI dispatch must happen after all helper definitions"
+    lines = [line.rstrip() for line in source.splitlines()]
+    non_empty_lines = [line for line in lines if line.strip()]
+    assert non_empty_lines, "Source file should not be empty"
+    assert non_empty_lines[-2] == 'if __name__ == "__main__":'
+    assert non_empty_lines[-1] == "    app()  # pragma: no cover - CLI dispatch"
 
 
 def test_perma_response_yields_revision_download_candidates() -> None:
@@ -227,7 +221,7 @@ def test_fetch_perma_metadata_targets_perma_api_with_required_headers(
         captured["timeout"] = timeout
         return _FakeResponse()
 
-    monkeypatch.setattr(ck12_enrichment.requests, "get", _fake_get)
+    monkeypatch.setattr(ck12_enrichment_core.requests, "get", _fake_get)
 
     artifact_type = "flexbook"
     handle = "CK-12-Physics-FlexBook-2.0"

@@ -29,12 +29,13 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 import requests
-import typer
 
 from .oer_models import CatalogEntry, generate_stable_slug
 
@@ -58,10 +59,6 @@ REQUEST_HEADERS = {
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
 }
-
-app = typer.Typer(
-    help="Build CK-12 catalog entries from the CK-12 FlexBook browse page."
-)
 
 
 def extract_slug_from_content_url(url: str) -> tuple[str, str] | None:
@@ -482,40 +479,7 @@ def write_catalog_jsonl(rows: list[CatalogEntry], path: Path) -> None:
     temp_path.replace(path)
 
 
-@app.command()
-def build_ck12_catalog(
-    catalog_url: str = typer.Option(  # noqa: B008 - Typer framework pattern
-        DEFAULT_CK12_CATALOG_URL,
-        help="CK-12 FlexBook catalog URL to scrape.",
-    ),
-    out_dir: Path = typer.Option(  # noqa: B008 - Typer framework pattern
-        Path("data/meta/catalogs"),
-        help="Directory where ck12_catalog.jsonl will be written.",
-    ),
-) -> None:
-    """
-    CLI entry point for building the CK-12 catalog JSONL artifact.
-
-    Purpose:
-        Orchestrate fetch, parse, and write steps so pipeline operators can
-        produce a refreshed CK-12 catalog with a single command.
-
-    Args:
-        catalog_url (str): CK-12 catalog JSON URL to fetch.
-        out_dir (Path): Output directory for the catalog JSONL file.
-
-    Returns:
-        None
-
-    Side Effects:
-        Fetches remote JSON catalog and writes to the filesystem.
-    """
-    catalog_json = fetch_catalog_page(catalog_url)
-    entries = parse_catalog_json(catalog_json)
-    output_path = out_dir / "ck12_catalog.jsonl"
-    write_catalog_jsonl(entries, output_path)
-    typer.echo(f"Wrote {len(entries)} CK-12 entries to {output_path}")
-
-
 if __name__ == "__main__":
+    from .ck12_catalog_cli import app
+
     app()  # pragma: no cover - CLI dispatch
