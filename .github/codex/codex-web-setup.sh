@@ -213,22 +213,7 @@ install_with_retries() {
 # ------------------------------------------------------------------------------
 # 2. Install/upgrade PowerShell with distro-aware selection (fall back to GitHub .deb)
 # ------------------------------------------------------------------------------
-ensure_pwsh() {
-  # Keep requirement aligned with devcontainer but allow the known-good 7.4.x fallback
-  local required="${PWSH_MIN_VERSION}"
-
-  if command -v pwsh >/dev/null 2>&1; then
-    local current
-    current="$(pwsh --version | awk '{print $2}')"
-    if dpkg --compare-versions "$current" ge "$required"; then
-      echo "pwsh $current present; meets requirement ($required)."
-      return 0
-    fi
-    echo "pwsh $current present; upgrading to >= $required..."
-  else
-    echo "pwsh not found; installing PowerShell..."
-  fi
-
+ensure_pwsh_system() {
   # Support env overrides for OS detection (used in tests)
   local os_id="" os_version="" repo_url="" fallback_version="${PWSH_FALLBACK_VERSION}"
   if [ -n "${CODEX_OS_ID:-}" ]; then
@@ -284,6 +269,93 @@ ensure_pwsh() {
   rm -f /tmp/powershell.deb
 }
 
+install_pwsh_user() {
+  local version="${PWSH_FALLBACK_VERSION}"
+  local arch
+  arch="$(uname -m)"
+  local pwsh_arch=""
+  case "$arch" in
+    x86_64|amd64)
+      pwsh_arch="linux-x64"
+      ;;
+    aarch64|arm64)
+      pwsh_arch="linux-arm64"
+      ;;
+    *)
+      echo "ERROR: unsupported architecture for PowerShell user install: ${arch}" >&2
+      return 1
+      ;;
+  esac
+
+  local archive="powershell-${version}-${pwsh_arch}.tar.gz"
+  local url="https://github.com/PowerShell/PowerShell/releases/download/v${version}/${archive}"
+  local target_dir="${HOME}/.local/pwsh"
+  local bin_dir="${HOME}/.local/bin"
+  local tmpdir
+
+  echo "Installing pwsh ${version} to ${target_dir} (user-local, no sudo)..."
+  mkdir -p "$target_dir" "$bin_dir"
+  tmpdir="$(mktemp -d)"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$tmpdir/$archive"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$tmpdir/$archive" "$url"
+  else
+    echo "ERROR: neither curl nor wget is available to download PowerShell." >&2
+    rm -rf "$tmpdir"
+    return 1
+  fi
+
+  tar -xzf "$tmpdir/$archive" -C "$target_dir"
+  rm -rf "$tmpdir"
+
+  if [ ! -x "$target_dir/pwsh" ]; then
+    echo "ERROR: pwsh binary not found after extraction to ${target_dir}." >&2
+    return 1
+  fi
+
+  ln -sf "$target_dir/pwsh" "$bin_dir/pwsh"
+  export PATH="$bin_dir:$PATH"
+  echo "pwsh installed to ${target_dir} and linked in ${bin_dir}."
+  echo "Tip: add \"export PATH=\"${bin_dir}:\$PATH\"\" to your shell profile for persistence."
+  return 0
+}
+
+ensure_pwsh() {
+  # Keep requirement aligned with devcontainer but allow the known-good 7.4.x fallback
+  local required="${PWSH_MIN_VERSION}"
+
+  if command -v pwsh >/dev/null 2>&1; then
+    local current
+    current="$(pwsh --version | awk '{print $2}')"
+    if dpkg --compare-versions "$current" ge "$required"; then
+      echo "pwsh $current present; meets requirement ($required)."
+      return 0
+    fi
+    echo "pwsh $current present; upgrading to >= $required..."
+  else
+    echo "pwsh not found; installing PowerShell..."
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    ensure_pwsh_system
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo bash -c "
+      PWSH_MIN_VERSION='${PWSH_MIN_VERSION}'
+      PWSH_FALLBACK_VERSION='${PWSH_FALLBACK_VERSION}'
+      APT_RETRY_ATTEMPTS='${APT_RETRY_ATTEMPTS}'
+      APT_RETRY_DELAY_SECONDS='${APT_RETRY_DELAY_SECONDS}'
+      APT_HTTP_TIMEOUT_SECONDS='${APT_HTTP_TIMEOUT_SECONDS}'
+      APT_DISABLE_PIPELINING='${APT_DISABLE_PIPELINING}'
+      $(declare -f apt_with_retries apt_update apt_install ensure_pwsh_system)
+      ensure_pwsh_system
+    "
+  else
+    install_pwsh_user
+  fi
+}
+
 # ------------------------------------------------------------------------------
 # 5. Install Graphite CLI (required for Graphite VS Code extension parity)
 # ------------------------------------------------------------------------------
@@ -315,6 +387,7 @@ install_copilot_cli() {
 
   echo "Installing GitHub Copilot CLI v${COPILOT_CLI_VERSION}..."
   local install_prefix="/usr/local"
+  local user_prefix="${HOME}/.local"
 
   # Use sudo if available and not root
   if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
@@ -326,8 +399,48 @@ install_copilot_cli() {
       echo "WARN: GitHub Copilot CLI install failed; non-blocking"
     }
   else
-    echo "WARN: No root/sudo access; skipping GitHub Copilot CLI installation"
+    echo "No root/sudo access; installing Copilot CLI to ${user_prefix}"
+    mkdir -p "${user_prefix}/bin"
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL https://gh.io/copilot-install | VERSION="${COPILOT_CLI_VERSION}" PREFIX="${user_prefix}" bash || {
+        echo "WARN: GitHub Copilot CLI install failed; non-blocking"
+      }
+    else
+      wget -qO- https://gh.io/copilot-install | VERSION="${COPILOT_CLI_VERSION}" PREFIX="${user_prefix}" bash || {
+        echo "WARN: GitHub Copilot CLI install failed; non-blocking"
+      }
+    fi
+    export PATH="${user_prefix}/bin:$PATH"
   fi
+}
+
+# ------------------------------------------------------------------------------
+# 4. Install actionlint (user-local fallback when sudo is unavailable)
+# ------------------------------------------------------------------------------
+install_actionlint() {
+  if command -v actionlint >/dev/null 2>&1; then
+    echo "actionlint already installed"
+    return 0
+  fi
+
+  echo "Installing actionlint..."
+  if [ "$(id -u)" -eq 0 ] || command -v sudo >/dev/null 2>&1; then
+    if [ "$(id -u)" -ne 0 ]; then
+      sudo bash -c 'wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest /usr/local/bin'
+    else
+      wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest /usr/local/bin
+    fi
+    return 0
+  fi
+
+  local user_bin="${HOME}/.local/bin"
+  mkdir -p "${user_bin}"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest "${user_bin}"
+  else
+    wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest "${user_bin}"
+  fi
+  export PATH="${user_bin}:$PATH"
 }
 
 # ------------------------------------------------------------------------------
@@ -434,10 +547,20 @@ main() {
   if command -v pwsh >/dev/null 2>&1; then
     echo "PowerShell installed. Checking modules from PSGallery..."
 
-    pwsh -NoLogo -NoProfile -Command '
+    pwsh -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
       $ErrorActionPreference = "Stop"
+      $ProgressPreference = "SilentlyContinue"
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
       Write-Host "=== [ps] Checking PSScriptAnalyzer / Pester availability ==="
+
+      try {
+        if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+          Install-PackageProvider -Name NuGet -Scope CurrentUser -Force -ErrorAction Stop
+        }
+      } catch {
+        Write-Warning "Install-PackageProvider NuGet failed: $($_.Exception.Message)"
+      }
 
       try {
         if (-not (Get-PSRepository -Name "PSGallery" -ErrorAction SilentlyContinue)) {
@@ -470,7 +593,7 @@ main() {
         }
 
         Write-Host "Installing $($module.Name) $($module.Version) (CurrentUser scope)..."
-        Install-Module -Name $module.Name -RequiredVersion $module.Version -Scope CurrentUser -AllowClobber -Force -ErrorAction Stop
+        Install-Module -Name $module.Name -RequiredVersion $module.Version -Repository PSGallery -Scope CurrentUser -AllowClobber -Force -Confirm:$false -ErrorAction Stop
       }
 
       Write-Host "=== [ps] Final module list ==="
@@ -495,12 +618,7 @@ main() {
   # --------------------------------------------------------------------------
   # 4. Install actionlint
   # --------------------------------------------------------------------------
-  if ! command -v actionlint >/dev/null 2>&1; then
-    echo "Installing actionlint..."
-    wget -q -O - https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash -s -- latest /usr/local/bin
-  else
-    echo "actionlint already installed"
-  fi
+  install_actionlint
 
   # --------------------------------------------------------------------------
   # 5. Graphite CLI
