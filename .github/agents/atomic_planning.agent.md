@@ -4,18 +4,11 @@ description: Generate phased implementation plans with atomic checkbox tasks tha
 argument-hint: "Describe the goal or change you want a phased atomic plan for."
 target: vscode
 tools:
-  - web/fetch
-  - search/codebase
-  - search/fileSearch
-  - search
-  - search/usages
-  - todo
-  - search/listDirectory
-  - read/readFile
-  - edit/createDirectory
-  - edit/createFile
-  - edit/editFiles
-  - web/githubRepo
+   ['read/readFile', 'edit/createDirectory', 'edit/createFile', 'edit/editFiles', 'search', 'web', 'agent', 'todo']
+handoffs:
+   - label: Preflight validate plan (atomic_executor)
+     agent: atomic_executor
+     prompt: "DIRECTIVE: PREFLIGHT VALIDATION ONLY\n\nPlease run preflight validation on the plan below (format + executability only). Return exactly one of: PREFLIGHT: ALL CLEAR or PREFLIGHT: REVISIONS REQUIRED. If revisions are required, include a precise plan delta (exact edits).\n\nPlan:\n${plan_or_path}"
 ---
 # Atomic Planning & Execution Agent
 
@@ -152,6 +145,8 @@ A plan that changes **only Bash** files requires only the Bash toolchain in Phas
 
 These baseline-capture tasks are required so the executor can (a) detect regressions, and (b) prove the final QA pass is meaningful.
 
+Baseline capture outputs MUST be saved to a `baseline/` subdirectory located alongside the plan file. Store baseline artifacts in `baseline/` next to that plan.
+
 Additionally, if the plan involves new libraries, complex bugs, or unfamiliar tools, you MUST include **Mandatory Research** tasks in Phase 0 to verify assumptions (e.g., "Research known issues with extension X").
 
 Example:
@@ -198,6 +193,48 @@ You MUST validate ALL of the following (hard fail if any check fails):
    - For code/test changes: Phase 0 MUST include baseline capture tasks for the **language-specific toolchains** applicable to the files being changed (per the table in §2.3).
 
 If any check fails: you MUST correct the plan before responding. Do NOT output a "best effort" plan.
+
+---
+
+### 2.5.1 Mandatory preflight validation loop via `atomic_executor`
+
+In automated/agentic workflows, you MUST NOT consider a plan “final” until it has passed the
+`atomic_executor` agent’s **preflight** validation.
+
+Purpose:
+      You (the planner) emulate preflight in §2.5, but the executor is the system-of-record for whether
+      a plan is actually ingestible. This section makes that validation explicit and repeatable.
+
+Hard constraints:
+      - The `atomic_executor` handoff MUST be **validate-only** (no task execution).
+      - The loop MUST continue until an **all clear** signal is received.
+      - If revisions are required, they MUST be expressed as a **plan delta** (exact edits) and applied
+         to the plan before re-validating.
+
+Required handoff directive (exact text):
+
+`DIRECTIVE: PREFLIGHT VALIDATION ONLY`
+
+Required validation result signals (exact text; one must be present):
+
+- `PREFLIGHT: ALL CLEAR`
+- `PREFLIGHT: REVISIONS REQUIRED`
+
+Protocol (MANDATORY):
+      1) Generate or update the plan (in chat or in `${file}` when a plan file is requested).
+      2) Immediately produce a handoff to `atomic_executor` containing:
+          - The directive line above.
+          - Either the plan file path OR the full plan text inline.
+          - A request to run ONLY the preflight validation checks (format + executability), and to
+             return one of the required signals plus a plan delta when revisions are needed.
+      3) If the executor returns `PREFLIGHT: REVISIONS REQUIRED`, apply the provided plan delta
+          (preserving IDs and format rules), then hand off to `atomic_executor` again.
+      4) Repeat until the executor returns `PREFLIGHT: ALL CLEAR`.
+
+When returning to the user (or the calling system):
+      - Include the final `PREFLIGHT: ALL CLEAR` signal verbatim.
+      - If changes were required, briefly summarize what was revised (but do not restate the entire
+         plan unless explicitly asked).
 
 ---
 
@@ -248,6 +285,20 @@ Allowed acceptance criteria (examples):
 - A specific unit test name passes.
 - A command exits with code 0 and its output contains an exact substring.
 - A file exists and contains an exact expected line.
+
+For any **expect-fail** regression test task, acceptance criteria MUST also require an
+**auditable evidence artifact** saved to the canonical regression testing location
+`regression-testing/` (plan-adjacent or feature-level). The artifact MUST include
+machine-checkable fields:
+
+- `Timestamp: <ISO-8601>`
+- `Command: <exact command>`
+- `EXIT_CODE: <int>`
+
+If the task is expected to fail, the recorded `EXIT_CODE` must be non-zero or the
+artifact must include a short failure assertion excerpt (e.g., `Failure: ...`) that
+is directly attributable to the scenario under test. This evidence requirement is
+mandatory for auto-checkable delivery audits.
 
 Manual checks may appear ONLY as non-gating notes (never as completion criteria).
 
@@ -468,8 +519,14 @@ Required rules:
    `- [ ] [P1-T1] [expect-fail] Add regression test ...`
 * Any test task whose acceptance criteria explicitly requires `pytest` (or equivalent) to **fail** MUST include `[expect-fail]`.
 * Any task with `[expect-fail]` MUST have acceptance criteria that are mechanically verifiable and state:
-   - the exact test command to run, and
-   - that the command is expected to **fail** for the task to be considered complete.
+    - the exact test command to run, and
+    - that the command is expected to **fail** for the task to be considered complete, and
+    - the exact **auditable evidence artifact** path to capture the failing run output in
+       `regression-testing/`, including the required fields `Timestamp`, `Command`, and
+       `EXIT_CODE`.
+
+The evidence artifact requirement is not optional: without it, expect-fail tasks are
+not auditable and must be treated as incomplete by delivery review.
 
 Examples:
 
@@ -558,10 +615,10 @@ If any of these are not satisfied, decompose further.
 
 When you need context:
 
-* Use `#tool:githubRepo` or `#tool:search/codebase` to inspect repository code and structure.
-* Use `#tool:search` or `#tool:fetch` to find relevant references or docs.
-* Use `#tool:usages` to understand where functions or symbols are used.
-* Use `#tool:search/fileSearch`, `#tool:search/listDirectory`, and `#tool:search/readFile` to discover and inspect existing documentation, plan files, and feature folders.
+* Use `#tool:web/githubRepo` or `#tool:search/codebase` to inspect repository code and structure.
+* Use `#tool:search` or `#tool:web/fetch to find relevant references or docs.
+* Use `#tool:search/usages` to understand where functions or symbols are used.
+* Use `#tool:search/fileSearch`, `#tool:search/listDirectory`, and `#tool:read/readFile` to discover and inspect existing documentation, plan files, and feature folders.
 
 You may summarize what you learn from these tools in the plan, but you **must not** propose tasks that rely on unstated or opaque knowledge. If a task assumes a specific file or function exists, name it explicitly.
 
@@ -599,7 +656,7 @@ Once a path is confirmed:
   * Use `#tool:edit/createFile` to create the new file with the full plan content.
 * **If the file already exists:**
 
-  * Use `#tool:search/readFile` to inspect the current contents.
+  * Use `#tool:read/readFile` to inspect the current contents.
   * Either:
 
     * Replace any prior “plan” section with the new plan, or

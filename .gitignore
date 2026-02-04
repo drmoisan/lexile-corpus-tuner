@@ -64,6 +64,7 @@ tools/actionlint
 # Cache
 .cache/
 .agent_logs
+log.txt
 
 
 

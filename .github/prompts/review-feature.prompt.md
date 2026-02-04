@@ -1,6 +1,6 @@
 ---
 agent: 'feature_code_review_agent'
-description: 'Prompt for reviewing an entire feature branch relative to a base branch. Generates PolicyAudit + CodeReview + FeatureAudit (acceptance criteria) in the active feature folder; if remediation is needed, produces remediation inputs and delegates remediation-plan.md creation to atomic_planner.'
+description: 'Prompt for reviewing an entire feature branch relative to a base branch. Generates PolicyAudit + CodeReview + FeatureAudit (acceptance criteria) in the active feature folder; if remediation is needed, generates remediation inputs and AUTOMATICALLY delegates remediation plan creation to atomic_planner.'
 ---
 
 # Feature Code Review Prompt
@@ -16,6 +16,12 @@ Do not ask clarifying questions. Make best-effort inferences, document assumptio
 ## Output Format
 
 Write outputs to the **active feature folder** determined by the agent. If no active feature folder can be inferred, use the agent’s fallback (e.g., `docs/features/active/<date>-feature-review/`).
+
+### Baseline capture location (canonical)
+
+- Store baseline artifacts in a `baseline/` folder next to the plan file.
+- For multi-feature epics, store the epic-wide baseline at the epic root `baseline/`.
+- For multi-version features, keep a feature-level baseline in the feature root `baseline/`, and store version-specific baselines in a `baseline/` folder next to each version plan.
 
 ### Required deliverables
 
@@ -39,8 +45,48 @@ All filenames must include a timestamp in ISO-8601 format `yyyy-MM-ddTHH-mm` (e.
    - Concrete, enumerated fix list with acceptance criteria and verification commands.
    - Must explicitly identify unmet acceptance criteria, if any.
 
-5. An `atomic_planner` prompt (copy/paste-ready) that instructs `atomic_planner` to WRITE:
-   - `remediation-plan.<timestamp>.md` in the same active feature folder as the audit documents.
+5. `remediation-plan.<timestamp>.md`
+   - MUST be produced by **automatically delegating** to the `atomic_planner` agent (no copy/paste prompt in chat as the primary mechanism).
+   - MUST use `.github/prompts/generate-atomic-plan.prompt.md` as the base prompt template, with all template variables filled deterministically.
+   - MUST be written to the same active feature folder as the audit documents.
+
+#### Atomic planner delegation requirements (mandatory when remediation is triggered)
+
+When remediation is triggered, the feature review agent MUST:
+
+1) Create a remediation plan target file from a plan template (so `${file}` exists and has structure to fill)
+   - Default template: `docs/features/templates/feature/plan.yyyy-MM-ddTHH-mm.md`
+   - Output path: `<FEATURE_FOLDER>/remediation-plan.<timestamp>.md`
+   - Replace top-level placeholders minimally (feature name, issue reference if known, last updated timestamp). Leave task checkboxes empty for atomic_planner to fill.
+
+2) Delegate to `atomic_planner` with a fully-resolved prompt
+   - The delegated prompt MUST be the content of `.github/prompts/generate-atomic-plan.prompt.md` with:
+     - `${name}` = `Remediation Plan: <feature-folder-name> (<timestamp>)`
+     - `${file}` = `<FEATURE_FOLDER>/remediation-plan.<timestamp>.md`
+     - `${spec}` = `<FEATURE_FOLDER>/remediation-inputs.<timestamp>.md` (PRIMARY requirements source)
+     - `${user-story}` = best-effort: the most relevant scoping doc path (e.g., `<FEATURE_FOLDER>/spec.md` if present), but treated as secondary.
+
+3) Ensure the atomic_planner prompt is **self-contained** (no missing context)
+   - Append a “Context package” section that includes the FULL TEXT (verbatim) of:
+     - `<FEATURE_FOLDER>/remediation-inputs.<timestamp>.md` (primary)
+     - `artifacts/pr_context.summary.txt`
+     - `artifacts/pr_context.appendix.txt` (at minimum: base/head, commits in range, changed files; include full file if feasible)
+     - `<FEATURE_FOLDER>/policy-audit.<timestamp>.md`
+     - `<FEATURE_FOLDER>/code-review.<timestamp>.md`
+     - `<FEATURE_FOLDER>/feature-audit.<timestamp>.md`
+     - The original plan file(s) in the feature folder (e.g., `<FEATURE_FOLDER>/plan.<timestamp>.md` if present)
+
+4) Remediation planning must prioritize remediation-inputs over scoping docs
+   - The remediation plan MUST implement every fix and acceptance criterion listed in `remediation-inputs.<timestamp>.md`.
+   - `spec.md` / `user-story.md` may be used only to preserve boundaries/invariants; do not allow them to dilute or override remediation-inputs.
+
+5) Plan status synchronization requirements (must be included in remediation plan tasks)
+   - The remediation plan MUST include explicit tasks to:
+     - Check off any items in the original `plan.<timestamp>.md` (or feature plan file) that were completed but remain unchecked.
+     - Check off additional items that become delivered as remediation work completes.
+   - These sync tasks MUST be repeated at least:
+     - Once immediately after remediation-plan creation (baseline sync)
+     - Once at the end of the remediation execution (final sync)
 
 ## Context Template
 

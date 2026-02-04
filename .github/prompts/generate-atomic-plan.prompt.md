@@ -47,6 +47,35 @@ Plans must consist of discrete, atomic phases containing executable tasks. Each 
 
 Please fill out the template given in `${file}`. 
 
+## Mandatory post-output preflight validation loop
+
+After you have fully updated `${file}`, you MUST initiate a **validate-only** preflight validation
+handoff to the `atomic_executor` agent.
+
+Purpose:
+	Ensure the plan you produced is ingestible by the executor without replanning.
+
+Hard constraints:
+	- The executor MUST perform **preflight checks only** (no task execution).
+	- You MUST iterate until the executor returns an all-clear signal.
+
+Required handoff directive (exact text):
+
+`DIRECTIVE: PREFLIGHT VALIDATION ONLY`
+
+Required validation result signals (exact text; one must be present):
+
+- `PREFLIGHT: ALL CLEAR`
+- `PREFLIGHT: REVISIONS REQUIRED`
+
+Loop protocol (MANDATORY):
+	1) Hand off `${file}` to `atomic_executor` with the directive above.
+	2) If the executor returns `PREFLIGHT: REVISIONS REQUIRED`, apply the executor’s plan delta to
+	   `${file}` (preserving task IDs and executor-compatible formatting), then hand off again.
+	3) Repeat until the executor returns `PREFLIGHT: ALL CLEAR`.
+	4) Only then may you return control to the calling system, including the final
+	   `PREFLIGHT: ALL CLEAR` signal verbatim.
+
 ## Template Validation Rules
 
 - All front matter fields must be present and properly formatted
