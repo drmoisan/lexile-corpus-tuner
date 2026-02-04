@@ -117,8 +117,11 @@ def validate_url(
     content_type_prefixes = [
         value.lower() for value in (allowed_content_types or ["text"])
     ]
-    req = urllib.request.Request(  # noqa: S310 - IA HTTPS endpoint is expected
-        url, method="HEAD"
+    # User-Agent required: CK-12 CloudFront blocks requests without it.
+    req = urllib.request.Request(  # noqa: S310 - trusted HTTPS endpoint
+        url,
+        method="HEAD",
+        headers={"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"},
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
