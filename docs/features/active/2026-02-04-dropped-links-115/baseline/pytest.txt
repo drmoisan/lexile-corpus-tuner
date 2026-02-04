@@ -1,0 +1,10 @@
+Command: poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
+========================== test session starts ===========================
+platform linux -- Python 3.13.9, pytest-9.0.2, pluggy-1.6.0
+rootdir: /workspaces/lexile-corpus-tuner
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.0.0, anyio-4.12.0
+collected 1362 items
+
+[output truncated for brevity; full output captured in terminal]

@@ -43,44 +43,44 @@ Purpose: ensure CK-12 URL validation succeeds by adding a browser-like User-Agen
 | SEC-001 | URL validation targets trusted CK-12 HTTPS endpoints; continue to use `urllib.request` with a fixed User-Agent header. | spec.md: Assumptions, Constraints, Dependencies |
 
 ### Phase 0 — Context & Inputs
-- [ ] [P0-T1] Read `.github/copilot-instructions.md` and acknowledge in `docs/features/active/2026-02-04-dropped-links-115/baseline/policy-ack.md`.
+- [x] [P0-T1] Read `.github/copilot-instructions.md` and acknowledge in `docs/features/active/2026-02-04-dropped-links-115/baseline/policy-ack.md`.
 	- Acceptance: `policy-ack.md` exists and includes the literal line `copilot-instructions.md: read`.
-- [ ] [P0-T2] Read `.github/instructions/general-code-change.instructions.md` and append acknowledgment to `baseline/policy-ack.md`.
+- [x] [P0-T2] Read `.github/instructions/general-code-change.instructions.md` and append acknowledgment to `baseline/policy-ack.md`.
 	- Acceptance: `policy-ack.md` includes the literal line `general-code-change.instructions.md: read`.
-- [ ] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and append acknowledgment to `baseline/policy-ack.md`.
+- [x] [P0-T3] Read `.github/instructions/general-unit-test.instructions.md` and append acknowledgment to `baseline/policy-ack.md`.
 	- Acceptance: `policy-ack.md` includes the literal line `general-unit-test.instructions.md: read`.
-- [ ] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`; append acknowledgments to `baseline/policy-ack.md`.
+- [x] [P0-T4] Read `.github/instructions/python-code-change.instructions.md` and `.github/instructions/python-unit-test.instructions.md`; append acknowledgments to `baseline/policy-ack.md`.
 	- Acceptance: `policy-ack.md` includes the literal lines `python-code-change.instructions.md: read` and `python-unit-test.instructions.md: read`.
-- [ ] [P0-T5] Capture baseline Git context in `docs/features/active/2026-02-04-dropped-links-115/baseline/git-context.txt`.
+- [x] [P0-T5] Capture baseline Git context in `docs/features/active/2026-02-04-dropped-links-115/baseline/git-context.txt`.
 	- Acceptance: `git-context.txt` contains the output of `git rev-parse --abbrev-ref HEAD` and `git rev-parse HEAD`.
-- [ ] [P0-T6] Capture baseline Python toolchain outputs to `docs/features/active/2026-02-04-dropped-links-115/baseline/`.
+- [x] [P0-T6] Capture baseline Python toolchain outputs to `docs/features/active/2026-02-04-dropped-links-115/baseline/`.
 	- Acceptance: `baseline/black.txt`, `baseline/ruff.txt`, `baseline/pyright.txt`, and `baseline/pytest.txt` exist and each includes the exact command line used.
 	- Commands: `poetry run black .`, `poetry run ruff check`, `poetry run pyright`, `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing`.
-- [ ] [P0-T7] Record required data inputs in `docs/features/active/2026-02-04-dropped-links-115/baseline/inputs.md`.
+- [x] [P0-T7] Record required data inputs in `docs/features/active/2026-02-04-dropped-links-115/baseline/inputs.md`.
 	- Acceptance: `inputs.md` lists `data/meta/catalogs/ck12_curated.jsonl` and the CLI command `poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out data/meta/oer_sources.json --validate-urls`.
-- [ ] [P0-T8] Read `docs/features/active/2026-02-04-dropped-links-115/research.md` and acknowledge in `docs/features/active/2026-02-04-dropped-links-115/baseline/research-ack.md`.
+- [x] [P0-T8] Read `docs/features/active/2026-02-04-dropped-links-115/research.md` and acknowledge in `docs/features/active/2026-02-04-dropped-links-115/baseline/research-ack.md`.
 	- Acceptance: `research-ack.md` exists and includes the literal line `research.md: read`.
 
 ### Phase 1 — Preparation
-- [ ] [P1-T1] Confirm scope lock by copying the current `spec.md` hash into `docs/features/active/2026-02-04-dropped-links-115/baseline/spec-sha256.txt`.
+- [x] [P1-T1] Confirm scope lock by copying the current `spec.md` hash into `docs/features/active/2026-02-04-dropped-links-115/baseline/spec-sha256.txt`.
 	- Acceptance: `spec-sha256.txt` contains the output of `sha256sum docs/features/active/2026-02-04-dropped-links-115/spec.md`.
-- [ ] [P1-T2] Verify target file locations and line references for the change set.
+- [x] [P1-T2] Verify target file locations and line references for the change set.
 	- Acceptance: `docs/features/active/2026-02-04-dropped-links-115/baseline/targets.md` lists `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py: validate_url() (approx line 143)` and `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py (approx lines 119–166)`.
-- [ ] [P1-T3] Create the canonical regression evidence directory `docs/features/active/2026-02-04-dropped-links-115/regression-testing/`.
+- [x] [P1-T3] Create the canonical regression evidence directory `docs/features/active/2026-02-04-dropped-links-115/regression-testing/`.
 	- Acceptance: `docs/features/active/2026-02-04-dropped-links-115/regression-testing/` exists.
 
 ### Phase 2 — Regression Tests (TDD Red)
-- [ ] [P2-T1] [expect-fail] Add pytest test `test_validate_url_sets_user_agent_header` in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` that asserts `urllib.request.Request` receives `headers={"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"}` when `validate_url("https://www.ck12.org/flx/get/detail/revision/123?tiny=true")` is invoked.
+- [x] [P2-T1] [expect-fail] Add pytest test `test_validate_url_sets_user_agent_header` in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` that asserts `urllib.request.Request` receives `headers={"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"}` when `validate_url("https://www.ck12.org/flx/get/detail/revision/123?tiny=true")` is invoked.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k user_agent_header` fails with an assertion that the header is missing or mismatched, and `docs/features/active/2026-02-04-dropped-links-115/regression-testing/pytest-user_agent_header.fail.txt` exists with fields `Timestamp:`, `Command:`, `EXIT_CODE:` (non-zero) plus a `Failure:` excerpt.
 	- REQ: REQ-004
-- [ ] [P2-T2] Add pytest test `test_validate_url_still_uses_head_method` in the same file that asserts the Request method is `"HEAD"` for CK-12 validation URLs.
+- [x] [P2-T2] Add pytest test `test_validate_url_still_uses_head_method` in the same file that asserts the Request method is `"HEAD"` for CK-12 validation URLs.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k head_method` exits with code 0 and `docs/features/active/2026-02-04-dropped-links-115/regression-testing/pytest-head_method.pass.txt` exists with fields `Timestamp:`, `Command:`, `EXIT_CODE:` (0).
 	- Rationale: Baseline already enforced HEAD; test never failed.
 	- REQ: REQ-002
-- [ ] [P2-T3] Add pytest test `test_validate_url_rejects_non_200_status` in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` that asserts `validate_url()` returns `(False, 403, "text/plain")` when the response status is 403.
+- [x] [P2-T3] Add pytest test `test_validate_url_rejects_non_200_status` in `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` that asserts `validate_url()` returns `(False, 403, "text/plain")` when the response status is 403.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k non_200_status` exits with code 0.
 	- REQ: REQ-005
-- [ ] [P2-T4] Add pytest test `test_validate_url_rejects_content_type_mismatch` in the same file that asserts `validate_url()` returns `False` when the Content-Type is `application/json` but allowed prefixes are `text`.
+- [x] [P2-T4] Add pytest test `test_validate_url_rejects_content_type_mismatch` in the same file that asserts `validate_url()` returns `False` when the Content-Type is `application/json` but allowed prefixes are `text`.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k content_type_mismatch` exits with code 0.
 	- REQ: REQ-005
 

@@ -1,0 +1,2 @@
+Command: poetry run ruff check
+All checks passed!

@@ -1,0 +1,3 @@
+Command: poetry run black .
+All done! ✨ 🍰 ✨
+225 files left unchanged.

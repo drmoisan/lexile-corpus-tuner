@@ -1,0 +1,8 @@
+Timestamp: 2026-02-04T22:00:25Z
+Command: poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k user_agent_header
+EXIT_CODE: 1
+Failure:
+AssertionError: assert {} == {'User-Agent': 'Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)'}
+>       assert captured["headers"] == {
+            "User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"
+        }

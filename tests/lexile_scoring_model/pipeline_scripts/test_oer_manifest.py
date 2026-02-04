@@ -101,6 +101,74 @@ def test_validate_url_returns_true_for_http_200_text_content_type(
     assert content_type == "text/plain"
 
 
+def test_validate_url_sets_user_agent_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """validate_url should set a browser-like User-Agent header."""
+    captured: dict[str, object] = {}
+
+    def _fake_request(
+        url: str,
+        method: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> object:
+        """Capture Request parameters for header validation."""
+        captured["url"] = url
+        captured["method"] = method
+        captured["headers"] = headers or {}
+        return object()
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        """Return a successful response without touching the network."""
+        del req, timeout
+        return _MockResponse(200, "text/plain")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "Request", _fake_request)
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    ok, status, content_type = oer_manifest.validate_url(
+        "https://www.ck12.org/flx/get/detail/revision/123?tiny=true"
+    )
+    assert ok is True
+    assert status == 200
+    assert content_type == "text/plain"
+    assert captured["headers"] == {
+        "User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"
+    }
+
+
+def test_validate_url_still_uses_head_method(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """validate_url should continue using HEAD requests."""
+    captured: dict[str, object] = {}
+
+    def _fake_request(
+        url: str,
+        method: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> object:
+        """Capture Request method without performing I/O."""
+        captured["url"] = url
+        captured["method"] = method
+        captured["headers"] = headers or {}
+        return object()
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        """Return a valid response to allow validation to proceed."""
+        del req, timeout
+        return _MockResponse(200, "text/plain")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "Request", _fake_request)
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    ok, status, content_type = oer_manifest.validate_url(
+        "https://www.ck12.org/flx/get/detail/revision/123?tiny=true"
+    )
+    assert ok is True
+    assert status == 200
+    assert content_type == "text/plain"
+    assert captured["method"] == "HEAD"
+
+
 def test_validate_url_returns_false_for_http_404(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -114,6 +182,23 @@ def test_validate_url_returns_false_for_http_404(
     ok, status, _ = oer_manifest.validate_url("http://example.com")
     assert ok is False
     assert status == 404
+
+
+def test_validate_url_rejects_non_200_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-200 responses should return False with the status code."""
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        """Return a non-200 response for status handling coverage."""
+        del req, timeout
+        return _MockResponse(403, "text/plain")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    ok, status, content_type = oer_manifest.validate_url("http://example.com")
+    assert ok is False
+    assert status == 403
+    assert content_type == "text/plain"
 
 
 def test_validate_url_returns_false_for_application_pdf_content_type(
@@ -130,6 +215,23 @@ def test_validate_url_returns_false_for_application_pdf_content_type(
     assert ok is False
     assert status == 200
     assert content_type == "application/pdf"
+
+
+def test_validate_url_rejects_content_type_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Content types outside allowed prefixes must fail validation."""
+
+    def _fake_urlopen(req: object, timeout: int = 0) -> _MockResponse:  # type: ignore[override]
+        """Return application/json to trigger content-type mismatch."""
+        del req, timeout
+        return _MockResponse(200, "application/json")
+
+    monkeypatch.setattr(oer_manifest.urllib.request, "urlopen", _fake_urlopen)
+    ok, status, content_type = oer_manifest.validate_url("http://example.com")
+    assert ok is False
+    assert status == 200
+    assert content_type == "application/json"
 
 
 def test_validate_url_accepts_pdf_when_allowed(

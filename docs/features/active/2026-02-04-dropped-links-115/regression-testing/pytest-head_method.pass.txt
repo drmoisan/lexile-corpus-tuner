@@ -1,0 +1,5 @@
+Timestamp: 2026-02-04T22:43:36Z
+Command: poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k head_method
+EXIT_CODE: 0
+
+
