@@ -133,9 +133,9 @@ Add a browser-like User-Agent header to `urllib.request.Request` in `validate_ur
 ## Test Strategy
 Seeded from issue:
 
-- [ ] Unit coverage areas: `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` (validate_url + CK-12 acceptance).
-- [ ] Integration scenario to retest: rerun `oer_manifest --validate-urls` and confirm 155 entries are written.
-- [ ] Manual verification notes: add User-Agent header in `validate_url()` and verify CK-12 URLs return HTTP 200 + `application/json`.
+- [x] Unit coverage areas: `tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py` (validate_url + CK-12 acceptance).
+- [x] Integration scenario to retest: rerun `oer_manifest --validate-urls` and confirm CK-12 entries are written.
+- [x] Manual verification notes: add User-Agent header in `validate_url()` and verify CK-12 URLs return HTTP 200 + `application/json`.
 
 - Regression tests to add or update:
 - Consider adding a unit test that asserts the `User-Agent` header is set on the request when validating CK-12 URLs (monkeypatch `urllib.request.Request`).
@@ -158,13 +158,13 @@ Seeded from issue:
 
 
 ## Acceptance Criteria
-- [ ] Repro steps now produce the expected behavior in all documented environments.
-- [ ] Regression test(s) added and passing (list file path and test name).
-- [ ] Edge cases and invalid inputs are handled with correct errors or fallbacks.
-- [ ] No unintended behavior changes outside the defined scope.
+- [x] Repro steps now produce the expected behavior in all documented environments.
+- [x] Regression test(s) added and passing (list file path and test name).
+- [x] Edge cases and invalid inputs are handled with correct errors or fallbacks.
+- [x] No unintended behavior changes outside the defined scope.
 - [ ] Required logs/telemetry updated and validated (if applicable).
 - [ ] Performance constraints met or explicitly waived with rationale.
-- [ ] Full toolchain pass completed (format → lint → type-check → test).
+- [x] Full toolchain pass completed (format → lint → type-check → test).
 - [ ] Docs/config references updated to match the new behavior.
 
 ## Risks & Mitigations

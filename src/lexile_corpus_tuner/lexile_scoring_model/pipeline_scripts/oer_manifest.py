@@ -15,12 +15,15 @@ Flow:
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import urllib.request
 from collections.abc import (  # noqa: TCH003 - type hints consumed at runtime
     Iterable,
     Mapping,
 )
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, cast
 
@@ -34,6 +37,41 @@ from .oer_models import (
 )
 
 app = typer.Typer(help="Generate OER manifest from curated catalogs.")
+
+
+_CK12_REVISION_ID_PATTERN = re.compile(r"/flx/get/detail/revision/(?P<revision_id>\d+)")
+
+
+def _ck12_revision_suffix(url: str) -> str:
+    """
+    Produce a stable CK-12 suffix used to prevent manifest ID collisions.
+
+    Purpose:
+        CK-12 curated catalog entries represent book-level identifiers, but the
+        Perma API can surface many revision-detail URLs (lessons/sections).
+        The manifest must keep each revision distinct so the downloader does
+        not overwrite artifacts.
+
+    Args:
+        url (str): CK-12 revision-detail URL.
+
+    Returns:
+        str: Suffix beginning with "--" that uniquely identifies the revision.
+
+    Raises:
+        None.
+
+    Side Effects:
+        None.
+    """
+    match = _CK12_REVISION_ID_PATTERN.search(url)
+    if match:
+        return f"--rev-{match.group('revision_id')}"
+
+    # Fall back to a short URL hash so filenames remain deterministic even
+    # if the URL format changes.
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:8]
+    return f"--urlhash-{digest}"
 
 
 def _to_candidate(
@@ -87,10 +125,18 @@ def build_manifest_entry(
         extension = ".pdf"
     else:
         extension = ".txt"
-    filename = f"{slug}{extension}"
+
+    # CK-12 manifest entries must be per-revision to avoid collisions: a single
+    # book identifier can map to many revision-detail URLs.
+    if source == "ck12":
+        manifest_id = f"{slug}{_ck12_revision_suffix(candidate.url)}"
+    else:
+        manifest_id = slug
+
+    filename = f"{manifest_id}{extension}"
     return ManifestEntry(
         source_id=catalog_entry.source_id or "oer",
-        id=slug,
+        id=manifest_id,
         url=candidate.url,
         filename=filename,
     )
@@ -124,7 +170,9 @@ def validate_url(
         headers={"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+        # Keep validation latency bounded so manifest generation stays usable
+        # even when a subset of URLs time out.
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310
             status = resp.getcode()
             content_type = resp.headers.get("Content-Type")
     except Exception:
@@ -136,6 +184,96 @@ def validate_url(
     ):
         return False, status, content_type
     return True, status, content_type
+
+
+def _iter_manifest_candidates(
+    curated_entries: Iterable[CatalogEntry],
+) -> Iterable[tuple[ManifestEntry, list[str]]]:
+    """
+    Yield manifest candidates and their allowed content types.
+
+    Purpose:
+        Centralize candidate selection rules so manifest generation and
+        validation share identical logic.
+
+    Args:
+        curated_entries: Curated CatalogEntry objects (typically from JSONL).
+
+    Yields:
+        Tuples of (ManifestEntry, allowed_content_types) in deterministic order.
+
+    Side Effects:
+        None.
+    """
+
+    # Evaluate each curated entry and pick the format expected for that source
+    # (JSON for CK-12 revision payloads, text for OpenStax, PDF where explicitly
+    # advertised).
+    for entry in curated_entries:
+        # Route candidate selection by source expectations:
+        # - CK-12 uses revision JSON (`application/json` or revision-detail URLs).
+        # - Other sources remain text-first using text/* derivatives.
+        if (entry.source_id or "").lower() == "ck12":
+            # CK-12 book entries typically expand to multiple revision-detail
+            # candidates (lessons/sections). Emit one manifest row per candidate.
+            chosen_candidates = [
+                candidate
+                for candidate in entry.download_candidates
+                if candidate.format.startswith("application/json")
+                or "/flx/get/detail/revision/" in candidate.url
+            ]
+            allowed_content_types = ["application/json"]
+        else:
+            chosen_candidates: list[DownloadCandidate] = []
+            chosen = next(
+                (
+                    candidate
+                    for candidate in entry.download_candidates
+                    if candidate.format.startswith("text/")
+                ),
+                None,
+            )
+            if chosen is not None:
+                chosen_candidates.append(chosen)
+            allowed_content_types = ["text"]
+
+        if not chosen_candidates:
+            continue
+
+        # Deduplicate candidates by URL to avoid emitting duplicate rows when
+        # upstream catalogs include repeated revision-detail links.
+        seen_urls: set[str] = set()
+        for candidate in chosen_candidates:
+            if candidate.url in seen_urls:
+                continue
+            seen_urls.add(candidate.url)
+
+            yield build_manifest_entry(entry, candidate), allowed_content_types
+
+
+def _validate_manifest_candidate(
+    candidate: tuple[ManifestEntry, list[str]],
+) -> tuple[ManifestEntry, bool, int | None, str | None]:
+    """
+    Validate a single manifest candidate.
+
+    Purpose:
+        Provide a small, pickle-free wrapper that can be executed in a thread
+        pool while keeping logging and ordering decisions in the caller.
+
+    Args:
+        candidate: (ManifestEntry, allowed_content_types) pair.
+
+    Returns:
+        (ManifestEntry, is_valid, status_code, content_type)
+    """
+
+    manifest_entry, allowed_content_types = candidate
+    ok, status, content_type = validate_url(
+        manifest_entry.url,
+        allowed_content_types=allowed_content_types,
+    )
+    return manifest_entry, ok, status, content_type
 
 
 def generate_manifest(
@@ -156,42 +294,27 @@ def generate_manifest(
     Returns:
         List of ManifestEntry objects ready for serialization.
     """
+    manifest_candidates = _iter_manifest_candidates(curated_entries)
+
+    if not validate_urls:
+        # Emit all candidates without network validation.
+        return [manifest_entry for manifest_entry, _allowed in manifest_candidates]
+
     manifest_entries: list[ManifestEntry] = []
-    # Evaluate each curated entry and pick the format expected for that source
-    # (JSON for CK-12 revision payloads, text for OpenStax, PDF where explicitly
-    # advertised).
-    for entry in curated_entries:
-        # Route candidate selection by source expectations:
-        # - CK-12 uses revision JSON (`application/json` or revision-detail URLs).
-        # - Other sources remain text-first using text/* derivatives.
-        if (entry.source_id or "").lower() == "ck12":
-            chosen = next(
-                (
-                    candidate
-                    for candidate in entry.download_candidates
-                    if candidate.format.startswith("application/json")
-                    or "/flx/get/detail/revision/" in candidate.url
-                ),
-                None,
-            )
-            allowed_content_types = ["application/json"]
-        else:
-            chosen = next(
-                (
-                    candidate
-                    for candidate in entry.download_candidates
-                    if candidate.format.startswith("text/")
-                ),
-                None,
-            )
-            allowed_content_types = ["text"]
-        if not chosen:
-            continue
-        manifest_entry = build_manifest_entry(entry, chosen)
-        if validate_urls:
-            ok, status, content_type = validate_url(
-                manifest_entry.url, allowed_content_types=allowed_content_types
-            )
+
+    # Validate URLs concurrently to keep end-to-end runtime reasonable when
+    # HEAD requests are slow, while preserving deterministic manifest order.
+    #
+    # PERF: This is network-bound, so a larger worker count is typically safe.
+    # We intentionally avoid materializing a full list of futures so large
+    # manifests (e.g., CK-12 revisions) do not incur unnecessary overhead.
+    with ThreadPoolExecutor(max_workers=64) as executor:
+        # Preserve output order by using executor.map(), which yields results in
+        # the same order as the input iterable.
+        for manifest_entry, ok, status, content_type in executor.map(
+            _validate_manifest_candidate,
+            manifest_candidates,
+        ):
             if not ok:
                 message = (
                     f"Skipping {manifest_entry.id}: validation failed "
@@ -199,7 +322,8 @@ def generate_manifest(
                 )
                 typer.echo(message, err=True)
                 continue
-        manifest_entries.append(manifest_entry)
+            manifest_entries.append(manifest_entry)
+
     return manifest_entries
 
 

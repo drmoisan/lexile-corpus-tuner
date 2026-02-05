@@ -1,0 +1,327 @@
+Timestamp: 2026-02-04T22:55:49Z
+Command: poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing
+
+EXIT_CODE: 0
+
+============================= test session starts ==============================
+platform linux -- Python 3.13.9, pytest-9.0.2, pluggy-1.6.0
+rootdir: /workspaces/lexile-corpus-tuner
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.0.0, anyio-4.12.0
+collected 1367 items
+
+tests/lexile_scoring_model/pipeline_scripts/test_ck12_catalog.py ....... [  0%]
+.................                                                        [  1%]
+tests/lexile_scoring_model/pipeline_scripts/test_ck12_enrichment.py .... [  2%]
+...                                                                      [  2%]
+tests/lexile_scoring_model/pipeline_scripts/test_extract_ck12_text.py .. [  2%]
+..............                                                           [  3%]
+tests/lexile_scoring_model/pipeline_scripts/test_extract_pdf_text.py ..  [  3%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_catalog.py .....    [  3%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_curation.py ....... [  4%]
+......                                                                   [  4%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_enrichment.py ....  [  5%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_integration.py ...  [  5%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py ....... [  5%]
+..........                                                               [  6%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_models.py .....     [  7%]
+tests/lexile_scoring_model/pipeline_scripts/test_oer_ui.py .....         [  7%]
+tests/scripts/dev_tools/atomic_executor/test_cli.py .................... [  8%]
+...........................                                              [ 10%]
+tests/scripts/dev_tools/atomic_executor/test_copilot_backoff.py ...      [ 11%]
+tests/scripts/dev_tools/atomic_executor/test_copilot_rate_limiter.py ..  [ 11%]
+tests/scripts/dev_tools/atomic_executor/test_copilot_throttling_classifier.py . [ 11%]
+..........                                                               [ 11%]
+tests/scripts/dev_tools/atomic_executor/test_executor_throttle_bounded_retries.py . [ 12%]
+                                                                         [ 12%]
+tests/scripts/dev_tools/atomic_executor/test_executor_throttle_ordering.py . [ 12%]
+                                                                         [ 12%]
+tests/scripts/dev_tools/atomic_executor/test_executor_throttle_retry_regression.py . [ 12%]
+                                                                         [ 12%]
+tests/scripts/dev_tools/atomic_executor/test_feature_resolver.py ....... [ 12%]
+........                                                                 [ 13%]
+tests/scripts/dev_tools/atomic_executor/test_plan_discovery.py ......... [ 13%]
+                                                                         [ 13%]
+tests/scripts/dev_tools/atomic_executor/test_plan_parser.py ............ [ 14%]
+......................                                                   [ 16%]
+tests/scripts/dev_tools/atomic_executor/test_prompt_builder.py ......... [ 17%]
+........                                                                 [ 17%]
+tests/scripts/dev_tools/atomic_executor/test_pytest_expectations.py .... [ 17%]
+                                                                         [ 17%]
+tests/scripts/dev_tools/atomic_executor/test_qc_runner.py .............. [ 19%]
+.........                                                                [ 19%]
+tests/scripts/dev_tools/test_atomic_executor_cli.py ..............       [ 20%]
+tests/scripts/dev_tools/test_clean_devcontainer.py ....                  [ 20%]
+tests/scripts/dev_tools/test_collect_commit_context.py ................. [ 22%]
+........                                                                 [ 22%]
+tests/scripts/dev_tools/test_collect_pr_context.py ..................... [ 24%]
+..........                                                               [ 25%]
+tests/scripts/dev_tools/test_copy_research_to_issue.py ..........        [ 25%]
+tests/scripts/dev_tools/test_feature_docs.py ........................... [ 27%]
+.....                                                                    [ 28%]
+tests/scripts/dev_tools/test_fix_all.py .............................    [ 30%]
+tests/scripts/dev_tools/test_format_json.py .....................        [ 31%]
+tests/scripts/dev_tools/test_git.py .......................              [ 33%]
+tests/scripts/dev_tools/test_github.py ................................. [ 35%]
+..........                                                               [ 36%]
+tests/scripts/dev_tools/test_json_config.py ...............              [ 37%]
+tests/scripts/dev_tools/test_markdown_label_formatter.py ............... [ 38%]
+...............                                                          [ 39%]
+tests/scripts/dev_tools/test_new_active_feature_folder.py .............. [ 40%]
+......................                                                   [ 42%]
+tests/scripts/dev_tools/test_new_active_feature_folder_bug_template_preserved.py . [ 42%]
+                                                                         [ 42%]
+tests/scripts/dev_tools/test_new_potential_bug_entry.py .............    [ 43%]
+tests/scripts/dev_tools/test_plan_progress_report.py ..............      [ 44%]
+tests/scripts/dev_tools/test_potential_to_issue.py .................     [ 45%]
+tests/scripts/dev_tools/test_pr_context_integration.py ....              [ 46%]
+tests/scripts/dev_tools/test_render.py ................................. [ 48%]
+.........................                                                [ 50%]
+tests/scripts/dev_tools/test_render_helpers.py ......................... [ 52%]
+...                                                                      [ 52%]
+tests/scripts/dev_tools/test_resolve_execute_plan_prompt.py ............ [ 53%]
+...............................                                          [ 55%]
+tests/scripts/dev_tools/test_resolve_file_prompt.py .............        [ 56%]
+tests/scripts/dev_tools/test_shell_qc.py .............................   [ 58%]
+tests/scripts/dev_tools/test_validate_json.py .......................... [ 60%]
+.                                                                        [ 60%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_epub_ingestion.py . [ 60%]
+.                                                                        [ 60%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_openai_rewriter.py . [ 60%]
+..                                                                       [ 61%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_scoring_and_constraints.py . [ 61%]
+.                                                                        [ 61%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_text_difficulty_pipeline.py . [ 61%]
+.                                                                        [ 61%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_textutils.py . [ 61%]
+.................                                                        [ 62%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_tokenization.py . [ 62%]
+                                                                         [ 62%]
+tests/src/lexile_corpus_tuner/corpus_tuning_pipeline/test_windowing.py . [ 62%]
+                                                                         [ 62%]
+tests/src/lexile_corpus_tuner/estimators/test_estimators.py .            [ 62%]
+tests/src/lexile_corpus_tuner/estimators/test_lexile_v2_adapter.py ..    [ 62%]
+tests/src/lexile_corpus_tuner/estimators/test_lexile_v2_preprocessing.py . [ 63%]
+..........................                                               [ 64%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/analyzer/test_analyzer_adjustments.py . [ 65%]
+........                                                                 [ 65%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/analyzer/test_analyzer_cli.py . [ 65%]
+...                                                                      [ 65%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/analyzer/test_analyzer_features.py . [ 65%]
+................                                                         [ 67%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/analyzer/test_analyzer_model.py . [ 67%]
+............                                                             [ 68%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/analyzer/test_analyzer_slices.py . [ 68%]
+.............................                                            [ 70%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_cli.py . [ 70%]
+................................................                         [ 73%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_featureset.py . [ 73%]
+...................                                                      [ 75%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_model_store.py . [ 75%]
+................                                                         [ 76%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py . [ 76%]
+......................                                                   [ 78%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_cli.py . [ 78%]
+....                                                                     [ 78%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download.py . [ 78%]
+...............................................                          [ 82%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_download_headers.py . [ 82%]
+.                                                                        [ 82%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_frequencies.py . [ 82%]
+.........................                                                [ 84%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/corpus/test_corpus_normalize.py . [ 84%]
+...........................................                              [ 87%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_enrich_original_pub_year.py . [ 87%]
+..........                                                               [ 88%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_file_cache.py . [ 88%]
+..                                                                       [ 88%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_file_checkpoint.py . [ 88%]
+..                                                                       [ 88%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_match_utils.py . [ 88%]
+                                                                         [ 88%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_open_library_client.py . [ 88%]
+....                                                                     [ 89%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/test_summary.py . [ 89%]
+.                                                                        [ 89%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_app.py . [ 89%]
+......................                                                   [ 90%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_constants.py . [ 91%]
+                                                                         [ 91%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_init_main.py . [ 91%]
+.                                                                        [ 91%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_query_builder_ui.py . [ 91%]
+...............                                                          [ 92%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_tk_helpers.py . [ 92%]
+..                                                                       [ 92%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/test_widgets.py . [ 92%]
+..............                                                           [ 93%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/test_build_gutenberg_id_list.py . [ 93%]
+..............                                                           [ 94%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/test_explore_gutenberg.py . [ 94%]
+...........................                                              [ 96%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/test_extract_simple_wiki_dump.py . [ 96%]
+..............                                                           [ 97%]
+tests/src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/test_gutenberg_query_core.py . [ 97%]
+........                                                                 [ 98%]
+tests/src/lexile_corpus_tuner/test_cli.py .....                          [ 98%]
+tests/src/lexile_corpus_tuner/test_config_advanced.py .........          [ 99%]
+tests/src/lexile_corpus_tuner/test_frequency_loader.py ......            [100%]
+
+=============================== warnings summary ===============================
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_returns_model_and_metrics
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_model_has_coefficients
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_model_has_intercept
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_model_can_predict
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_filters_by_num_tokens
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_filters_by_num_slices
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_reproducible_with_seed
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_reproducible_with_seed
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_metrics_reasonable_values
+  /workspaces/lexile-corpus-tuner/.venv/lib/python3.13/site-packages/sklearn/linear_model/_coordinate_descent.py:695: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations, check the scale of the features or consider increasing regularisation. Duality gap: 1.834e+04, tolerance: 1.282e+02
+  Linear regression models with a zero l1 penalization strength are more efficiently fitted using one of the solvers implemented in sklearn.linear_model.Ridge/RidgeCV instead.
+    model = cd_fast.enet_coordinate_descent(
+
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_minimal_dataset
+  /workspaces/lexile-corpus-tuner/.venv/lib/python3.13/site-packages/sklearn/linear_model/_coordinate_descent.py:695: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations, check the scale of the features or consider increasing regularisation. Duality gap: 7.247e+00, tolerance: 1.167e+00
+  Linear regression models with a zero l1 penalization strength are more efficiently fitted using one of the solvers implemented in sklearn.linear_model.Ridge/RidgeCV instead.
+    model = cd_fast.enet_coordinate_descent(
+
+tests/src/lexile_corpus_tuner/lexile_scoring_model/calibration/test_calibration_train.py::TestTrainRegressionModel::test_handles_nan_values
+  /workspaces/lexile-corpus-tuner/.venv/lib/python3.13/site-packages/sklearn/linear_model/_coordinate_descent.py:695: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations, check the scale of the features or consider increasing regularisation. Duality gap: 1.851e+04, tolerance: 1.290e+02
+  Linear regression models with a zero l1 penalization strength are more efficiently fitted using one of the solvers implemented in sklearn.linear_model.Ridge/RidgeCV instead.
+    model = cd_fast.enet_coordinate_descent(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.9-final-0 ________________
+
+Name                                                                                                            Stmts   Miss  Cover   Missing
+---------------------------------------------------------------------------------------------------------------------------------------------
+scripts/dev_tools/__init__.py                                                                                       0      0   100%
+scripts/dev_tools/atomic_executor/__init__.py                                                                       6      0   100%
+scripts/dev_tools/atomic_executor/arg_parser.py                                                                    44      0   100%
+scripts/dev_tools/atomic_executor/cli.py                                                                           43     14    67%   49-54, 115, 134-144
+scripts/dev_tools/atomic_executor/clipboard_helpers.py                                                             47      9    81%   44, 52-53, 64, 119-120, 133, 143-144
+scripts/dev_tools/atomic_executor/copilot_execution.py                                                            200     44    78%   116, 180, 222-228, 268-271, 300-301, 324, 356-359, 369-375, 429, 447-453, 461-477, 514-516, 522, 525, 531, 539
+scripts/dev_tools/atomic_executor/copilot_runner.py                                                                 6      0   100%
+scripts/dev_tools/atomic_executor/copilot_throttling.py                                                            87     10    89%   42, 67, 136, 138, 214, 216, 227, 229, 319, 332
+scripts/dev_tools/atomic_executor/feature_resolver.py                                                              61      1    98%   144
+scripts/dev_tools/atomic_executor/plan_discovery.py                                                                38      0   100%
+scripts/dev_tools/atomic_executor/plan_parser.py                                                                  195     26    87%   331, 355, 379, 390, 417, 493, 502-524, 534-537, 545-549, 574, 579, 596-597
+scripts/dev_tools/atomic_executor/prompt_builder.py                                                               127     36    72%   49, 53, 57, 61, 81, 89, 205, 212, 244-246, 256-257, 275, 328, 379, 383, 388-390, 411-434
+scripts/dev_tools/atomic_executor/pytest_expectations.py                                                           55      4    93%   79-80, 131-132
+scripts/dev_tools/atomic_executor/qc_orchestration.py                                                             206    134    35%   56-67, 232, 259-262, 279, 400-515, 552-686
+scripts/dev_tools/atomic_executor/qc_runner.py                                                                    168     25    85%   163-164, 179, 183, 193-194, 238, 253, 266, 275, 291, 315, 379, 414, 417, 441, 447-448, 483, 557-575
+scripts/dev_tools/atomic_executor/task_execution.py                                                               177     15    92%   124, 126, 234, 244, 314, 318-320, 365, 372-373, 427, 433-438
+scripts/dev_tools/atomic_executor/task_retry.py                                                                    72      5    93%   133-140, 248
+scripts/dev_tools/atomic_executor/workspace_helpers.py                                                             47      2    96%   134, 190
+scripts/dev_tools/clean_devcontainer.py                                                                            36      2    94%   165, 179
+scripts/dev_tools/collect_commit_context.py                                                                       123      1    99%   33
+scripts/dev_tools/copy_research_to_issue.py                                                                        80     41    49%   49, 52-53, 56, 78, 82, 159-165, 186-189, 217-231, 244-256, 276-314
+scripts/dev_tools/fix_all.py                                                                                       20      3    85%   55, 124-125
+scripts/dev_tools/fix_all_runner.py                                                                               297     37    88%   55, 107, 192, 406, 432-434, 439-441, 472-474, 505-507, 529-531, 560-567, 603, 713-715, 742-744, 771-773, 811, 817, 824-825
+scripts/dev_tools/fix_all_status_board.py                                                                          57     24    58%   42, 44, 70, 74, 80, 108, 165-188
+scripts/dev_tools/format_json.py                                                                                   67      0   100%
+scripts/dev_tools/json_config.py                                                                                   20      2    90%   48, 50
+scripts/dev_tools/markdown_label_formatter.py                                                                      65      0   100%
+scripts/dev_tools/new_active_feature_folder.py                                                                    377     44    88%   66, 69, 72-73, 76-81, 84-86, 89, 92-93, 96-100, 104, 135, 143, 215, 219, 253, 567-568, 999-1021, 1025-1038
+scripts/dev_tools/new_potential_bug_entry.py                                                                       91      8    91%   22, 37-44, 61, 140-146
+scripts/dev_tools/plan_progress_report.py                                                                          99     25    75%   147-148, 152, 176-179, 213, 299-305, 322-325, 338-359, 375-382
+scripts/dev_tools/potential_to_issue.py                                                                           239     15    94%   82, 94, 154, 163-164, 243, 250-251, 255, 259-260, 268, 356, 366-367
+scripts/dev_tools/pr_context/__init__.py                                                                            2      0   100%
+scripts/dev_tools/pr_context/collector.py                                                                         191     15    92%   194, 201, 226, 253-254, 280-283, 296, 309, 351, 384, 440, 462
+scripts/dev_tools/pr_context/feature_docs.py                                                                      129      9    93%   108, 123, 131-132, 181-185
+scripts/dev_tools/pr_context/git.py                                                                                61      0   100%
+scripts/dev_tools/pr_context/github.py                                                                            350     23    93%   81, 89, 97, 104, 130, 139-140, 152, 162, 167, 176, 189, 196, 231-233, 301, 423, 446, 501, 512, 518, 545
+scripts/dev_tools/pr_context/models.py                                                                            121      1    99%   152
+scripts/dev_tools/pr_context/render.py                                                                            348     32    91%   74, 98-100, 110, 138, 321, 335, 343-344, 505, 515-516, 555, 559-565, 589, 624-636
+scripts/dev_tools/pr_context/summary_helpers.py                                                                   154     14    91%   80, 239, 242, 273, 278, 283-284, 332-345
+scripts/dev_tools/resolve_execute_plan_prompt.py                                                                  159      8    95%   149-150, 373, 416-417, 525-527
+scripts/dev_tools/resolve_file_prompt.py                                                                          130     10    92%   50, 104-113, 124, 224, 328, 338
+scripts/dev_tools/shell_qc.py                                                                                     217     31    86%   51, 55-56, 59, 65, 67, 79-80, 103, 158-159, 183-184, 204-205, 242-252, 266, 303-304, 373-375, 408, 470
+scripts/dev_tools/tk_dialog_helpers.py                                                                             99     57    42%   39-40, 64-67, 85-117, 133-159, 170-171, 184, 191, 236, 238, 245-260
+scripts/dev_tools/validate_json.py                                                                                126     26    79%   21, 124-146, 184, 190-194, 202, 265-267
+src/lexile_corpus_tuner/__init__.py                                                                                 6      0   100%
+src/lexile_corpus_tuner/cli.py                                                                                    201     42    79%   280, 306, 319, 322, 324, 326, 328, 351, 359, 361, 363, 365, 367, 369, 371, 373, 375, 382, 460-461, 517, 522-526, 536-567
+src/lexile_corpus_tuner/config.py                                                                                  81      0   100%
+src/lexile_corpus_tuner/corpus_tuning_pipeline/__init__.py                                                          0      0   100%
+src/lexile_corpus_tuner/corpus_tuning_pipeline/constraints.py                                                      15      0   100%
+src/lexile_corpus_tuner/corpus_tuning_pipeline/epub.py                                                            122     22    82%   16, 28-29, 34-35, 41-42, 45-46, 49, 52, 59-60, 63-64, 81, 84, 87, 106, 142, 152, 158
+src/lexile_corpus_tuner/corpus_tuning_pipeline/rewriting.py                                                        48      4    92%   54, 82, 89, 92
+src/lexile_corpus_tuner/corpus_tuning_pipeline/scoring.py                                                          33      1    97%   31
+src/lexile_corpus_tuner/corpus_tuning_pipeline/text_difficulty_pipeline.py                                         63      5    92%   66, 109, 120, 132, 139
+src/lexile_corpus_tuner/corpus_tuning_pipeline/textutils.py                                                        16      0   100%
+src/lexile_corpus_tuner/corpus_tuning_pipeline/tokenization.py                                                      9      0   100%
+src/lexile_corpus_tuner/corpus_tuning_pipeline/windowing.py                                                        20      1    95%   14
+src/lexile_corpus_tuner/estimators/__init__.py                                                                     18      4    78%   26-28, 35
+src/lexile_corpus_tuner/estimators/base.py                                                                          3      0   100%
+src/lexile_corpus_tuner/estimators/dummy_estimator.py                                                              16      1    94%   22
+src/lexile_corpus_tuner/estimators/lexile_determination_v2_adapter.py                                              79     19    76%   47, 63-64, 104, 109, 116-122, 145-149, 164-171, 185-186
+src/lexile_corpus_tuner/estimators/lexile_v2_preprocessing.py                                                      62      0   100%
+src/lexile_corpus_tuner/frequency_loader.py                                                                        22      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/__init__.py                                                            0      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/__init__.py                                                   0      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/adjustments.py                                                8      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/cli.py                                                       35      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/features.py                                                  52      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/model.py                                                     25      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/analyzer/slices.py                                                    59      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/calibration/__init__.py                                                0      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/calibration/cli.py                                                   165      5    97%   107, 213-214, 249-250
+src/lexile_corpus_tuner/lexile_scoring_model/calibration/featureset.py                                             15      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/calibration/model_store.py                                            11      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/calibration/train.py                                                  42      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/__init__.py                                                     0      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/cli.py                                                         33      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/download.py                                                   156      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/frequencies.py                                                151     19    87%   138, 140-141, 149-152, 155, 163, 169, 176-177, 191-194, 198-200
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/normalize.py                                                  269     30    89%   85, 114, 171-172, 199-200, 238, 296, 299-300, 303, 312-313, 322, 329-330, 357, 365-367, 382, 384, 390-394, 396, 402, 404, 407, 409
+src/lexile_corpus_tuner/lexile_scoring_model/corpus/schema.py                                                      40      7    82%   57-58, 64-67, 73
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/__init__.py                                           0      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/build_gutenberg_id_list.py                          108      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog.py                                     180     61    66%   97, 140, 144-157, 196, 202-234, 240-252, 255, 259, 315, 324, 331, 333, 347, 355-357, 365, 367, 406, 450-479
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_catalog_cli.py                                  12     12     0%   3-53
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment.py                                   72     55    24%   97-120, 163-208, 225-252, 269-272, 287-291
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/ck12_enrichment_core.py                             205     64    69%   79, 118, 123-136, 169, 175, 179-180, 190, 209-234, 238-242, 288, 306, 309, 360, 369, 381-385, 389, 437, 444, 462-464, 470, 474-483, 493-499
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/__init__.py                 26      1    96%   65
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/__main__.py                  4      4     0%   26-53
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/cache_store.py               7      2    71%   49, 69
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/checkpoint_store.py          7      2    71%   47, 67
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/cli.py                      31      4    87%   169-172
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/constants.py                 5      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/enricher.py                 71      7    90%   62-70, 169
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/enrichment_config.py        18      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/enrichment_result.py         7      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/file_cache.py               28      2    93%   107-108
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/file_checkpoint.py          21      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/http_client.py               5      1    80%   44
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/match_candidate.py           9      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/match_result.py              9      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/match_utils.py              57      6    89%   69-71, 93, 95, 99
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/open_library_client.py      76      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/enrich_original_pub_year/summary.py                  18      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/explore_gutenberg.py                                265      2    99%   240-241
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_ck12_text.py                                 96      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_pdf_text.py                                  73     42    42%   73, 98-100, 132-142, 171-238, 290-299
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/extract_simple_wiki_dump.py                          61      2    97%   88-89
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/__init__.py               10      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/__main__.py                2      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/app.py                   306     18    94%   400-401, 458, 492-511, 611-612, 689
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/constants.py               9      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/tk_helpers.py             27      0   100%
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_builder_ui/widgets.py               317      6    98%   52, 576, 599, 684, 691, 739
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/gutenberg_query_core.py                              76      1    99%   66
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_catalog.py                                       68     19    72%   67, 114-135, 156, 284, 294
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_curation.py                                      92     29    68%   63, 131-138, 165, 225-226, 232-252, 257-260, 268-272, 298-302
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_enrichment.py                                    45     15    67%   100-120, 125-128, 136-140
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py                                      99     26    74%   72-73, 80-88, 175-176, 237, 244, 280-306
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_models.py                                        53      3    94%   59, 78, 80
+src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_ui.py                                            83     11    87%   53, 60, 64, 105-107, 164, 169, 183-185
+src/lexile_corpus_tuner/llm/__init__.py                                                                             2      0   100%
+src/lexile_corpus_tuner/llm/openai_client.py                                                                       92     15    84%   50, 99, 113-114, 125, 129, 133, 139, 141-143, 148, 165-171
+src/lexile_corpus_tuner/models.py                                                                                  36      0   100%
+---------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                                                                                                            9900   1323    87%
+====================== 1367 passed, 11 warnings in 6.45s =======================
+

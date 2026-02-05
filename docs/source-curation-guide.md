@@ -203,6 +203,21 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --out-dir data/meta/catalogs
   ```
   *Uses the CK-12 Browse API (`/flx/browse/flexbook?limit=200`) and derives stable IDs from canonical `handle` values.*
+
+  **What this does:**
+  1. Downloads the CK-12 browse catalog JSON (a CK-12-provided listing of FlexBooks).
+  2. Parses each row into a normalized catalog entry with stable identifiers.
+  3. Derives CK-12 artifact routing metadata (artifact type + handle/slug) so the next step can call the correct Perma endpoints.
+  4. Emits the result as JSONL (one JSON object per line) for deterministic downstream processing.
+
+  **Output artifact:**
+  - `data/meta/catalogs/ck12_catalog.jsonl`
+
+  **How to know it’s correct (quick checks):**
+  - The file exists and is non-empty.
+  - Each line is valid JSON.
+  - Rows include `identifier` and CK-12 routing metadata such as `artifact_type` and (when present) `handle`.
+  - Spot-check a handful of entries: `identifier` should look like a stable slug (lowercase, hyphenated).
   
   **Note on artifact types:** The catalog parser automatically detects artifact types from the `Content_URL` path prefix. Supported artifact types are:
   - `cbook` (from `flexbooks.ck12.org/cbook/`)
@@ -225,6 +240,20 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --output data/meta/catalogs/ck12_enriched.jsonl
   ```
 
+  **What this does:**
+  1. Reads `ck12_catalog.jsonl`.
+  2. For each catalog entry that has a canonical `handle`, calls the CK-12 Perma API (using the correct artifact type).
+  3. Traverses revisions/children to collect revision IDs.
+  4. Attaches *revision-detail JSON* download candidates (`download_candidates`) to each enriched entry.
+
+  **Output artifact:**
+  - `data/meta/catalogs/ck12_enriched.jsonl`
+
+  **How to know it’s correct (quick checks):**
+  - The file exists and contains JSONL rows with `download_candidates`.
+  - Many CK-12 rows should have a candidate URL that includes `/flx/get/detail/revision/` and/or a candidate format like `application/json`.
+  - The command prints skip reasons to stderr (e.g., missing handle). A small number is expected; a near-100% skip rate suggests an upstream feed/schema change.
+
 #### 3.2.3. **Curate (require revision JSON candidates):**  
   ```bash
   poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_curation \
@@ -236,6 +265,20 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --catalog-dir data/meta/catalogs --require-json --sources "ck12" `
     --out-dir data/meta/catalogs
   ```
+
+  **What this does:**
+  1. Scans `data/meta/catalogs` for catalogs and prefers enriched files when present.
+  2. Filters to entries that have at least one CK-12 revision JSON download candidate (`--require-json`).
+  3. Writes curated entries plus an explicit skip log for excluded rows.
+
+  **Output artifacts:**
+  - `data/meta/catalogs/ck12_curated.jsonl` (included entries)
+  - `data/meta/catalogs/ck12_skips.jsonl` (skipped entries + reason)
+
+  **How to know it’s correct (quick checks):**
+  - `ck12_curated.jsonl` exists and is non-empty.
+  - Each curated row includes at least one revision JSON candidate in `download_candidates`.
+  - If `ck12_skips.jsonl` is large, review the reasons to understand whether the issue is missing handles, missing revisions, or upstream payload changes.
 
 #### 3.2.4. **Generate manifest (revision JSON entries):**  
   ```bash
@@ -250,11 +293,54 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
   ```
   Notes: CK-12 entries use `.json` filenames and revision-detail URLs (`/flx/get/detail/revision/<id>?tiny=true`). After curating multiple sources, rerun the manifest generator once so `data/meta/oer_sources.json` includes every curated source in `data/meta/catalogs`.
 
+  **What this does:**
+  1. Reads every `*_curated.jsonl` file under `data/meta/catalogs`.
+    2. Selects download candidates per entry:
+      - CK-12: emits **one manifest row per revision-detail candidate** (so a single
+       FlexBook identifier can expand to many lesson/section revision downloads).
+      - Other OER sources: chooses a single `text/*` candidate.
+  3. Writes a consolidated manifest consumed by `lexile-scoring-model-pipeline corpus download`.
+  4. When `--validate-urls` is enabled, performs an HTTP HEAD check and requires `application/json` for CK-12 entries.
+
+  **Output artifact:**
+  - `data/meta/oer_sources.json`
+
+  **How to know it’s correct (quick checks):**
+  - The file exists and contains a top-level `sources` array.
+  - CK-12 entries in `sources` have:
+    - `source_id: "ck12"`
+    - `filename` ending in `.json`
+    - `id` / `filename` typically including a `--rev-<revision_id>` suffix (to prevent collisions)
+    - URLs that typically contain `/flx/get/detail/revision/`.
+  - With `--validate-urls`, invalid URLs are reported and excluded; if you end up with zero CK-12 entries, revisit steps 3.2.1–3.2.3.
+
 #### 3.2.5. **Download revision JSON (from the manifest):**  
   ```bash
-  poetry run lexile-scoring-model-pipeline corpus download --sources "ck12"
+  poetry run lexile-scoring-model-pipeline corpus download --sources "oer"
   ```
   *Downloader injects the required browser-like headers for CK-12 automatically.*
+
+  **Important:** The `corpus download` command currently treats OER as the source key `oer`.
+  Passing `--sources "ck12"` will **not** trigger OER downloads.
+
+  **What this does:**
+  1. Loads `data/meta/oer_sources.json`.
+  2. Iterates every manifest row and downloads each URL into a source-specific raw folder:
+     - `data/corpus/raw/<source_id>/<filename>`
+  3. Adds browser-like headers for CK-12 endpoints to support anonymous download.
+
+  **Output artifacts:**
+  - Downloaded CK-12 revision JSON files under `data/corpus/raw/ck12/` (filenames should end with `.json`).
+  - If your manifest includes other OER sources (e.g., OpenStax), those downloads land under
+    `data/corpus/raw/openstax/`.
+
+  **How to know it’s correct (quick checks):**
+  - `data/corpus/raw/ck12/` contains `.json` files with non-trivial size.
+  - Spot-check a downloaded file: it should parse as JSON and typically contain a top-level `response` object.
+  - If you see HTML/error payloads saved as `.json`, re-run step 3.2.4 with `--validate-urls` and confirm catalog artifact types/handles are being derived correctly.
+  - It is normal for `data/corpus/raw/ck12/` to contain **many more** `.json` files than the number of curated CK-12 FlexBook identifiers, because each book identifier can expand to many revision downloads.
+  - If the number of files under `data/corpus/raw/ck12/` is far smaller than the number of CK-12 entries in
+    `data/meta/oer_sources.json`, re-run this step and watch the logs for skip/error messages.
 
 #### 3.2.6. **Extract CK-12 JSON → XHTML → text:**  
   ```bash
@@ -266,10 +352,45 @@ Note: PowerShell uses the backtick (`` ` ``) for line continuation; bash uses `\
     --source ck12 --input-dir data/corpus/raw/ck12 --output-dir data/corpus/raw/ck12
   ```
 
+  **What this does:**
+  1. Reads each downloaded CK-12 revision `.json` file.
+  2. Selects the best XHTML fragment from the payload (`xhtml` preferred; `xhtml_prime` fallback).
+  3. Converts XHTML to plain text (markup stripped; whitespace normalized).
+  4. Writes a parallel `.txt` file next to each `.json` file using the same filename stem.
+
+  **Output artifacts:**
+  - Extracted CK-12 text files under `data/corpus/raw/ck12/`.
+    - Example: `my-ck12-item--rev-123.json` → `my-ck12-item--rev-123.txt`
+
+  **How to know it’s correct (quick checks):**
+  - For most `.json` inputs, there is a corresponding `.txt` output.
+  - `.txt` files are non-empty and readable.
+  - It is normal to produce multiple `.txt` files per CK-12 FlexBook identifier (one per revision-detail JSON input).
+  - Some short outputs are expected for image-heavy sections; the extractor logs a warning when extracted text is under 100 characters.
+  - It is normal for a minority of `.json` files to have **no** `.txt` output.
+    The extractor will log an error when:
+    - the payload has no `response.lesson` / `response.section` / `response.chapter`, or
+    - the XHTML fields are present but render to no text (e.g., markup/comments only).
+
 #### 3.2.7. **Normalize extracted text:**  
   ```bash
   poetry run lexile-scoring-model-pipeline corpus normalize --sources "ck12"
   ```
+
+  **What this does:**
+  1. Reads CK-12 `.txt` files from `data/corpus/raw/ck12/`.
+  2. Normalizes text and tokenizes it.
+  3. Chunks each document into 1k–3k token windows.
+  4. Writes normalized shard JSONL files used by frequency analysis and calibration.
+
+  **Output artifacts:**
+  - Normalized shard files: `data/corpus/normalized/shards/shard-<NNNNNN>-ck12.jsonl`
+  - Summary index: `data/corpus/normalized/normalized_summary.json`
+
+  **How to know it’s correct (quick checks):**
+  - `data/corpus/normalized/normalized_summary.json` exists and lists shard entries where `source_id` is `ck12`.
+  - Each CK-12 shard file is JSONL; each line includes `source_id`, `text_id`, and a `tokens` list.
+  - Most records should have token counts between ~1,000 and ~3,000 (the normalizer enforces this for corpus windows).
 
 ### Optional: Visual Curation UI
 

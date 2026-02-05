@@ -1,0 +1,4 @@
+Timestamp: 2026-02-04T22:54:58Z
+Command: poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k "user_agent_header or head_method"
+EXIT_CODE: 0
+

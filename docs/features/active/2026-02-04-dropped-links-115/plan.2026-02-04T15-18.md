@@ -3,9 +3,9 @@ title: "2026-02-04-dropped-links (Plan)"
 issue: "115"
 parent: "none"
 owner: "drmoisan"
-last_updated: "2026-02-04T15-45"
-status: "Planned"
-status_color: "blue"
+last_updated: "2026-02-04T18-59"
+status: "Completed"
+status_color: "green"
 version: "1.0"
 ---
 
@@ -14,11 +14,11 @@ version: "1.0"
 - **Issue:** #115
 - **Parent (optional):** none
 - **Owner:** drmoisan
-- **Last Updated:** 2026-02-04T15-45
-- **Status:** Planned
+- **Last Updated:** 2026-02-04T18-59
+- **Status:** Completed
 - **Version:** 1.0
 
-Status Badge: Planned [blue]
+Status Badge: Completed [green]
 
 Purpose: ensure CK-12 URL validation succeeds by adding a browser-like User-Agent to the HEAD request in `validate_url()` while preserving existing CK-12 selection and content-type validation rules.
 
@@ -85,33 +85,33 @@ Purpose: ensure CK-12 URL validation succeeds by adding a browser-like User-Agen
 	- REQ: REQ-005
 
 ### Phase 3 — Minimal Fix
-- [ ] [P3-T1] Update `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` in `validate_url()` (approx line 143) to include the explicit header `"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"` in the `urllib.request.Request` call while keeping `method="HEAD"` unchanged.
+- [x] [P3-T1] Update `src/lexile_corpus_tuner/lexile_scoring_model/pipeline_scripts/oer_manifest.py` in `validate_url()` (approx line 143) to include the explicit header `"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"` in the `urllib.request.Request` call while keeping `method="HEAD"` unchanged.
 	- Acceptance: `oer_manifest.py` contains `headers={"User-Agent": "Mozilla/5.0 (compatible; LexileCorpusTuner/1.0)"}` on the `urllib.request.Request` call in `validate_url()` and still includes `method="HEAD"`.
 	- REQ: REQ-001, REQ-002, REQ-003
-- [ ] [P3-T2] Update inline comments in `validate_url()` to explain the CK-12 CloudFront User-Agent requirement without changing behavior.
+- [x] [P3-T2] Update inline comments in `validate_url()` to explain the CK-12 CloudFront User-Agent requirement without changing behavior.
 	- Acceptance: `oer_manifest.py` has a comment directly above the Request creation that includes the literal phrase `CK-12 CloudFront`.
 	- REQ: REQ-001
 
 ### Phase 4 — Verification Loop
-- [ ] [P4-T1] Re-run the two new header/method tests and capture the passing output.
+- [x] [P4-T1] Re-run the two new header/method tests and capture the passing output.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k "user_agent_header or head_method"` exits with code 0 and `docs/features/active/2026-02-04-dropped-links-115/regression-testing/pytest-user_agent_header.pass.txt` exists with fields `Timestamp:`, `Command:`, `EXIT_CODE:` (0).
-- [ ] [P4-T2] Re-run the edge-case tests and capture the passing output.
+- [x] [P4-T2] Re-run the edge-case tests and capture the passing output.
 	- Acceptance: `poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k "non_200_status or content_type_mismatch"` exits with code 0 and `docs/features/active/2026-02-04-dropped-links-115/regression-testing/pytest-validate_url-edgecases.pass.txt` exists with fields `Timestamp:`, `Command:`, `EXIT_CODE:` (0).
-- [ ] [P4-T3] Execute a full Python toolchain loop in order and repeat from Black if any step modifies files or fails.
+- [x] [P4-T3] Execute a full Python toolchain loop in order and repeat from Black if any step modifies files or fails.
 	- Acceptance: `poetry run black .`, `poetry run ruff check`, `poetry run pyright`, and `poetry run pytest --cov=src/lexile_corpus_tuner --cov=scripts/dev_tools --cov-report=term-missing` complete with exit code 0 in a single pass and the outputs are saved to `docs/features/active/2026-02-04-dropped-links-115/qa/black.txt`, `qa/ruff.txt`, `qa/pyright.txt`, and `qa/pytest.txt`.
 	- REQ: REQ-006
 
 ### Phase 5 — Documentation & Status
-- [ ] [P5-T1] Update `docs/features/active/2026-02-04-dropped-links-115/spec.md` to mark acceptance criteria items that are now satisfied.
+- [x] [P5-T1] Update `docs/features/active/2026-02-04-dropped-links-115/spec.md` to mark acceptance criteria items that are now satisfied.
 	- Acceptance: `spec.md` checkboxes for regression tests, toolchain pass, and repro steps are marked `[x]`.
-- [ ] [P5-T2] Update this plan file status to `In progress` or `Completed` and bump `Last Updated`.
+- [x] [P5-T2] Update this plan file status to `In progress` or `Completed` and bump `Last Updated`.
 	- Acceptance: `plan.2026-02-04T15-18.md` has `Status:` set to the correct value and `Last Updated:` updated to the current timestamp.
 
 ### Phase 6 — PR & Handoff
-- [ ] [P6-T1] Record PR summary notes in `docs/features/active/2026-02-04-dropped-links-115/pr-notes.md`.
+- [x] [P6-T1] Record PR summary notes in `docs/features/active/2026-02-04-dropped-links-115/pr-notes.md`.
 	- Acceptance: `pr-notes.md` contains sections titled `Summary`, `Risk`, `Validation`, and `Related Links`.
 
 ### Phase 7 — Rollout / Follow-up
-- [ ] [P7-T1] Capture post-fix verification output for the CLI repro in `docs/features/active/2026-02-04-dropped-links-115/regression-testing/ck12-manifest.pass.txt`.
+- [x] [P7-T1] Capture post-fix verification output for the CLI repro in `docs/features/active/2026-02-04-dropped-links-115/regression-testing/ck12-manifest.pass.txt`.
 	- Acceptance: `ck12-manifest.pass.txt` includes the exact command line, `Timestamp:`, `Command:`, `EXIT_CODE:` (0), and a line starting with `Manifest entries:` followed by a non-zero integer.
 	- REQ: REQ-007

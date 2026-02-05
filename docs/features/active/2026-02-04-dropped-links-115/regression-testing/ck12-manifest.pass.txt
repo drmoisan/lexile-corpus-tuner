@@ -1,0 +1,8 @@
+Timestamp: 2026-02-04T18:55:18.8996693-05:00
+Command: poetry run python -m lexile_corpus_tuner.lexile_scoring_model.pipeline_scripts.oer_manifest --catalog-dir data/meta/catalogs --out artifacts/tmp_oer_sources_validated2.json --validate-urls 2> artifacts/ck12_validate_urls.stderr.txt
+EXIT_CODE: 0
+Manifest entries: 14489
+
+Notes:
+- stderr (per-entry skip messages) redirected to `artifacts/ck12_validate_urls.stderr.txt`.
+- output manifest written to `artifacts/tmp_oer_sources_validated2.json`.

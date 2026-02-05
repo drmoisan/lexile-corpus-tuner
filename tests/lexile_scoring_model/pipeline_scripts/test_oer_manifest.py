@@ -61,6 +61,28 @@ def _ck12_entry() -> CatalogEntry:
     )
 
 
+def _ck12_entry_multiple_revisions() -> CatalogEntry:
+    return CatalogEntry(
+        source_id="ck12",
+        identifier="CK-12-Physics-FlexBook-2.0",
+        title="CK-12 Physics",
+        creator="CK-12",
+        year="2024",
+        language=["eng"],
+        license_url="http://license",
+        download_candidates=[
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/111?tiny=true",
+            ),
+            DownloadCandidate(
+                format="application/json",
+                url="https://www.ck12.org/flx/get/detail/revision/222?tiny=true",
+            ),
+        ],
+    )
+
+
 def test_build_manifest_entry_uses_stable_slug_from_identifier() -> None:
     """Manifest entry ID should derive from stable slug."""
     entry = _entry()
@@ -320,3 +342,13 @@ def test_ck12_validation_rejects_text_plain(
         [_ck12_entry()], validate_urls=True
     )
     assert manifest_entries == []
+
+
+def test_ck12_manifest_emits_one_entry_per_revision_candidate() -> None:
+    """CK-12 entries should generate a manifest entry per revision-detail candidate."""
+    manifest_entries = oer_manifest.generate_manifest(
+        [_ck12_entry_multiple_revisions()], validate_urls=False
+    )
+    assert len(manifest_entries) == 2
+    assert manifest_entries[0].filename != manifest_entries[1].filename
+    assert manifest_entries[0].id != manifest_entries[1].id

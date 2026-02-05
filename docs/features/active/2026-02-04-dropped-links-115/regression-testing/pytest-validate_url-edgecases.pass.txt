@@ -1,0 +1,4 @@
+Timestamp: 2026-02-04T22:55:06Z
+Command: poetry run pytest tests/lexile_scoring_model/pipeline_scripts/test_oer_manifest.py -k "non_200_status or content_type_mismatch"
+EXIT_CODE: 0
+
